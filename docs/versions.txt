@@ -1,0 +1,22 @@
+Version history
+
+0.1.0 (2017-10-25)
+- batches, column batchid
+
+0.0.9 (2017-10-03)
+- fix RejectedExecutionException
+
+0.0.8 (2017-08-08)
+- fix locks (skip locked)
+
+0.0.7 (2017-06-29)
+- when task is not known - postpone it (may happen during releases)
+- tedDriver.shutdown() - will wait up to 20s to finish tasks
+- thread name will be with hashed task name (5 letters)
+
+0.0.6 (2017-05-23)
+- on timeout will set RETRY (not ERROR)
+- check for existing oracle classes on startup
+
+0.0.4 (2017-05-08)
+- first production version

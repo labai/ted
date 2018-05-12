@@ -66,12 +66,3 @@ comment on column tedtask.data       is 'Task data (parameters)';
 comment on column tedtask.bno        is 'Internal TED field (batch number)';
 --comment on column tedtask.tasktp     is 'Record type (null - simple task, S - schedule, B - batch job, L - lock)';
 
-
--- insert into tedtask(taskid, system, name, status, channel, tasktp, nextts, batchid, retries, key1, key2, msg, createts, startts, finishts, data, bno)
--- values (1, 'ted:sys', 'ted:lock', 'DONE', null, 'L', null, null, 0, null, null, 'TED system record', now(), null, null, null, 0);
---commit;
-
-grant all privileges on table tedtask TO bro;
-grant all privileges on sequence seq_tedtask_id to bro;
-grant all privileges on sequence seq_tedtask_bno to bro;
-

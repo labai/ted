@@ -69,7 +69,3 @@ comment on column tedtask.bno        is 'Batch number (system field)';
 --comment on column tedtask.tasktp     is 'Record type (null - simple task, S - schedule, B - batch job, L - lock)';
 /
 
--- insert into tedtask(taskid, system, name, status, channel, tasktp, nextts, batchid, retries, key1, key2, msg, createts, startts, finishts, data, bno)
--- values (1, 'ted:sys', 'ted:lock', 'DONE', null, 'L', null, null, 0, null, null, 'TED system record', systimestamp, null, null, null, 0);
--- commit;
--- /

@@ -9,6 +9,7 @@ import javax.sql.DataSource;
  *         created on 2016.09.22
  */
 class TestConfig {
+	static final boolean INT_TESTS_ENABLED = true;
 	static final String SYSTEM_ID = "ted.test";
 	static final TedDbType testDbType = TedDbType.POSTGRES; // which one we are testing
 	//static final TedDbType testDbType = TedDbType.ORACLE; // which one we are testing

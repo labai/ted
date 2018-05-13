@@ -114,7 +114,7 @@ public class Ted {
 	/**
 	 * TedPackProcessor.
 	 * 		Process pack of task and returns their statuses.
-	 * 		Returns map <taskId, result> - for all tasks.
+	 * 		Returns map (taskId, result) - for all tasks.
 	 */
 	public interface TedPackProcessor {
 		Map<Long, TedResult> process(List<TedTask> tasks);

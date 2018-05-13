@@ -9,8 +9,9 @@ Tasks are created in Oracle/Postgres db (table tedtask). TED will check for new 
 ### Main things kept in mind while creating TED
 - simplicity of use;
 - good performance;
+- no jar dependencies;
 - easy support - it is possible to view task history in db, restart task;
-- can be used for short (~50ms) and long (~5h) tasks.
+- can be used for short (~50ms) and long (~5h) tasks;
 
 ### Features
 - is a part of war (or other app), there are no needs for separate process;
@@ -52,8 +53,8 @@ Diffenece from quartz
 
 ```xml
 <dependency>
-   <groupId>seb.jet</groupId>
-   <artifactId>ted-driver</artifactId>
+   <groupId>com.github.labai</groupId>
+   <artifactId>ted</artifactId>
    <version>0.1.3</version>
 </dependency>
 ```
@@ -91,7 +92,7 @@ public class TedJobs {
 
 ```java
 // create TedTask
-tedDriver.createTask("DATA_SYN", "{\"customerID\" : \"1234\"}");
+tedDriver.createTask("DATA_SYN", "{\"customerId\" : \"1234\"}");
 ```
 
 Mode samples can be found in (ted)/ted-samples

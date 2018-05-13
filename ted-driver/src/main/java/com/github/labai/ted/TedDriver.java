@@ -71,7 +71,7 @@ public class TedDriver {
 	}
 
 
-	/** incubating.
+	/* incubating.
 	 * create all tasks and 1 batch tasks (see *.properties configurations).
 	 * to create TedTask object use function newTedTask
 	 */
@@ -80,7 +80,7 @@ public class TedDriver {
 		return tedDriverImpl.createBatch(tedTasks);
 	}
 
-	/** incubating.
+	/* incubating.
 	 * create TedTask for createBatch (with required params only)
 	 */
 	public static TedTask newTedTask(String taskName, String data, String key1, String key2) {

@@ -120,7 +120,7 @@ class RetryConfig {
 			return Integer.parseInt(dispersionPattern);
 		}
 
-		// pauses=2s,10s,30s*5,10m*3,1h*5;dispersion=10
+		// pauses=2s,10s,30s*3,10m*3,1h*5;dispersion=10
 		private static List<RetryPause> parsePeriodPattern(String pattern) {
 			if (pattern == null)
 				throw new IllegalArgumentException("Pattern is null");

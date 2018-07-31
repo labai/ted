@@ -6,7 +6,6 @@ import com.github.labai.ted.Ted.TedTask;
 import com.github.labai.ted.sys.JdbcSelectTed.JetJdbcParamType;
 import com.github.labai.ted.sys.Model.TaskRec;
 import com.github.labai.ted.sys.TedDriverImpl.TedContext;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -20,10 +19,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Properties;
 
-import static java.util.Arrays.asList;
-import static org.junit.Assert.fail;
 import static com.github.labai.ted.sys.JdbcSelectTed.sqlParam;
 import static com.github.labai.ted.sys.TestConfig.SYSTEM_ID;
+import static com.github.labai.ted.sys.TestUtils.print;
+import static java.util.Arrays.asList;
+import static org.junit.Assert.*;
 
 /**
  * @author Augustus
@@ -52,7 +52,6 @@ public class I03MaintenanceTest extends TestBase {
 	}
 
 
-
 	public static class Test01ProcessorOk implements TedProcessor {
 		@Override
 		public TedResult process(TedTask task)  {
@@ -66,33 +65,33 @@ public class I03MaintenanceTest extends TestBase {
 	private void dao_setDoneAndOld(long taskId, int daysBack) {
 		long delta = daysBack * 3600 * 24 * 1000;
 		Date longAgo = new Date(System.currentTimeMillis() - delta);
-		TestUtils.print("longAgo:" + longAgo);
+		print("longAgo:" + longAgo);
 		((TedDaoAbstract)context.tedDao).execute("dao_setDoneAndOld",
 				" update tedtask set status = 'DONE', createTs = ?, finishTs = ? where taskId = ?", asList(
-						JdbcSelectTed.sqlParam(longAgo, JetJdbcParamType.TIMESTAMP),
-						JdbcSelectTed.sqlParam(longAgo, JetJdbcParamType.TIMESTAMP),
-						JdbcSelectTed.sqlParam(taskId, JetJdbcParamType.LONG)
+						sqlParam(longAgo, JetJdbcParamType.TIMESTAMP),
+						sqlParam(longAgo, JetJdbcParamType.TIMESTAMP),
+						sqlParam(taskId, JetJdbcParamType.LONG)
 				));
 	}
 	private void dao_setStartTs(long taskId, Date startTs) {
 		((TedDaoAbstract)context.tedDao).execute("dao_setStartTs",
 				" update tedtask set startTs = ? where taskId = ?", asList(
-					JdbcSelectTed.sqlParam(startTs, JetJdbcParamType.TIMESTAMP),
-					JdbcSelectTed.sqlParam(taskId, JetJdbcParamType.LONG)
+					sqlParam(startTs, JetJdbcParamType.TIMESTAMP),
+					sqlParam(taskId, JetJdbcParamType.LONG)
 				));
 	}
 	private void dao_setCreateTs(long taskId, Date createTs) {
 		((TedDaoAbstract)context.tedDao).execute("dao_setCreateTs",
 				" update tedtask set createTs = ? where taskId = ?", asList(
-						JdbcSelectTed.sqlParam(createTs, JetJdbcParamType.TIMESTAMP),
-						JdbcSelectTed.sqlParam(taskId, JetJdbcParamType.LONG)
+						sqlParam(createTs, JetJdbcParamType.TIMESTAMP),
+						sqlParam(taskId, JetJdbcParamType.LONG)
 				));
 	}
 	private void dao_setNextTs(long taskId, Date nextTs) {
 		((TedDaoAbstract)context.tedDao).execute("dao_setNextTs",
 				" update tedtask set nextTs = ? where taskId = ?", asList(
-						JdbcSelectTed.sqlParam(nextTs, JetJdbcParamType.TIMESTAMP),
-						JdbcSelectTed.sqlParam(taskId, JetJdbcParamType.LONG)
+						sqlParam(nextTs, JetJdbcParamType.TIMESTAMP),
+						sqlParam(taskId, JetJdbcParamType.LONG)
 				));
 	}
 
@@ -107,14 +106,14 @@ public class I03MaintenanceTest extends TestBase {
 		TaskRec taskRec;
 
 		driver.createTask(taskName, null, null, null);
-
+		TestUtils.sleepMs(10);
 		// set status to WORK
 		List<TaskRec> tasks = context.tedDao.reserveTaskPortion(new HashMap<String, Integer>() {{ put(Model.CHANNEL_MAIN, 1); }});
 		taskId = tasks.get(0).taskId;
 
 		taskRec = context.tedDao.getTask(taskId);
 		//print(taskRec.toString() + " startTs=" + taskRec.startTs);
-		Assert.assertEquals("WORK", taskRec.status);
+		assertEquals("WORK", taskRec.status);
 
 		// change startTs to test work timeout
 		dao_setStartTs(taskId, new Date(new Date().getTime() - 121 * 1000));
@@ -126,9 +125,12 @@ public class I03MaintenanceTest extends TestBase {
 		// task should be canceled due to timeout
 		taskRec = context.tedDao.getTask(taskId);
 		//print(taskRec.toString());
-		Assert.assertEquals("RETRY", taskRec.status);
-		Assert.assertEquals("Too long in status [work](3)", taskRec.msg);
+		assertEquals("RETRY", taskRec.status);
+		assertEquals("Too long in status [work](3)", taskRec.msg);
 
+		assertFalse("is not new", taskRec.getTedTask().isNew());
+		assertTrue("is retry", taskRec.getTedTask().isRetry());
+		assertTrue("is timeout", taskRec.getTedTask().isAfterTimeout());
 	}
 
 
@@ -154,16 +156,16 @@ public class I03MaintenanceTest extends TestBase {
 
 		taskRec = context.tedDao.getTask(taskId);
 		//print(taskRec.toString() + " startTs=" + taskRec.startTs);
-		Assert.assertEquals("WORK", taskRec.status);
-		Assert.assertNull(taskRec.finishTs); // finish time is not set in beginning
+		assertEquals("WORK", taskRec.status);
+		assertNull(taskRec.finishTs); // finish time is not set in beginning
 
 		// 1. 30 min - still working
 		dao_setStartTs(taskId, new Date(new Date().getTime() - 31 * 60 * 1000));
 		context.taskManager.processMaintenanceTasks();
 		taskRec = context.tedDao.getTask(taskId);
-		TestUtils.print(taskRec.toString() + " startTs=" + MiscUtils.toTimeString(taskRec.startTs));
-		Assert.assertEquals("WORK", taskRec.status);
-		Assert.assertNotNull(taskRec.finishTs); // after processMaintenanceTasks finishTs must be set to startTs + 40 min
+		print(taskRec.toString() + " startTs=" + MiscUtils.toTimeString(taskRec.startTs));
+		assertEquals("WORK", taskRec.status);
+		assertNotNull(taskRec.finishTs); // after processMaintenanceTasks finishTs must be set to startTs + 40 min
 		dao_cleanupTasks(taskName);
 
 	}
@@ -187,11 +189,11 @@ public class I03MaintenanceTest extends TestBase {
 
 		// 1. Must be postponed (new with some nextts > now())
 		taskRec = context.tedDao.getTask(taskId);
-		TestUtils.print(taskRec.toString() + " startTs=" + MiscUtils.toTimeString(taskRec.startTs));
-		Assert.assertEquals("NEW", taskRec.status);
+		print(taskRec.toString() + " startTs=" + MiscUtils.toTimeString(taskRec.startTs));
+		assertEquals("NEW", taskRec.status);
 
 		// 2. after 1 day - must go to error
-		TestUtils.print("Setting createTs to > 1 day ago");
+		print("Setting createTs to > 1 day ago");
 		dao_setCreateTs(taskId, new Date(new Date().getTime() - 24 * 60 * 61 * 1000));
 		dao_setNextTs(taskId, new Date(new Date().getTime() - 1 * 1000));
 
@@ -199,8 +201,8 @@ public class I03MaintenanceTest extends TestBase {
 		Thread.sleep(20);
 
 		taskRec = context.tedDao.getTask(taskId);
-		TestUtils.print(taskRec.toString() + " startTs=" + MiscUtils.toTimeString(taskRec.startTs));
-		Assert.assertEquals("ERROR", taskRec.status);
+		print(taskRec.toString() + " startTs=" + MiscUtils.toTimeString(taskRec.startTs));
+		assertEquals("ERROR", taskRec.status);
 
 		dao_cleanupTasks(taskName);
 
@@ -226,17 +228,17 @@ public class I03MaintenanceTest extends TestBase {
 
 		taskRec = context.tedDao.getTask(taskId);
 		//print(taskRec.toString() + " startTs=" + taskRec.startTs);
-		Assert.assertEquals("WORK", taskRec.status);
-		Assert.assertNull(taskRec.finishTs); // finish time is not set in beginning
+		assertEquals("WORK", taskRec.status);
+		assertNull(taskRec.finishTs); // finish time is not set in beginning
 
 		// change startTs to test work timeout - more than 40 minutes - should go to ERROR
 		dao_setStartTs(taskId, new Date(new Date().getTime() - 41 * 60 * 1000));
 		taskRec = context.tedDao.getTask(taskId);
-		TestUtils.print(taskRec.toString() + " startTs=" + MiscUtils.toTimeString(taskRec.startTs));
+		print(taskRec.toString() + " startTs=" + MiscUtils.toTimeString(taskRec.startTs));
 		context.taskManager.processMaintenanceTasks();
 		taskRec = context.tedDao.getTask(taskId);
-		Assert.assertEquals("RETRY", taskRec.status);
-		Assert.assertEquals("Too long in status [work](3)", taskRec.msg);
+		assertEquals("RETRY", taskRec.status);
+		assertEquals("Too long in status [work](3)", taskRec.msg);
 
 
 	}
@@ -259,8 +261,8 @@ public class I03MaintenanceTest extends TestBase {
 
 		TaskRec taskRec = context.tedDao.getTask(taskId);
 		//print(taskRec.toString() + " startTs=" + taskRec.startTs);
-		Assert.assertEquals("DONE", taskRec.status);
-		Assert.assertEquals(5, driver.getContext().config.oldTaskArchiveDays()); // from config
+		assertEquals("DONE", taskRec.status);
+		assertEquals(5, driver.getContext().config.oldTaskArchiveDays()); // from config
 		context.tedDao.processMaintenanceRare(driver.getContext().config.oldTaskArchiveDays());
 
 		taskRec = context.tedDao.getTask(taskId); // should still exists

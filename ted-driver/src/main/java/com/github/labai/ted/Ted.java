@@ -23,7 +23,8 @@ public class Ted {
 		WORK,
 		DONE,
 		RETRY,
-		ERROR;
+		ERROR,
+		SLEEP; // for internal pseudo-tasks
 	}
 
 	public static class TedResult {
@@ -75,8 +76,15 @@ public class Ted {
 		private final String data;
 		private final Integer retries;
 		private final Date createTs;
+		private final boolean isNew;
+		private final boolean isRetry;
+		private final boolean isAfterTimeout;
 
-		public TedTask(Long taskId, String name, String key1, String key2, String data, Integer retries, Date createTs) {
+		public TedTask(Long taskId, String name, String key1, String key2, String data) {
+			this(taskId, name, key1, key2, data, 0, new Date(), false);
+		}
+
+		public TedTask(Long taskId, String name, String key1, String key2, String data, Integer retries, Date createTs, boolean isAfterTimeout) {
 			this.taskId = taskId;
 			this.name = name;
 			this.key1 = key1;
@@ -84,6 +92,9 @@ public class Ted {
 			this.data = data;
 			this.retries = retries;
 			this.createTs = createTs;
+			this.isRetry = retries != null && retries > 0;
+			this.isAfterTimeout = isAfterTimeout;
+			this.isNew = ! (this.isRetry || this.isAfterTimeout);
 		}
 
 		public Long getTaskId() { return taskId; }
@@ -93,6 +104,14 @@ public class Ted {
 		public String getData() { return data; }
 		public Integer getRetries() { return retries; }
 		public Date getCreateTs() { return createTs; }
+		public boolean isRetry() { return isRetry; }
+		public boolean isAfterTimeout() { return isAfterTimeout; }
+		public boolean isNew() { return isNew; }
+
+		@Override
+		public String toString() {
+			return "TedTask{" + name + " " + taskId + " key1='" + key1 + '\'' + " key2='" + key2 + '\'' + " retries=" + retries + " createTs=" + createTs + " is=" + (isRetry?"R":"") + (isAfterTimeout ?"T":"") + (isNew?"N":"") + '}';
+		}
 	}
 
 	/**
@@ -136,4 +155,8 @@ public class Ted {
 		Date getNextRetryTime(TedTask task, int retryNumber, Date startTime);
 	}
 
+
+	public interface PrimeEvent {
+		void onEvent();
+	}
 }

@@ -41,6 +41,12 @@ class JdbcSelectTed {
 		}
 	}
 
+	static class TedSqlException extends RuntimeException {
+		public TedSqlException(String message, SQLException cause) {
+			super(message, cause);
+		}
+	}
+
 	static class SqlParam {
 		final String code;
 		final Object value;
@@ -58,7 +64,6 @@ class JdbcSelectTed {
 	static SqlParam sqlParam(Object value, JetJdbcParamType type) {
 		return new SqlParam(null, value, type);
 	}
-
 
 	/* one of parameters (preferable first, as hibernate standard) can be output cursor */
     /* e.g.: call pkg_fcc_pmdata.get_payments_end(?, ?) */

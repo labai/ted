@@ -3,6 +3,7 @@ package com.github.labai.ted.sys;
 import com.github.labai.ted.Ted.TedStatus;
 import com.github.labai.ted.sys.JdbcSelectTed.JetJdbcParamType;
 import com.github.labai.ted.sys.JdbcSelectTed.SqlParam;
+import com.github.labai.ted.sys.JdbcSelectTed.TedSqlException;
 import com.github.labai.ted.sys.Model.TaskParam;
 import com.github.labai.ted.sys.Model.TaskRec;
 import org.slf4j.Logger;
@@ -11,8 +12,14 @@ import org.slf4j.LoggerFactory;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
+import static com.github.labai.ted.sys.JdbcSelectTed.sqlParam;
 import static java.util.Arrays.asList;
 
 /**
@@ -74,6 +81,9 @@ abstract class TedDaoAbstract implements TedDao {
 		return dbType;
 	}
 
+	// abstract
+//	protected abstract String selectLocked(String sql);
+
 	@Override
 	public Long createTask(String name, String channel, String data, String key1, String key2, Long batchId) {
 		return createTaskInternal(name, channel, data, key1, key2, batchId, 0, TedStatus.NEW);
@@ -98,16 +108,16 @@ abstract class TedDaoAbstract implements TedDao {
 		sql = sql.replace("$now", dbType.sql.now());
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$postpone", dbType.sql.intervalSeconds(postponeSec));
-		sql = sql.replace("$status", (status==null? TedStatus.NEW:status).toString());
+		sql = sql.replace("$status", (status==null?TedStatus.NEW:status).toString());
 
 		execute(sqlLogId, sql, asList(
-				JdbcSelectTed.sqlParam(nextId, JetJdbcParamType.LONG),
-				JdbcSelectTed.sqlParam(name, JetJdbcParamType.STRING),
-				JdbcSelectTed.sqlParam(channel, JetJdbcParamType.STRING),
-				JdbcSelectTed.sqlParam(data, JetJdbcParamType.STRING),
-				JdbcSelectTed.sqlParam(key1, JetJdbcParamType.STRING),
-				JdbcSelectTed.sqlParam(key2, JetJdbcParamType.STRING),
-				JdbcSelectTed.sqlParam(batchId, JetJdbcParamType.LONG)
+				sqlParam(nextId, JetJdbcParamType.LONG),
+				sqlParam(name, JetJdbcParamType.STRING),
+				sqlParam(channel, JetJdbcParamType.STRING),
+				sqlParam(data, JetJdbcParamType.STRING),
+				sqlParam(key1, JetJdbcParamType.STRING),
+				sqlParam(key2, JetJdbcParamType.STRING),
+				sqlParam(batchId, JetJdbcParamType.LONG)
 		));
 		logger.trace("Task {} {} created successfully. ", name, nextId);
 		return nextId;
@@ -151,7 +161,7 @@ abstract class TedDaoAbstract implements TedDao {
 		}
 		String sql = "select * from tedtask where bno = ?";
 		List<TaskRec> tasks = selectData("get_tasks_by_bno", sql, TaskRec.class, asList(
-				JdbcSelectTed.sqlParam(bno, JetJdbcParamType.LONG)
+				sqlParam(bno, JetJdbcParamType.LONG)
 		));
 		return tasks;
 	}
@@ -184,9 +194,9 @@ abstract class TedDaoAbstract implements TedDao {
 			sql = sql.replace("$now", dbType.sql.now());
 			sql = sql.replace("$sys", thisSystem);
 			execute(sqlLogId, sql, asList(
-					JdbcSelectTed.sqlParam(status.toString(), JetJdbcParamType.STRING),
-					JdbcSelectTed.sqlParam(msg, JetJdbcParamType.STRING),
-					JdbcSelectTed.sqlParam(taskId, JetJdbcParamType.LONG)
+					sqlParam(status.toString(), JetJdbcParamType.STRING),
+					sqlParam(msg, JetJdbcParamType.STRING),
+					sqlParam(taskId, JetJdbcParamType.LONG)
 			));
 
 		// RETRY, NEW, WORK
@@ -200,10 +210,10 @@ abstract class TedDaoAbstract implements TedDao {
 			sql = sql.replace("$now", dbType.sql.now());
 			sql = sql.replace("$sys", thisSystem);
 			execute(sqlLogId, sql, asList(
-					JdbcSelectTed.sqlParam(status.toString(), JetJdbcParamType.STRING),
-					JdbcSelectTed.sqlParam(msg, JetJdbcParamType.STRING),
-					JdbcSelectTed.sqlParam(nextRetryTs, JetJdbcParamType.TIMESTAMP),
-					JdbcSelectTed.sqlParam(taskId, JetJdbcParamType.LONG)
+					sqlParam(status.toString(), JetJdbcParamType.STRING),
+					sqlParam(msg, JetJdbcParamType.STRING),
+					sqlParam(nextRetryTs, JetJdbcParamType.TIMESTAMP),
+					sqlParam(taskId, JetJdbcParamType.LONG)
 			));
 		}
 	}
@@ -234,7 +244,7 @@ abstract class TedDaoAbstract implements TedDao {
 		// those tedtask with finishTs not null and finishTs < now goes to RETRY
 		// (here finishTs is maximum time, until task expected to be executed)
 		String sql = "update tedtask" +
-				" set status = 'RETRY', finishTs = null, nextTs = $now, msg = 'Too long in status [work](2)', retries = retries + 1" +
+				" set status = 'RETRY', finishTs = null, nextTs = $now, msg = '" + Model.TIMEOUT_MSG + "(2)', retries = retries + 1" +
 				" where status = 'WORK' and startTs < ($now - $seconds60) and (finishTs is not null and finishTs < $now)";
 		sql = sql.replace("$now", dbType.sql.now());
 		sql = sql.replace("$sys", thisSystem);
@@ -266,8 +276,8 @@ abstract class TedDaoAbstract implements TedDao {
 		String sqlLogId = "set_task_work_timeout";
 		String sql = "update tedtask set finishTs = ? where taskId = ? and status = 'WORK'";
 		execute(sqlLogId, sql, asList(
-				JdbcSelectTed.sqlParam(timeoutTime, JetJdbcParamType.TIMESTAMP),
-				JdbcSelectTed.sqlParam(taskId, JetJdbcParamType.LONG)
+				sqlParam(timeoutTime, JetJdbcParamType.TIMESTAMP),
+				sqlParam(taskId, JetJdbcParamType.LONG)
 		));
 	}
 
@@ -276,7 +286,7 @@ abstract class TedDaoAbstract implements TedDao {
 		String sqlLogId = "get_task";
 		String sql = "select * from tedtask where taskId = ?";
 		List<TaskRec> results = selectData(sqlLogId, sql, TaskRec.class, asList(
-				JdbcSelectTed.sqlParam(taskId, JetJdbcParamType.LONG)
+				sqlParam(taskId, JetJdbcParamType.LONG)
 		));
 		if (results.size() == 0)
 			throw new RuntimeException("No task was for taskid=" + taskId);
@@ -295,7 +305,7 @@ abstract class TedDaoAbstract implements TedDao {
 				;
 		sql = sql.replace("$sys", thisSystem);
 		List<TaskRec> results = selectData(sqlLogId, sql, TaskRec.class, asList(
-				JdbcSelectTed.sqlParam(batchId, JetJdbcParamType.LONG)
+				sqlParam(batchId, JetJdbcParamType.LONG)
 		));
 		return results.isEmpty();
 	}
@@ -305,8 +315,8 @@ abstract class TedDaoAbstract implements TedDao {
 		String sqlLogId = "clean_retry";
 		String sql = "update tedtask set retries = 0, msg = ? where taskId = ?";
 		execute(sqlLogId, sql, asList(
-				JdbcSelectTed.sqlParam(msg, JetJdbcParamType.STRING),
-				JdbcSelectTed.sqlParam(taskId, JetJdbcParamType.LONG)
+				sqlParam(msg, JetJdbcParamType.STRING),
+				sqlParam(taskId, JetJdbcParamType.LONG)
 		));
 	}
 
@@ -315,6 +325,7 @@ abstract class TedDaoAbstract implements TedDao {
 		Integer cnt;
 	}
 
+	// TODO remove?
 	@Override
 	public Map<TedStatus, Integer> getBatchStatusStats(long batchId) {
 		String sqlLogId = "batch_stats";
@@ -323,7 +334,7 @@ abstract class TedDaoAbstract implements TedDao {
 				+ " group by status";
 		sql = sql.replace("$sys", thisSystem);
 		List<StatsRes> statsResults = selectData(sqlLogId, sql, StatsRes.class, asList(
-				JdbcSelectTed.sqlParam(batchId, JetJdbcParamType.LONG)
+				sqlParam(batchId, JetJdbcParamType.LONG)
 		));
 		Map<TedStatus, Integer> resMap = new HashMap<TedStatus, Integer>();
 		for (StatsRes stats : statsResults) {
@@ -332,6 +343,46 @@ abstract class TedDaoAbstract implements TedDao {
 		}
 		return resMap;
 	}
+
+	//	private static class LongRes {
+//		Long longVal;
+//	}
+//
+//	@Override
+//	public List<Long> getTaskIdListByBatchId(long batchId) {
+//		String sqlLogId = "batch_tasks";
+//		String sql = "select taskId as longVal from tedtask where system = '$sys'"
+//				+ " and batchid = ?";
+//		sql = sql.replace("$sys", thisSystem);
+//		List<LongRes> results = selectData(sqlLogId, sql, LongRes.class, asList(
+//				sqlParam(batchId, JetJdbcParamType.LONG)
+//		));
+//		List<Long> ids = new ArrayList<Long>();
+//		for (LongRes longRes : results) {
+//			ids.add(longRes.longVal);
+//		}
+//		return ids;
+//	}
+	private static class TaskIdRes {
+		Long taskid;
+	}
+
+/*
+	@Override
+	public boolean existsActiveTaskByKey1(String taskName, String key1) {
+		String sqlLogId = "chk_uniq_key1";
+		String sql = "select taskid from tedtask where system = '$sys' and name = ? and key1 = ?"
+				+ " and status in ('NEW', 'RETRY', 'WORK')"
+				+ dbType.sql.rownum("1");
+		sql = sql.replace("$sys", thisSystem);
+		List<TaskIdRes> results = selectData(sqlLogId, sql, TaskIdRes.class, asList(
+				sqlParam(taskName, JetJdbcParamType.STRING),
+				sqlParam(key1, JetJdbcParamType.STRING)
+		));
+		return results.size() > 0;
+	}
+*/
+
 
 	//
 	// private
@@ -353,8 +404,8 @@ abstract class TedDaoAbstract implements TedDao {
 		sql = sql.replace("$now", dbType.sql.now());
 		sql = sql.replace("$sys", thisSystem);
 		execute(sqlLogId, sql, asList(
-				JdbcSelectTed.sqlParam(bno, JetJdbcParamType.LONG),
-				JdbcSelectTed.sqlParam(channel, JetJdbcParamType.STRING)
+				sqlParam(bno, JetJdbcParamType.LONG),
+				sqlParam(channel, JetJdbcParamType.STRING)
 				//,sqlParam(rowLimit, JetJdbcParamType.INTEGER)
 		));
 	}
@@ -370,7 +421,7 @@ abstract class TedDaoAbstract implements TedDao {
 	private void logSqlParams(String sqlLogId, String sql, List<SqlParam> params) {
 		if (logger.isTraceEnabled()) {
 			String sparams = "";
-			for(SqlParam p : params)
+			for (SqlParam p : params)
 				sparams += String.format(" %s=%s", p.code, p.value);
 			logger.trace("Before[{}] with params:{}", sqlLogId, sparams);
 			if (logger.isTraceEnabled()) {
@@ -387,14 +438,14 @@ abstract class TedDaoAbstract implements TedDao {
 			connection = dataSource.getConnection();
 		} catch (SQLException e) {
 			logger.error("Failed to get DB connection: " + e.getMessage());
-			throw new RuntimeException("Cannot get DB connection", e);
+			throw new TedSqlException("Cannot get DB connection", e);
 		}
 
 		try {
 			JdbcSelectTed.execute(connection, sql, params);
 		} catch (SQLException e) {
 			logger.error("SQLException while execute '{}': {}. SQL={}", sqlLogId, e.getMessage(), sql);
-			throw new RuntimeException("SQL exception while calling sqlId '" + sqlLogId + "'", e);
+			throw new TedSqlException("SQL exception while calling sqlId '" + sqlLogId + "'", e);
 		}
 		logger.debug("After [{}] time={}ms", sqlLogId, (System.currentTimeMillis() - startTm));
 	}
@@ -402,19 +453,19 @@ abstract class TedDaoAbstract implements TedDao {
 	protected <T> List<T> selectData(String sqlLogId, String sql, Class<T> clazz, List<SqlParam> params) {
 		logSqlParams(sqlLogId, sql, params);
 		long startTm = System.currentTimeMillis();
-		List<T> list = null;
+		List<T> list;
 		Connection connection;
 		try {
 			connection = dataSource.getConnection();
 		} catch (SQLException e) {
 			logger.error("Failed to get DB connection: " + e.getMessage());
-			throw new RuntimeException("Cannot get DB connection", e);
+			throw new TedSqlException("Cannot get DB connection", e);
 		}
 		try {
 			list = JdbcSelectTed.selectData(connection, sql, clazz, params);
 		} catch (SQLException e) {
 			logger.error("SQLException while selectData '{}': {}. SQL={}", sqlLogId, e.getMessage(), sql);
-			throw new RuntimeException("SQL exception while calling sqlId '" + sqlLogId + "'", e);
+			throw new TedSqlException("SQL exception while calling sqlId '" + sqlLogId + "'", e);
 		}
 
 		logger.debug("After [{}] time={}ms items={}", sqlLogId, (System.currentTimeMillis() - startTm), list.size());
@@ -429,14 +480,14 @@ abstract class TedDaoAbstract implements TedDao {
 			connection = dataSource.getConnection();
 		} catch (SQLException e) {
 			logger.error("Failed to get DB connection: " + e.getMessage());
-			throw new RuntimeException("Cannot get DB connection", e);
+			throw new TedSqlException("Cannot get DB connection", e);
 		}
 		Long result;
 		try {
 			result = JdbcSelectTed.selectSingleLong(connection, sql, null);
 		} catch (SQLException e) {
 			logger.error("SQLException while selectSingleLong '{}': {}. SQL={}", sqlLogId, e.getMessage(), sql);
-			throw new RuntimeException("SQL exception while calling sqlId '" + sqlLogId + "'", e);
+			throw new TedSqlException("SQL exception while calling sqlId '" + sqlLogId + "'", e);
 		}
 		logger.debug("After [{}] time={}ms result={}", sqlLogId, (System.currentTimeMillis() - startTm), result);
 		return result;

@@ -19,7 +19,7 @@ class TestConfig {
 		public final String USER;
 		public final String PASSWORD;
 		public TedConnOracle() {
-			URL = "jdbc:oracle:thin:@localhost:1521:TED";
+			URL = "jdbc:oracle:thin:@localhost:1521:XE";
 			USER = "ted";
 			PASSWORD = "ted";
 		}

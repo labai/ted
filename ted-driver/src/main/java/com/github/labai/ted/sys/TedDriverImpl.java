@@ -19,8 +19,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -35,13 +47,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class TedDriverImpl {
 	private final static Logger logger = LoggerFactory.getLogger(TedDriverImpl.class);
 
+	private static int driverLocalInstanceCounter = 0; // expected always 1, more for testings
+	private final int localInstanceNo = ++TedDriverImpl.driverLocalInstanceCounter;
+	final String tedNamePrefix = localInstanceNo == 1 ? "Ted" : "Te" + localInstanceNo;
+
 	/* contains loaded libs, services, dao and other singletons */
 	static class TedContext {
+		TedDriverImpl tedDriver;
 		TedConfig config;
 		Registry registry;
 		TedDao tedDao;
 		TaskManager taskManager;
 		RetryConfig retryConfig;
+		QuickCheck quickCheck;
+		PrimeInstance prime;
 		//BatchManager batchManager;
 		//ScheduleManager scheduleManager;
 	}
@@ -64,6 +83,7 @@ public class TedDriverImpl {
 			system = properties.getProperty(TedProperty.SYSTEM_ID);
 		FieldValidator.validateTaskSystem(system);
 		this.context = new TedContext();
+		context.tedDriver = this;
 		context.config = new TedConfig(system);
 		context.tedDao = dbType == TedDbType.ORACLE
 				? new TedDaoOracle(system, dataSource)
@@ -73,6 +93,8 @@ public class TedDriverImpl {
 		context.retryConfig = new RetryConfig(context);
 		//context.batchManager = new BatchManager(context);
 		//context.scheduleManager = new ScheduleManager(context);
+		context.quickCheck = new QuickCheck(context);
+		context.prime = new PrimeInstance(context);
 
 
 		// read properties (e.g. from ted.properties.
@@ -108,13 +130,16 @@ public class TedDriverImpl {
 		logger.info("Starting TED driver");
 		ConfigUtils.printConfigToLog(context.config);
 
+		// init
+		context.prime.init();
+
 		// driver
-		driverExecutor = createSchedulerExecutor("TedDriver-");;
+		driverExecutor = createSchedulerExecutor(tedNamePrefix + "Driver-");;
 		driverExecutor.scheduleAtFixedRate(new Runnable() {
 			@Override
 			public void run() {
 				try {
-					context.taskManager.processTasks();
+					context.quickCheck.quickCheck();
 				} catch (Exception e) {
 					logger.error("Error while executing driver task", e);
 				}
@@ -122,7 +147,7 @@ public class TedDriverImpl {
 		}, context.config.initDelayMs(), context.config.intervalDriverMs(), TimeUnit.MILLISECONDS);
 
 		// maintenance tasks processor
-		maintenanceExecutor = createSchedulerExecutor("TedMaint-");
+		maintenanceExecutor = createSchedulerExecutor(tedNamePrefix + "Maint-");
 		maintenanceExecutor.scheduleAtFixedRate(new Runnable() {
 			@Override
 			public void run() {
@@ -202,12 +227,12 @@ public class TedDriverImpl {
 		return executor;
 	}
 
-	static ThreadPoolExecutor createWorkersExecutor(final String channel, int workerCount, int queueSize) {
+	static ThreadPoolExecutor createWorkersExecutor(final String threadPrefix, int workerCount, int queueSize) {
 		ThreadFactory threadFactory = new ThreadFactory() {
 			private int counter = 0;
 			@Override
 			public Thread newThread(Runnable runnable) {
-				return new Thread(runnable, "Ted-" + channel + "-" + ++counter);
+				return new Thread(runnable, threadPrefix + "-" + ++counter);
 			}
 		};
 		ThreadPoolExecutor executor = new ThreadPoolExecutor(workerCount, workerCount,
@@ -229,6 +254,35 @@ public class TedDriverImpl {
 			throw new IllegalArgumentException("Task '" + taskName + "' is not known for TED");
 		return context.tedDao.createTask(taskName, tc.channel, data, key1, key2, batchId);
 	}
+
+/*
+	public Long createTaskUniqueKey1(String taskName, String data, String key1, String key2) {
+		FieldValidator.validateTaskData(data);
+		FieldValidator.validateTaskKey1(key1);
+		FieldValidator.validateTaskKey2(key2);
+		if (key1 == null || key1.isEmpty())
+			throw new FieldValidateException("key1 must be not empty");
+		TaskConfig tc = context.registry.getTaskConfig(taskName);
+		if (tc == null)
+			throw new IllegalArgumentException("Task '" + taskName + "' is not known for TED");
+		if (context.tedDao.existsActiveTaskByKey1(taskName, key1)) {
+			logger.debug("duplicate was found for unique (on check) task={}, key1={}, skip task creation", taskName, key1);
+			return null;
+		}
+		try {
+			return context.tedDao.createTask(taskName, tc.channel, data, key1, key2, null);
+		} catch (TedSqlException e) {
+			if (e.getCause() != null && e.getCause() instanceof SQLException) {
+				SQLException sqle = (SQLException) e.getCause();
+				if ("23505".equals(sqle.getSQLState())) { // 23505 in postgres: duplicate key value violates unique constraint
+					logger.info("duplicate was found for unique (unique index) task={}, key1={}, skip task creation", taskName, key1);
+					return null;
+				}
+			}
+			throw e;
+		}
+	}
+*/
 
 	Long createTask(String taskName, String data, String key1, String key2) {
 		return createTask(taskName, data, key1, key2, null);
@@ -306,20 +360,32 @@ public class TedDriverImpl {
 	}
 
 	// create tasks by list and batch task for them. return batch taskId
-	public Long createBatch(List<TedTask> tedTasks) {
+//	public Long createBatch(List<TedTask> tedTasks) {
+//		return createBatch(null, null, null, null, tedTasks);
+//	}
+
+	// create tasks by list and batch task for them. return batch taskId
+	// if batchTaskName is null - will take from taskConfiguration
+	public Long createBatch(String batchTaskName, String data, String key1, String key2, List<TedTask> tedTasks) {
 		if (tedTasks == null || tedTasks.isEmpty())
 			return null;
-		TedTask task = tedTasks.get(0);
-		TaskConfig taskConfig = context.registry.getTaskConfig(task.getName());
-		if (taskConfig.batchTask == null)
-			throw new IllegalArgumentException("Batch task is not configured for task '" + taskConfig.taskName + "'");
-		TaskConfig batchTC = context.registry.getTaskConfig(taskConfig.batchTask);
+		if (batchTaskName == null) {
+			throw new IllegalStateException("batchTaskName is required (yet, TODO?)!");
+			/*
+			TedTask task = tedTasks.get(0);
+			TaskConfig taskConfig = context.registry.getTaskConfig(task.getName());
+			if (taskConfig.batchTask == null)
+				throw new IllegalArgumentException("Batch task is not configured for task '" + taskConfig.taskName + "'");
+			batchTaskName = taskConfig.batchTask;
+			*/
+		}
+		TaskConfig batchTC = context.registry.getTaskConfig(batchTaskName);
 		if (batchTC == null)
-			throw new IllegalArgumentException("Batch task '" + taskConfig.batchTask + "' is not known for TED");
+			throw new IllegalArgumentException("Batch task '" + batchTaskName + "' is not known for TED");
 
-		Long batchId = context.tedDao.createTaskPostponed(batchTC.taskName, batchTC.channel, null, null, null, 30 * 60);
+		Long batchId = context.tedDao.createTaskPostponed(batchTC.taskName, batchTC.channel, data, key1, key2, 30 * 60);
 		createTasksBulk(tedTasks, batchId);
-		context.tedDao.setStatusPostponed(batchId, TedStatus.NEW, null, new Date());
+		context.tedDao.setStatusPostponed(batchId, TedStatus.NEW, Model.BATCH_MSG, new Date());
 
 		return batchId;
 	}
@@ -343,6 +409,9 @@ public class TedDriverImpl {
 		context.registry.registerChannel(channel, workerCount, taskBufferSize);
 	}
 
+	public PrimeInstance prime() {
+		return context.prime;
+	}
 	//
 	// package scoped - for tests only
 	//

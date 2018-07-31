@@ -4,6 +4,8 @@ import com.github.labai.ted.Ted.TedStatus;
 import com.github.labai.ted.sys.JdbcSelectTed.JetJdbcParamType;
 import com.github.labai.ted.sys.JdbcSelectTed.SqlParam;
 import com.github.labai.ted.sys.Model.TaskParam;
+import com.github.labai.ted.sys.PrimeInstance.CheckPrimeParams;
+import com.github.labai.ted.sys.QuickCheck.CheckResult;
 import org.postgresql.copy.CopyManager;
 import org.postgresql.core.BaseConnection;
 import org.slf4j.Logger;
@@ -35,6 +37,12 @@ class TedDaoPostgres extends TedDaoAbstract {
 		super(system, dataSource, DbType.POSTGRES);
 	}
 
+
+	private static class TaskIdRes {
+		Long taskid;
+	}
+
+
 	@Override
 	public List<Long> createTasksBulk(List<TaskParam> taskParams) {
 		ArrayList<Long> taskIds = getSequencePortion("SEQ_TEDTASK_ID", taskParams.size());
@@ -49,6 +57,100 @@ class TedDaoPostgres extends TedDaoAbstract {
 			throw new RuntimeException(e);
 		}
 		return taskIds;
+	}
+
+	@Override
+	public List<CheckResult> quickCheck(CheckPrimeParams checkPrimeParams) {
+		String sql = "";
+		String logId = "a";
+		if (checkPrimeParams != null) {
+			String sqlPrime;
+			if (checkPrimeParams.isPrime()) {
+				sqlPrime = ""
+						+ "with updatedMasterTask as ("
+						+ "  update tedtask set finishts = $now + $intervalSec"
+						+ "  where taskid = $primeTaskId"
+						+ "  and system = '$sys'"
+						+ "  and data = '$instanceId'"
+						+ "  returning 'PRIME'::text as result"
+						+ ")"
+						+ " select case when exists(select * from updatedMasterTask) then 'PRIME' else 'LOST_PRIME' end as name, 'PRIM' as type, null::timestamp as tillts";
+				logId = "b";
+			} else {
+				// TODO return tillTs until prime is reserved
+				sqlPrime = "select case when finishts < $now then 'CAN_PRIME' else 'NEXT_CHECK' end as name, 'PRIM' as type, finishts as tillts"
+						+ " from tedtask"
+						+ " where taskid = $primeTaskId and system = '$sys'";
+				logId = "c";
+			}
+			sqlPrime = sqlPrime.replace("$intervalSec", dbType.sql.intervalSeconds(checkPrimeParams.postponeSec()));
+			sqlPrime = sqlPrime.replace("$instanceId", checkPrimeParams.instanceId());
+			sqlPrime = sqlPrime.replace("$primeTaskId", Long.toString(checkPrimeParams.primeTaskId()));
+			sql += sqlPrime + " union ";
+		}
+		// check for new tasks
+		sql += "select distinct channel as name, 'CHAN' as type, null::timestamp as tillts "
+				+ " from tedtask"
+				+ " where system = '$sys' and nextTs <= $now";
+		sql = sql.replace("$sys", thisSystem);
+		sql = sql.replace("$now", dbType.sql.now());
+		//logger.debug(sql);
+		return selectData("quick_check(" + logId + ")", sql, CheckResult.class, Collections.<SqlParam>emptyList());
+	}
+
+
+	@Override
+	public Long findPrimeTaskId() {
+		String sql;
+		sql = "select taskid from tedtask where system = '$sys' and name = 'TED:PRIME' limit 2";
+		sql = sql.replace("$sys", thisSystem);
+		List<TaskIdRes> ls2 = selectData("find_primetask", sql, TaskIdRes.class, Collections.<SqlParam>emptyList());
+		if (ls2.size() == 1) {
+			logger.debug("found primeTaskId={}", ls2.get(0).taskid);
+			return ls2.get(0).taskid;
+		}
+		if (ls2.size() > 1)
+			throw new IllegalStateException("found few primeTaskId tasks for system=" + thisSystem + " (name='TED:PRIME'). Ther should be only 1. Please delete them and restart again");
+
+		// not exists yet - try to create new. alternatively it is possible create manually by deployment script.
+		// this part will be executed only once per live of system..
+
+		// get next taskid, prefer some from lower numbers (11..99)
+		String sqlNextId = "coalesce("
+				+ "  nullif(coalesce((select max(taskid) from tedtask where taskid between 10 and 99), 10) + 1, 100),"
+				+ "  $sequenceTedTask"
+				+ "  )";
+		sql = "insert into tedtask(taskid, system, name, status, channel, startts, nextts, msg)"
+				+ " values (" + sqlNextId + ", '$sys', 'TED:PRIME', 'SLEEP', 'TED', $now, null, 'This is internal TED pseudo-task for prime check')";
+		sql = sql.replace("$sys", thisSystem);
+		sql = sql.replace("$now", dbType.sql.now());
+		sql = sql.replace("$sequenceTedTask", dbType.sql.sequenceSql("SEQ_TEDTASK_ID"));
+
+		execute("insert_prime", sql, Collections.<SqlParam>emptyList());
+
+		// check again, to be sure
+		sql = "select taskid from tedtask where system = '$sys' and name = 'TED:PRIME'";
+		sql = sql.replace("$sys", thisSystem);
+		Long taskId = selectSingleLong("find_primetask(2)", sql);
+		if (taskId == null)
+			throw new IllegalStateException("Something went wrong, please try to create manually 'TED:PRIME' task for system '" + thisSystem + "'");
+
+		return taskId;
+	}
+
+	@Override
+	public boolean becomePrime(Long primeTaskId, String instanceId) {
+		String sql = "update tedtask set data = '$instanceId', finishts = now() + interval '5 seconds'"
+				+ " where taskid = (select taskid from tedtask where system = '$sys' "
+				+ "  and (finishts < now() or finishts is null) "
+				+ "  and taskid = $primeTaskId for update skip locked)"
+				+ " returning taskid";
+		sql = sql.replace("$sys", thisSystem);
+		sql = sql.replace("$primeTaskId", primeTaskId.toString());
+		sql = sql.replace("$instanceId", instanceId);
+
+		List<TaskIdRes> res = selectData("take_prime", sql, TaskIdRes.class, Collections.<SqlParam>emptyList());
+		return res.size() == 1;
 	}
 
 	private void executePgCopy(Connection connection, List<TaskParam> taskParams) throws SQLException {
@@ -99,10 +201,6 @@ class TedDaoPostgres extends TedDaoAbstract {
 			result.add(item.seqval);
 		}
 		return result;
-	}
-
-	private static class TaskIdRes {
-		Long taskid;
 	}
 
 	// use 1 call for postgres, instead of 2 (sequence and insert)

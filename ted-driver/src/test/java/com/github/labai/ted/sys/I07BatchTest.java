@@ -5,14 +5,13 @@ import com.github.labai.ted.Ted.TedResult;
 import com.github.labai.ted.Ted.TedStatus;
 import com.github.labai.ted.Ted.TedTask;
 import com.github.labai.ted.TedDriver;
+import com.github.labai.ted.sys.I01SimpleTest.Test01ProcessorOk;
 import com.github.labai.ted.sys.Model.TaskRec;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.github.labai.ted.sys.I01SimpleTest.Test01ProcessorOk;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -23,6 +22,11 @@ import java.util.Map;
 import java.util.Properties;
 
 import static com.github.labai.ted.sys.TestConfig.SYSTEM_ID;
+import static com.github.labai.ted.sys.TestUtils.forClass;
+import static com.github.labai.ted.sys.TestUtils.log;
+import static com.github.labai.ted.sys.TestUtils.print;
+import static com.github.labai.ted.sys.TestUtils.sleepMs;
+import static org.junit.Assert.assertEquals;
 
 /**
  * @author Augustus
@@ -58,7 +62,7 @@ public class I07BatchTest extends TestBase {
 	@Test
 	public void testCreate200() throws Exception {
 		String taskName = "TEST01-01";
-		driver.registerTaskConfig(taskName, TestUtils.forClass(Test01ProcessorOk.class));
+		driver.registerTaskConfig(taskName, forClass(Test01ProcessorOk.class));
 		((TedDaoAbstract)driver.getContext().tedDao).getSequenceNextValue("SEQ_TEDTASK_BNO");
 
 		long startTs = System.currentTimeMillis();
@@ -67,7 +71,7 @@ public class I07BatchTest extends TestBase {
 		}
 		// 200 items - 160, 182, 181
 		// 2k - 1215, 898, 993
-		TestUtils.log("create 200 in {0}s", System.currentTimeMillis() - startTs);
+		log("create 200 in {0}s", System.currentTimeMillis() - startTs);
 
 	}
 
@@ -76,7 +80,7 @@ public class I07BatchTest extends TestBase {
 	public void testCreateBulk200() throws Exception {
 		String taskName = "TEST01-01";
 
-		driver.registerTaskConfig(taskName, TestUtils.forClass(Test01ProcessorOk.class));
+		driver.registerTaskConfig(taskName, forClass(Test01ProcessorOk.class));
 		((TedDaoAbstract)driver.getContext().tedDao).getSequenceNextValue("SEQ_TEDTASK_BNO");
 		String param = "x";
 		// for (int i = 0; i < 1000; i++) {
@@ -91,7 +95,7 @@ public class I07BatchTest extends TestBase {
 		driver.createTasksBulk(taskParams, null);
 		// postgres.copy 200 - 35, 39, 41
 		//    2k - 100, 102, 117
-		TestUtils.log("create 200 in {0}s", System.currentTimeMillis() - startTs);
+		log("create 200 in {0}s", System.currentTimeMillis() - startTs);
 
 	}
 
@@ -103,44 +107,45 @@ public class I07BatchTest extends TestBase {
 
 		String taskName = "TEST71";
 		String batchName = "BAT07";
-		driver.registerTaskConfig(taskName, TestUtils.forClass(ProcessorRandomOk.class));
-		driver.registerTaskConfig(batchName, TestUtils.forClass(BatchFinishProcessor.class));
+		driver.registerTaskConfig(taskName, forClass(ProcessorRandomOk.class));
+		driver.registerTaskConfig(batchName, forClass(BatchFinishProcessor.class));
 
 		List<TedTask> taskParams = new ArrayList<TedTask>();
 		for (int i = 0; i < 3; i++) {
 			taskParams.add(TedDriver.newTedTask(taskName, ""+i, null, null));
 		}
-		Long batchId = driver.createBatch(taskParams);
+		Long batchId = driver.createBatch(batchName, "data", "key1", "key2", taskParams);
 
-		TestUtils.sleepMs(500); // there can be difference between clocks in dev/tomcat and db server?
+		sleepMs(500); // there can be difference between clocks in dev/tomcat and db server?
 		driver.getContext().taskManager.processTasks();
 		driver.getContext().taskManager.processTasks();
-		TestUtils.sleepMs(20);
+		sleepMs(20);
 		Map<TedStatus, Integer> stats = tedDao.getBatchStatusStats(batchId);
-		TestUtils.print(stats.toString());
+		print(stats.toString());
 		TaskRec batchRec = tedDao.getTask(batchId);
-		Assert.assertEquals("batch should be RETRY until all task will be finished", "RETRY", batchRec.status);
-		TestUtils.print("sleep...");
+		assertEquals("batch should be RETRY until all task will be finished", "RETRY", batchRec.status);
+		assertEquals("Batch task is waiting for finish of subtasks", batchRec.msg);
+		print("sleep...");
 
-		TestUtils.sleepMs(1100 + 500); // wait 1s (retry)
+		sleepMs(1100 + 500); // wait 1s (retry)
 		driver.getContext().taskManager.processTasks();
-		TestUtils.sleepMs(100);
+		sleepMs(100);
 
 		batchRec = tedDao.getTask(batchId);
-		Assert.assertEquals("batch should be RETRY because 1 task was delayed and not finished yet", "RETRY", batchRec.status);
+		assertEquals("batch should be RETRY because 1 task was delayed and not finished yet", "RETRY", batchRec.status);
 
-		TestUtils.sleepMs(1000 + 500); // wait 1s (retry)
+		sleepMs(1000 + 500); // wait 1s (retry)
 		driver.getContext().taskManager.processTasks();
-		TestUtils.sleepMs(100);
+		sleepMs(100);
 
 		batchRec = tedDao.getTask(batchId);
-		Assert.assertEquals("batch should be RETRY because even all tasks should be finished, but got RETRY from batch task", "RETRY", batchRec.status);
-		Assert.assertEquals("retries should be cleanup after batch subtasks finished", 1L, batchRec.retries.longValue());
+		assertEquals("batch should be RETRY because even all tasks should be finished, but got RETRY from batch task", "RETRY", batchRec.status);
+		assertEquals("retries should be cleanup after batch subtasks finished", 1L, batchRec.retries.longValue());
 
 		stats = tedDao.getBatchStatusStats(batchId);
 
-		TestUtils.print("batchTaskRec: " + batchRec.toString());
-		TestUtils.print("statusStats: " + stats.toString());
+		print("batchTaskRec: " + batchRec.toString());
+		print("statusStats: " + stats.toString());
 	}
 
 	// set second task to retry
@@ -148,7 +153,7 @@ public class I07BatchTest extends TestBase {
 		@Override
 		public TedResult process(TedTask task)  {
 			logger.info(this.getClass().getSimpleName() + " process " + task.getData());
-			TestUtils.sleepMs(20);
+			sleepMs(20);
 			if ("1".equals(task.getData())) {
 				if (task.getRetries() == 0) {
 					logger.info("Set task {} to RETRY", task.getTaskId());

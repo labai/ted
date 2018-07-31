@@ -1,5 +1,6 @@
 package com.github.labai.ted;
 
+import com.github.labai.ted.Ted.PrimeEvent;
 import com.github.labai.ted.Ted.TedDbType;
 import com.github.labai.ted.Ted.TedProcessorFactory;
 import com.github.labai.ted.Ted.TedRetryScheduler;
@@ -55,6 +56,11 @@ public class TedDriver {
 		return tedDriverImpl.createTask(taskName, data, null, null, null);
 	}
 
+	/** create task for key1, ensure only 1 active task with same key1 value. Returns null if already exists. To be 100% sure, unique index should be created (ix_tedtask_key1_uniq) */
+//	public Long createTaskUniqueKey1(String taskName, String data, String key1, String key2) {
+//		return tedDriverImpl.createTaskUniqueKey1(taskName, data, key1, key2);
+//	}
+
 	/** create task for future execution (postponed) */
 	public Long createTaskPostponed(String taskName, String data, String key1, String key2, int postponeSec) {
 		return tedDriverImpl.createTaskPostponed(taskName, data, key1, key2, postponeSec);
@@ -71,21 +77,18 @@ public class TedDriver {
 	}
 
 
-	/* incubating.
-	 * create all tasks and 1 batch tasks (see *.properties configurations).
-	 * to create TedTask object use function newTedTask
-	 */
 	// create tasks by list and batch task for them. return batch taskId
-	public Long createBatch(List<TedTask> tedTasks) {
-		return tedDriverImpl.createBatch(tedTasks);
+	public Long createBatch(String batchTaskName, String data, String key1, String key2, List<TedTask> tedTasks) {
+		return tedDriverImpl.createBatch(batchTaskName, data, key1, key2, tedTasks);
 	}
 
-	/* incubating.
+	/**
 	 * create TedTask for createBatch (with required params only)
 	 */
 	public static TedTask newTedTask(String taskName, String data, String key1, String key2) {
-		return new TedTask(null, taskName, key1, key2, data, 0, null);
+		return new TedTask(null, taskName, key1, key2, data);
 	}
+
 
 	/**
 	 * register task (configuration)
@@ -116,8 +119,27 @@ public class TedDriver {
 	 * register channel
 	 *
 	 */
-	public void registerChannel(String queueName, int workerCount, int taskBufferSize) {
-		tedDriverImpl.registerChannel(queueName, workerCount, taskBufferSize);
+//	public void registerChannel(String queueName, int workerCount, int taskBufferSize) {
+//		tedDriverImpl.registerChannel(queueName, workerCount, taskBufferSize);
+//	}
+
+	//
+	// prime instance
+	//
+
+	public void enablePrime() {
+		tedDriverImpl.prime().enable();
 	}
 
+	public boolean isPrime() {
+		return tedDriverImpl.prime().isPrime();
+	}
+
+	public void setOnBecomePrimeHandler(PrimeEvent onBecomePrime) {
+		tedDriverImpl.prime().setOnBecomePrime(onBecomePrime);
+	}
+
+	public void setOnLostPrimeHandler(PrimeEvent onLostPrime) {
+		tedDriverImpl.prime().setOnLostPrime(onLostPrime);
+	}
 }

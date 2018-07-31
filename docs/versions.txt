@@ -1,5 +1,14 @@
 Version history
 
+0.1.6 (2018-07-31)
+- prime instace handling
+
+0.1.5 (2018-07-16)
+- batches create programmatically instead of configuration
+
+0.1.4 (2018-07-12)
+- add flags isNew, isRetry, isAfterTimeout to TedTask
+
 0.1.3 (2018-04-13)
 - fix bug (task few time execution)
 

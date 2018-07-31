@@ -3,6 +3,8 @@ package com.github.labai.ted.sys;
 import com.github.labai.ted.Ted.TedStatus;
 import com.github.labai.ted.sys.Model.TaskParam;
 import com.github.labai.ted.sys.Model.TaskRec;
+import com.github.labai.ted.sys.PrimeInstance.CheckPrimeParams;
+import com.github.labai.ted.sys.QuickCheck.CheckResult;
 import com.github.labai.ted.sys.TedDaoAbstract.DbType;
 
 import java.util.Date;
@@ -25,6 +27,8 @@ interface TedDao {
 	Long createTaskWithWorkStatus(String name, String channel, String data, String key1, String key2);
 
 	List<Long> createTasksBulk(List<TaskParam> taskParams);
+
+//	boolean existsActiveTaskByKey1(String name, String key1);
 
 	void processMaintenanceFrequent();
 
@@ -50,5 +54,11 @@ interface TedDao {
 	void cleanupRetries(Long taskId, String msg);
 
 	Map<TedStatus, Integer> getBatchStatusStats(long batchId);
+
+	List<CheckResult> quickCheck(CheckPrimeParams checkPrimeParams);
+
+	boolean becomePrime(Long primeTaskId, String instanceId);
+
+	Long findPrimeTaskId();
 
 }

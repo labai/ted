@@ -14,6 +14,8 @@ import java.util.regex.Pattern;
  */
 class Model {
 	static final String CHANNEL_MAIN = "MAIN";
+	static final String TIMEOUT_MSG = "Too long in status [work]";
+	static final String BATCH_MSG = "Batch task is waiting for finish of subtasks";
 
 	static class TaskRec {
 		Long taskId;
@@ -43,7 +45,8 @@ class Model {
 				throw new NullPointerException("task.taskId is null");
 			if (this.name == null)
 				throw new NullPointerException("task.name is null");
-			return new TedTask(this.taskId, this.name, this.key1, this.key2, this.data, this.retries, this.createTs);
+			boolean isTimeout = msg != null && msg.startsWith(TIMEOUT_MSG);
+			return new TedTask(this.taskId, this.name, this.key1, this.key2, this.data, this.retries, this.createTs, isTimeout);
 		}
 
 	}
@@ -118,6 +121,8 @@ class Model {
 				throw new FieldValidateException("Channel name length must be maximum " + Lengths.len_channel + " symbols length, channel=" + channel);
 			if (hasNonLetters(channel))
 				throw new IllegalArgumentException("Channel name has invalid character, allowed letters and numbers, channel=" + channel);
+			if ("TED".equalsIgnoreCase(channel))
+				throw new IllegalArgumentException("Channel name is reserved, channel=" + channel);
 		}
 
 		//

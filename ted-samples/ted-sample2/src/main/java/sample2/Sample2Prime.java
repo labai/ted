@@ -1,4 +1,4 @@
-package sample1;
+package sample2;
 
 import com.github.labai.ted.Ted.TedDbType;
 import com.github.labai.ted.Ted.TedProcessor;
@@ -20,13 +20,13 @@ import java.util.Properties;
 
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 
-public class Sample1 {
-	private static final Logger logger = LoggerFactory.getLogger(Sample1.class);
+public class Sample2Prime {
+	private static final Logger logger = LoggerFactory.getLogger(Sample2Prime.class);
 
 	private static final String TASK_NAME = "PROCESS_LINE";
 
-	// connection to db configuration
-	//
+	// connection to db co	nfiguration
+	//d
 	private static DataSource dataSource() {
 		ComboPooledDataSource dataSource = new ComboPooledDataSource();
 		try {
@@ -45,7 +45,7 @@ public class Sample1 {
 	private static TedDriver tedDriver() {
 		Properties properties = new Properties();
 		String propFileName = "ted.properties";
-		InputStream inputStream = Sample1.class.getClassLoader().getResourceAsStream(propFileName);
+		InputStream inputStream = Sample2Prime.class.getClassLoader().getResourceAsStream(propFileName);
 		if (inputStream == null)
 			throw new RuntimeException("Property file '" + propFileName + "' not found in the classpath");
 		try {
@@ -66,27 +66,41 @@ public class Sample1 {
 
 		// init ted, register tasks
 		//
-		TedDriver tedDriver = tedDriver();
-		tedDriver.registerTaskConfig(TASK_NAME, taskName -> lineTaskProcessor()) ;
-		tedDriver.start();
+		TedDriver tedDriver1 = tedDriver();
+		tedDriver1.registerTaskConfig(TASK_NAME, taskName -> lineTaskProcessor()) ;
+		tedDriver1.enablePrime();
+		tedDriver1.setOnBecomePrimeHandler(() -> logger.info("tedDriver1 become prime"));
+		tedDriver1.setOnLostPrimeHandler(() -> logger.info("tedDriver1 lost prime"));
+		tedDriver1.start();
+
+
+		TedDriver tedDriver2 = tedDriver();
+		tedDriver2.registerTaskConfig(TASK_NAME, taskName -> lineTaskProcessor()) ;
+		tedDriver2.enablePrime();
+		tedDriver2.setOnBecomePrimeHandler(() -> logger.info("tedDriver2 become prime"));
+		tedDriver2.setOnLostPrimeHandler(() -> logger.info("tedDriver2 lost prime"));
+		tedDriver2.start();
 
 		// read some big file for processing
 		//
-		File file = new File(Sample1.class.getClassLoader().getResource(fileName).getPath());
+		File file = new File(Sample2Prime.class.getClassLoader().getResource(fileName).getPath());
 		List<String> lines = FileUtils.readLines(file, "UTF-8");
 
 		// create tasks for each line
 		//
 		for (String line : lines) {
-			tedDriver.createTask(TASK_NAME, line);
+			tedDriver1.createTask(TASK_NAME, line);
 		}
 
+		sleep(1000);
+		tedDriver1.shutdown();
 		// wait a while, while ted will process tasks. see processing info in logs
 		//
 		sleep(10000);
 
-		tedDriver.shutdown();
-		System.out.println("finish sample1");
+		//tedDriver1.shutdown();
+		tedDriver2.shutdown();
+		System.out.println("finish sample2");
 	}
 
 	// file line processor
@@ -108,5 +122,6 @@ public class Sample1 {
 		} catch (InterruptedException e2) {
 		}
 	}
+
 
 }

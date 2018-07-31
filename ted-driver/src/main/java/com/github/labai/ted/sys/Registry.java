@@ -31,38 +31,37 @@ class Registry {
 
 	private Map<String, TaskConfig> tasks = new ConcurrentHashMap<String, TaskConfig>();
 	private Map<String, Channel> channels = new ConcurrentHashMap<String, Channel>();
-	private Map<String, Schedule> schedules = new ConcurrentHashMap<String, Schedule>();
+	//private Map<String, Schedule> schedules = new ConcurrentHashMap<String, Schedule>();
 
-	enum TaskType {
-		TASK,
-		BATCH
-	}
+	// enum TaskType { TASK, BATCH }
 
-	static class Schedule {
-		final String name;
-		final String produceTask;
-		final String cron;
-
-		public Schedule(String name, String produceTask, String cron) {
-			this.name = name;
-			this.produceTask = produceTask;
-			this.cron = cron;
-		}
-	}
+//	static class Schedule {
+//		final String name;
+//		final String produceTask;
+//		final String cron;
+//
+//		public Schedule(String name, String produceTask, String cron) {
+//			this.name = name;
+//			this.produceTask = produceTask;
+//			this.cron = cron;
+//		}
+//	}
 
 	static class Channel {
 		final String name;
 		private final int workerCount;
 		final int taskBufferSize;
+		final boolean primeOnly;
 		final ThreadPoolExecutor workers;
 		private int slowStartCount = TaskManager.SLOW_START_COUNT; // after no task period will start to slowly increase count of tasks to select (purpose is to do some balance between nodes). But for pack processing tasks this behavior is wrong. Will be 3 by default, but if exists task with pack processing, then use 1000 (max)
 
-		public Channel(String name, int workerCount, int taskBufferSize) {
+		Channel(String tedNamePrefix, String name, int workerCount, int taskBufferSize, boolean primeOnly) {
 			this.name = name;
 			this.workerCount = workerCount;
 			this.taskBufferSize = taskBufferSize;
+			this.primeOnly = primeOnly;
 			// create queue bigger by workerCount - to be sure queue will not be oversize (on very fast tasks RejectedExecutionException occurs). this count will be deducted when calculate pack size
-			this.workers = TedDriverImpl.createWorkersExecutor(name, workerCount, taskBufferSize + workerCount + CHANNEL_EXTRA_SIZE);
+			this.workers = TedDriverImpl.createWorkersExecutor(tedNamePrefix + "-" + name, workerCount, taskBufferSize + workerCount + CHANNEL_EXTRA_SIZE);
 		}
 
 		void setHasPackProcessingTask() {
@@ -84,16 +83,17 @@ class Registry {
 		final int workTimeoutMinutes;
 		final String channel;
 		final TedRetryScheduler retryScheduler;
-		final TaskType taskType;
-		final String batchTask;
+		//final TaskType taskType;
+		//final String batchTask;
 		final int batchTimeoutMinutes;
 		final boolean isPackProcessing;
 		final String shortLogName; // 5 letters name for threadName
 
 		public TaskConfig(String taskName, TedProcessorFactory tedProcessorFactory,
-						  TedPackProcessorFactory tedPackProcessorFactory,
-						  int workTimeoutMinutes, TedRetryScheduler retryScheduler, String channel,
-						  TaskType taskType, String batchTask, int batchTimeoutMinutes) {
+				TedPackProcessorFactory tedPackProcessorFactory,
+				int workTimeoutMinutes, TedRetryScheduler retryScheduler, String channel,
+				// TaskType taskType, String batchTask,
+				int batchTimeoutMinutes) {
 			if ((tedProcessorFactory == null && tedPackProcessorFactory == null) || (tedProcessorFactory != null && tedPackProcessorFactory != null))
 				throw new IllegalStateException("must be 1 of tedProcessorFactory or tedPackProcessorFactory");
 			this.taskName = taskName;
@@ -102,8 +102,8 @@ class Registry {
 			this.workTimeoutMinutes = Math.max(workTimeoutMinutes, 1); // timeout, less than 1 minute, is invalid, as process will check timeouts only >= 1 min
 			this.retryScheduler = retryScheduler;
 			this.channel = channel == null ? Model.CHANNEL_MAIN : channel;
-			this.taskType = taskType == null ? TaskType.TASK : taskType;
-			this.batchTask = batchTask;
+			//this.taskType = taskType == null ? TaskType.TASK : taskType;
+			//this.batchTask = batchTask;
 			this.batchTimeoutMinutes = batchTimeoutMinutes;
 			this.isPackProcessing = tedPackProcessorFactory != null;
 			this.shortLogName = makeShortName(taskName);
@@ -162,8 +162,8 @@ class Registry {
 //	}
 
 	void registerTaskConfig(String taskName, TedProcessorFactory tedProcessorFactory,
-							TedPackProcessorFactory tedPackProcessorFactory,
-							Integer workTimeoutInMinutes, TedRetryScheduler retryScheduler, String channel) {
+			TedPackProcessorFactory tedPackProcessorFactory,
+			Integer workTimeoutInMinutes, TedRetryScheduler retryScheduler, String channel) {
 
 		if (tasks.containsKey(taskName)) {
 			logger.warn("Task '" + taskName + "' already exists in registry, skip to register new one");
@@ -172,8 +172,8 @@ class Registry {
 
 		// overwrite parameters from config
 		Properties shortProp = context.config.taskMap().get(taskName);
-		workTimeoutInMinutes = ConfigUtils.getInteger(shortProp, ConfigUtils.TedProperty.TASK_TIMEOUT_MINUTES, workTimeoutInMinutes);
-		channel = ConfigUtils.getString(shortProp, ConfigUtils.TedProperty.TASK_CHANNEL, channel);
+		workTimeoutInMinutes = ConfigUtils.getInteger(shortProp, TedProperty.TASK_TIMEOUT_MINUTES, workTimeoutInMinutes);
+		channel = ConfigUtils.getString(shortProp, TedProperty.TASK_CHANNEL, channel);
 
 		// assign defaults if nulls
 		if (workTimeoutInMinutes == null)
@@ -181,7 +181,7 @@ class Registry {
 		//if (retryPattern == null)
 		//	retryPattern = context.config.defaultRetryPauses();
 
-		int batchTimeoutInMinutes = ConfigUtils.getInteger(shortProp, ConfigUtils.TedProperty.TASK_BATCH_TIMEOUT_MINUTES, context.config.defaultBatchTaskTimeoutMn());
+		int batchTimeoutInMinutes = ConfigUtils.getInteger(shortProp, TedProperty.TASK_BATCH_TIMEOUT_MINUTES, context.config.defaultBatchTaskTimeoutMn());
 
 		if (channel == null)
 			channel = Model.CHANNEL_MAIN;
@@ -197,14 +197,14 @@ class Registry {
 			retryScheduler = new PeriodPatternRetryScheduler(retryPattern);
 		}
 
-		String taskTypeStr = ConfigUtils.getString(shortProp, TedProperty.TASK_TYPE, TaskType.TASK.toString());
-		TaskType taskType;
-		try {
-			taskType = TaskType.valueOf(taskTypeStr);
-		} catch (IllegalArgumentException e) {
-			logger.warn("Invalid taskType value ({}) for task {}, allowed {}", taskTypeStr, taskName, Arrays.asList(TaskType.values()));
-			taskType = TaskType.TASK;
-		}
+//		String taskTypeStr = ConfigUtils.getString(shortProp, TedProperty.TASK_TYPE, TaskType.TASK.toString());
+//		TaskType taskType;
+//		try {
+//			taskType = TaskType.valueOf(taskTypeStr);
+//		} catch (IllegalArgumentException e) {
+//			logger.warn("Invalid taskType value ({}) for task {}, allowed {}", taskTypeStr, taskName, Arrays.asList(TaskType.values()));
+//			taskType = TaskType.TASK;
+//		}
 
 		String batchTask = ConfigUtils.getString(shortProp, TedProperty.TASK_BATCH_TASK, null);
 
@@ -214,9 +214,11 @@ class Registry {
 //		}
 
 		TaskConfig ttc = new TaskConfig(taskName, tedProcessorFactory, tedPackProcessorFactory,
-				workTimeoutInMinutes, retryScheduler, channel, taskType, batchTask, batchTimeoutInMinutes);
+				workTimeoutInMinutes, retryScheduler, channel,
+				// taskType, batchTask,
+				batchTimeoutInMinutes);
 		tasks.put(taskName, ttc);
-		loggerConfig.info("Register task {} (channel={} timeoutMinutes={} logid={} type={}{}{})", ttc.taskName, ttc.channel, ttc.workTimeoutMinutes, ttc.shortLogName, taskType, (batchTask==null?"":" batchTask="+batchTask), (taskType== TaskType.BATCH?" batchTimeoutInMinutes="+batchTimeoutInMinutes:""));
+		loggerConfig.info("Register task {} (channel={} timeoutMinutes={} logid={} {})", ttc.taskName, ttc.channel, ttc.workTimeoutMinutes, ttc.shortLogName, (batchTimeoutInMinutes>0?" batchTimeoutInMinutes="+batchTimeoutInMinutes:""));
 	}
 
 	public TaskConfig getTaskConfig(String taskName) {
@@ -228,12 +230,17 @@ class Registry {
 	// (create internally in TedDriverImpl)
 	//
 	void registerChannel(String channel, Properties shortProperties) {
-		int workerCount = ConfigUtils.getInteger(shortProperties, ConfigUtils.TedProperty.CHANNEL_WORKERS_COUNT, 5);
-		int bufferSize = ConfigUtils.getInteger(shortProperties, ConfigUtils.TedProperty.CHANNEL_TASK_BUFFER, 200);
-		registerChannel(channel, workerCount, bufferSize);
+		int workerCount = ConfigUtils.getInteger(shortProperties, TedProperty.CHANNEL_WORKERS_COUNT, 5);
+		int bufferSize = ConfigUtils.getInteger(shortProperties, TedProperty.CHANNEL_TASK_BUFFER, 200);
+		boolean primeOnly = "yes".equals(ConfigUtils.getString(shortProperties, TedProperty.CHANNEL_PRIME_ONLY, "no"));
+
+		registerChannel(channel, workerCount, bufferSize, primeOnly);
+	}
+	void registerChannel(String channel, int workerCount, int bufferSize) {
+		registerChannel(channel, workerCount, bufferSize, false);
 	}
 
-	void registerChannel(String channel, int workerCount, int bufferSize) {
+	void registerChannel(String channel, int workerCount, int bufferSize, boolean primeOnly) {
 		if (workerCount < 1 || workerCount > 1000)
 			throw new IllegalArgumentException("Worker count must be number between 1 and 1000, channel=" + channel);
 		FieldValidator.validateTaskChannel(channel);
@@ -241,7 +248,7 @@ class Registry {
 			logger.warn("Channel '" + channel + "' already exists in registry, skip to register new one");
 			return;
 		}
-		Channel ochan = new Channel(channel, workerCount, bufferSize);
+		Channel ochan = new Channel(context.tedDriver.tedNamePrefix, channel, workerCount, bufferSize, primeOnly);
 		channels.put(channel, ochan);
 		loggerConfig.info("Register channel {} (workerCount={} taskBufferSize={})", ochan.name, ochan.workerCount, ochan.taskBufferSize);
 	}

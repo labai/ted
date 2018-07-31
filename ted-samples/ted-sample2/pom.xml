@@ -2,11 +2,11 @@
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>com.github.labai</groupId>
-	<artifactId>ted-sample1</artifactId>
+	<artifactId>ted-sample2</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
-	<name>ted sample1</name>
+	<name>ted sample2</name>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -33,14 +33,11 @@
 			<artifactId>postgresql</artifactId>
 			<version>42.0.0.jre7</version>
 		</dependency>
-<!--
 		<dependency>
 			<groupId>com.oracle</groupId>
 			<artifactId>ojdbc6</artifactId>
 			<version>11.2.0.3.0</version>
 		</dependency>
--->
-
 		<dependency>
 			<groupId>com.mchange</groupId>
 			<artifactId>c3p0</artifactId>

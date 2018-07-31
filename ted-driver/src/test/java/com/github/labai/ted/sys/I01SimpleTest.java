@@ -295,6 +295,19 @@ public class I01SimpleTest extends TestBase {
 
 	}
 
+
+/*	@Test
+	public void test07CreateUniqueKey1() throws Exception {
+		String taskName = "TEST01-07";
+
+		driver.registerTaskConfig(taskName, TestUtils.forClass(Test01ProcessorRetry.class));
+
+		Long taskId = driver.createTaskUniqueKey1(taskName, "row1", "key1", null);
+		assertNotNull("should not created", taskId);
+		taskId = driver.createTaskUniqueKey1(taskName, "row2", "key1", null);
+		assertNull("should not be created due to key1 duplicate", taskId);
+	}*/
+
 	private void dao_lockAndSleep(long taskId, String sec) {
 		if (context.tedDao instanceof TedDaoOracle) {
 			((TedDaoOracle) context.tedDao).selectFromBlock("dao_lockAndSleep",

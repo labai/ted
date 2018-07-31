@@ -52,6 +52,7 @@ class ConfigUtils {
 		public static final String CHANNEL_WORKERS_COUNT = "workerCount";
 		//public static final String CHANNEL_WORKERS_MAX = "workersMax";
 		public static final String CHANNEL_TASK_BUFFER	 = "taskBuffer";
+		public static final String CHANNEL_PRIME_ONLY	 = "primeOnly";
 
 		// short task properties (w/o prefix "ted.task.<TASK>.")
 		public static final String TASK_TIMEOUT_MINUTES			= "timeoutMinutes";
@@ -78,9 +79,11 @@ class ConfigUtils {
 		private Map<String, Properties> taskMap = new HashMap<String, Properties>();
 		private final String systemId;
 		//private Map<String, Properties> scheduleMap = new HashMap<String, Properties>();
+		private final String instanceId;
 
 		public TedConfig(String systemId) {
 			this.systemId = systemId;
+			this.instanceId = MiscUtils.generateInstanceId();
 		}
 
 		// getters
@@ -94,6 +97,7 @@ class ConfigUtils {
 		public Map<String, Properties> channelMap() { return Collections.unmodifiableMap(channelMap); }
 		public Map<String, Properties> taskMap() { return Collections.unmodifiableMap(taskMap); }
 		public String systemId() { return systemId; }
+		public String instanceId() { return instanceId; }
 		//public Map<String, Properties> scheduleMap() { return Collections.unmodifiableMap(scheduleMap); }
 	}
 

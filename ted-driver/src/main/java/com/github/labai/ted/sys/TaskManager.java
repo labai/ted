@@ -6,16 +6,23 @@ import com.github.labai.ted.Ted.TedProcessor;
 import com.github.labai.ted.Ted.TedResult;
 import com.github.labai.ted.Ted.TedStatus;
 import com.github.labai.ted.Ted.TedTask;
-import com.github.labai.ted.sys.TedDriverImpl.TedContext;
 import com.github.labai.ted.sys.Model.TaskRec;
 import com.github.labai.ted.sys.Registry.Channel;
 import com.github.labai.ted.sys.Registry.TaskConfig;
-import com.github.labai.ted.sys.Registry.TaskType;
+import com.github.labai.ted.sys.TedDriverImpl.TedContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.ConcurrentModificationException;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
 
 /**
  * @author Augustus
@@ -110,6 +117,12 @@ class TaskManager {
 	// process maintenance tasks
 	//
 	void processMaintenanceTasks() {
+		if (context.prime.isEnabled()) {
+			if (! context.prime.isPrime()) {
+				logger.debug("Skip ted-maint as is not prime instance");
+				return;
+			}
+		}
 		context.tedDao.processMaintenanceFrequent();
 		processTimeouts();
 		if (System.currentTimeMillis() - lastRareMaintExecTimeMilis > RARE_MAINT_INTERVAL_MILIS) {
@@ -132,7 +145,7 @@ class TaskManager {
 			if (tc.workTimeoutMinutes <= workingTimeMn) {
 				if (logger.isDebugEnabled())
 					logger.debug("Work timeout for task_id=" + task.taskId + " name=" + task.name + " startTs=" + task.startTs+ " now=" + dateToStrTs(nowTime) + " ttl-minutes=" + tc.workTimeoutMinutes);
-				changeTaskStatusPostponed(task.taskId, TedStatus.RETRY, "Too long in status [work](3)", new Date());
+				changeTaskStatusPostponed(task.taskId, TedStatus.RETRY, Model.TIMEOUT_MSG + "(3)", new Date());
 			} else {
 				if (logger.isDebugEnabled())
 					logger.debug("Set finishTs for task_id=" + task.taskId + " name=" + task.name + " startTs=" + task.startTs+ " now=" + dateToStrTs(nowTime) + " ttl-minutes=" + tc.workTimeoutMinutes);
@@ -157,13 +170,18 @@ class TaskManager {
 	// process TED tasks
 	//
 	void processTasks() {
+		List<String> waitChannelsList = context.tedDao.getWaitChannels();
+		processTasks(waitChannelsList);
+	}
+
+	void processTasks(List<String> waitChannelsList) {
 		int totalProcessing = calcWaitingTaskCountInAllChannels();
 		if (totalProcessing >= LIMIT_TOTAL_WAIT_TASKS) {
 			logger.warn("Total size of waiting tasks ({}) already exceeded limit ({}), skip this iteration", totalProcessing, LIMIT_TOTAL_WAIT_TASKS);
 			return;
 		}
 
-		List<String> waitChannelsList = context.tedDao.getWaitChannels();
+		// List<String> waitChannelsList = context.tedDao.getWaitChannels();
 		if (waitChannelsList.isEmpty()) {
 			logger.trace("no wait tasks");
 			for (ChannelWorkContext wc : channelContextMap.values())
@@ -322,10 +340,10 @@ class TaskManager {
 			TaskConfig taskConfig = context.registry.getTaskConfig(taskRec1.name);
 
 			// check if batch
-			if (taskConfig.taskType == TaskType.BATCH) {
+			if (Model.BATCH_MSG.equals(taskRec1.msg)) {
 				// check for finishing all tasks before sending it to consumer
 				boolean finished = tedDao.checkIsBatchFinished(taskRec1.taskId);
-				String msg1 = "waiting for finish... [B" + taskRec1.taskId + "]";
+				//String msg1 = "waiting for finish... [B" + taskRec1.taskId + "]";
 				if (!finished) {
 					// retry batch
 					long batchTimeMn = (System.currentTimeMillis() - taskRec1.createTs.getTime()) / 1000 / 60;
@@ -337,15 +355,13 @@ class TaskManager {
 					Date nextTm = ConfigUtils.BATCH_RETRY_SCHEDULER.getNextRetryTime(taskRec1.getTedTask(), taskRec1.retries + 1, taskRec1.startTs);
 					if (nextTm == null)
 						nextTm = new Date(System.currentTimeMillis() + 60 * 1000);
-					tedDao.setStatusPostponed(taskRec1.taskId, TedStatus.RETRY, msg1, nextTm);
+					tedDao.setStatusPostponed(taskRec1.taskId, TedStatus.RETRY, Model.BATCH_MSG, nextTm);
 					return;
 				} else {
 					// cleanup retries - then it could be used for task purposes
-					if (msg1.equals(taskRec1.msg)) {
-						tedDao.cleanupRetries(taskRec1.taskId, "");
-						taskRec1.retries = 0;
-						taskRec1.msg = "";
-					}
+					tedDao.cleanupRetries(taskRec1.taskId, "");
+					taskRec1.retries = 0;
+					taskRec1.msg = "";
 				}
 			}
 

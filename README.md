@@ -4,36 +4,38 @@
 
 TED is library for Java to handle task execution.
 
-Tasks are created in Oracle/Postgres db (table tedtask). TED will check for new tasks in that table, retrieves them, call task processor and after finish will set status (DONE, ERROR or RETRY).
+Tasks are created in Oracle/Postgres db (table _tedtask_). 
+TED will check for new tasks in that table, retrieves them, call task processor and after finish will set status (DONE, ERROR or RETRY).
 
-### Main things kept in mind while creating TED
+#### Main things kept in mind while creating TED
 - simplicity of use;
 - good performance;
 - no jar dependencies;
 - easy support - it is possible to view task history in db, restart task;
 - can be used for short (~50ms) and long (~5h) tasks;
 
-### Features
+#### Features
 - is a part of war (or other app), there are no needs for separate process;
-- tasks are in db (table _tedtask_), thus, tasks remains after restart of tomcat;
+- tasks are in db, thus tasks remains after restart of tomcat;
 - it is possible to easy view tasks history;
 - there are auto cleaning after 35 days;
-- task will be executed only by 1 application instance (any first);
+- task will be executed only by 1 application instance (any);
 - works with PostgreSQL (9.5+) or Oracle DB;
-- task configuration is in separate .properties file;
-- it is possible to retry task by own retry policy;
+- task configuration is in separate ted.properties file;
+- it is possible to retry task by it's own retry policy;
+- ensures only one prime (main) instance of few app nodes at same time; after shutdown of prime node another node will become prime;
  
 TED can be helpful when:
-- you need to have task history in db table, easy browse, restart one or few selected tasks;
+- you need to have task history in db table, easy browse, restart one or few tasks;
 - to be sure task will remain even if app will be shutdown before finish execution;
 - need to balance load between few instances (e.g. tomcats);
 - need retry logic;
 
 There can be many use cases of TED, just few examples:
-- maintenance task for cleaning db data (will ensure only one instance do this task);
+- maintenance task (e.g. for cleaning db data) - will ensure only one instance do this task;
 - send (or wait for) asynchronous response to external system (task will remain in db even if tomcat will be shutdown, task will be retried until success)
-- generate 50k reports for customers (just create 50k tasks);
-- generate report by request;
+- generate lot of (say 50k) reports for customers (just create 50k tasks);
+- generate report by request asynchronously;
 
 
 Where TED isn't best solution
@@ -102,15 +104,16 @@ Mode samples can be found in (ted)/ted-samples
 #### tedtask table
 
 - `taskid  ` - Id - primary key
-- `batchid ` - Reference to batch taskId
 - `system  ` - System id. E.g. myapp, or myapp.me for dev
 - `name    ` - Task name
 - `status  ` - Status
-- `msg     ` - Status message
+- `channel ` - Channel
 - `nextts  ` - Postponed execute (next retry) timestamp
+- `batchid ` - Reference to batch taskId
 - `key1    ` - Search key 1 (task specific)
 - `key2    ` - Search key 2 (task specific)
 - `data    ` - Task data (parameters)
+- `msg     ` - Status message
 - `createts` - Record create timestamp
 - `startts ` - Execution start timestamp
 - `finishts` - Execution finish timestamp
@@ -119,7 +122,7 @@ Mode samples can be found in (ted)/ted-samples
 
 #### Statuses
 - `NEW` – new
-- `WORK` – taken to process
+- `WORK` – taken for process
 - `RETRY` – retryable error while executing, will retry later
 - `DONE` – finished successfully
 - `ERROR` – error occurred, will not retry

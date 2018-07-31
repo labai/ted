@@ -4,6 +4,8 @@ import com.github.labai.ted.sys.JdbcSelectTed.JetJdbcParamType;
 import com.github.labai.ted.sys.JdbcSelectTed.SqlParam;
 import com.github.labai.ted.sys.Model.TaskParam;
 import com.github.labai.ted.sys.Model.TaskRec;
+import com.github.labai.ted.sys.PrimeInstance.CheckPrimeParams;
+import com.github.labai.ted.sys.QuickCheck.CheckResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,8 +16,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static java.util.Arrays.asList;
 import static com.github.labai.ted.sys.JdbcSelectTed.sqlParam;
+import static java.util.Arrays.asList;
 
 /**
  * @author Augustus
@@ -83,11 +85,34 @@ class TedDaoOracle extends TedDaoAbstract {
 				+ 	" open :o_rs for select * from tedtask where bno = v_bno;"
 				+ " end;";
 		List<TaskRec> tasks = selectFromBlock(oraProc, sql, TaskRec.class, asList(
-				JdbcSelectTed.sqlParam("p_sys", thisSystem, JetJdbcParamType.STRING),
-				JdbcSelectTed.sqlParam("p_pairs", channelsParam, JetJdbcParamType.STRING),
-				JdbcSelectTed.sqlParam("o_rs", "", JetJdbcParamType.CURSOR)
+				sqlParam("p_sys", thisSystem, JetJdbcParamType.STRING),
+				sqlParam("p_pairs", channelsParam, JetJdbcParamType.STRING),
+				sqlParam("o_rs", "", JetJdbcParamType.CURSOR)
 		));
 		return tasks;
+	}
+
+	@Override
+	public List<CheckResult> quickCheck(CheckPrimeParams checkPrimeParams) {
+		if (checkPrimeParams != null)
+			throw new IllegalStateException("TODO for oracle");
+
+		List<String> chans = getWaitChannels();
+		List<CheckResult> res = new ArrayList<CheckResult>();
+		for (String chan : chans) {
+			res.add(new CheckResult("CHAN", chan));
+		}
+		return res;
+	}
+
+	@Override
+	public boolean becomePrime(Long primeTaskId, String instanceId) {
+		throw new IllegalStateException("TODO for oracle");
+	}
+
+	@Override
+	public Long findPrimeTaskId() {
+		throw new IllegalStateException("TODO for oracle");
 	}
 
 	// TODO is not really bulk. Do we care about Oracle yet?
@@ -108,7 +133,7 @@ class TedDaoOracle extends TedDaoAbstract {
 		//String sql = makeCallProcSql(PACKAGE_NAME + "." + sql, params.size());
 		if (logger.isTraceEnabled()) {
 			String sparams = "";
-			for(SqlParam p : params)
+			for (SqlParam p : params)
 				sparams += String.format(" %s=%s", p.code, p.value);
 			logger.trace("Before[{}] with params: {}", sqlLogId, sparams);
 			if (logger.isTraceEnabled()) {

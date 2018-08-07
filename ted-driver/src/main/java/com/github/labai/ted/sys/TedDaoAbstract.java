@@ -3,6 +3,7 @@ package com.github.labai.ted.sys;
 import com.github.labai.ted.Ted.TedStatus;
 import com.github.labai.ted.sys.JdbcSelectTed.JetJdbcParamType;
 import com.github.labai.ted.sys.JdbcSelectTed.SqlParam;
+import com.github.labai.ted.sys.JdbcSelectTed.TedSqlDuplicateException;
 import com.github.labai.ted.sys.JdbcSelectTed.TedSqlException;
 import com.github.labai.ted.sys.Model.TaskParam;
 import com.github.labai.ted.sys.Model.TaskRec;
@@ -257,6 +258,20 @@ abstract class TedDaoAbstract implements TedDao {
 		sql = sql.replace("$sys", thisSystem);
 		execute("maint02", sql, Collections.<SqlParam>emptyList());
 
+		// find queue events w/o head
+		sql = "with headless as (" +
+				" select taskid, key1 from tedtask t1 where channel = 'QUEUE' and status = 'SLEEP' and system = '$sys'" +
+				" and createts < $now - $seconds10" +
+				" and not exists (select taskid from tedtask t2 where channel = 'QUEUE' " +
+				" and status in ('NEW', 'RETRY', 'WORK', 'ERROR')" +
+				"   and t2.key1 = t1.key1 and t2.system = t1.system)" +
+				")" +
+				" update tedtask set status = 'NEW', nextTs = $now " +
+				" where taskid in (select min(taskid) taskid from headless group by key1)";
+		sql = sql.replace("$now", dbType.sql.now());
+		sql = sql.replace("$sys", thisSystem);
+		sql = sql.replace("$seconds10", dbType.sql.intervalSeconds(10));
+		execute("maint04", sql, Collections.<SqlParam>emptyList());
 	}
 
 	@Override
@@ -418,17 +433,6 @@ abstract class TedDaoAbstract implements TedDao {
 	//
 	// wrapper
 	//
-	private void logSqlParams(String sqlLogId, String sql, List<SqlParam> params) {
-		if (logger.isTraceEnabled()) {
-			String sparams = "";
-			for (SqlParam p : params)
-				sparams += String.format(" %s=%s", p.code, p.value);
-			logger.trace("Before[{}] with params:{}", sqlLogId, sparams);
-			if (logger.isTraceEnabled()) {
-				logger.trace("sql:" + sql);
-			}
-		}
-	}
 
 	protected void execute(String sqlLogId, String sql, List<SqlParam> params) {
 		logSqlParams(sqlLogId, sql, params);
@@ -444,8 +448,7 @@ abstract class TedDaoAbstract implements TedDao {
 		try {
 			JdbcSelectTed.execute(connection, sql, params);
 		} catch (SQLException e) {
-			logger.error("SQLException while execute '{}': {}. SQL={}", sqlLogId, e.getMessage(), sql);
-			throw new TedSqlException("SQL exception while calling sqlId '" + sqlLogId + "'", e);
+			handleSQLException(e, sqlLogId, sql);
 		}
 		logger.debug("After [{}] time={}ms", sqlLogId, (System.currentTimeMillis() - startTm));
 	}
@@ -453,7 +456,7 @@ abstract class TedDaoAbstract implements TedDao {
 	protected <T> List<T> selectData(String sqlLogId, String sql, Class<T> clazz, List<SqlParam> params) {
 		logSqlParams(sqlLogId, sql, params);
 		long startTm = System.currentTimeMillis();
-		List<T> list;
+		List<T> list = Collections.emptyList();
 		Connection connection;
 		try {
 			connection = dataSource.getConnection();
@@ -464,8 +467,7 @@ abstract class TedDaoAbstract implements TedDao {
 		try {
 			list = JdbcSelectTed.selectData(connection, sql, clazz, params);
 		} catch (SQLException e) {
-			logger.error("SQLException while selectData '{}': {}. SQL={}", sqlLogId, e.getMessage(), sql);
-			throw new TedSqlException("SQL exception while calling sqlId '" + sqlLogId + "'", e);
+			handleSQLException(e, sqlLogId, sql);
 		}
 
 		logger.debug("After [{}] time={}ms items={}", sqlLogId, (System.currentTimeMillis() - startTm), list.size());
@@ -473,6 +475,10 @@ abstract class TedDaoAbstract implements TedDao {
 	}
 
 	protected Long selectSingleLong(String sqlLogId, String sql) {
+		return selectSingleLong(sqlLogId, sql, null);
+	}
+
+	protected Long selectSingleLong(String sqlLogId, String sql, List<SqlParam> params) {
 		logger.trace("Before[{}]", sqlLogId);
 		long startTm = System.currentTimeMillis();
 		Connection connection;
@@ -482,15 +488,37 @@ abstract class TedDaoAbstract implements TedDao {
 			logger.error("Failed to get DB connection: " + e.getMessage());
 			throw new TedSqlException("Cannot get DB connection", e);
 		}
-		Long result;
+		Long result = null;
 		try {
-			result = JdbcSelectTed.selectSingleLong(connection, sql, null);
+			result = JdbcSelectTed.selectSingleLong(connection, sql, params);
 		} catch (SQLException e) {
-			logger.error("SQLException while selectSingleLong '{}': {}. SQL={}", sqlLogId, e.getMessage(), sql);
-			throw new TedSqlException("SQL exception while calling sqlId '" + sqlLogId + "'", e);
+			handleSQLException(e, sqlLogId, sql);
 		}
 		logger.debug("After [{}] time={}ms result={}", sqlLogId, (System.currentTimeMillis() - startTm), result);
 		return result;
 	}
 
+	private void logSqlParams(String sqlLogId, String sql, List<SqlParam> params) {
+		if (logger.isTraceEnabled()) {
+			String sparams = "";
+			for (SqlParam p : params)
+				sparams += String.format(" %s=%s", p.code, p.value);
+			logger.trace("Before[{}] with params:{}", sqlLogId, sparams);
+			if (logger.isTraceEnabled()) {
+				logger.trace("sql:" + sql);
+			}
+		}
+	}
+
+	private void handleSQLException(SQLException sqle, String sqlLogId, String sql) {
+		if ("23505".equals(sqle.getSQLState())) { // 23505 in postgres: duplicate key value violates unique constraint. TODO for oracle - don't care(?)
+			logger.info("duplicate was found for unique index. sqlId={} message={}", sqlLogId, sqle.getMessage());
+			throw new TedSqlDuplicateException("duplicate was found for sqlId=" + sqlLogId, sqle);
+		}
+
+		logger.error("SQLException while execute '{}': {}. SQL={}", sqlLogId, sqle.getMessage(), sql);
+		throw new TedSqlException("SQL exception while calling sqlId '" + sqlLogId + "'", sqle);
+
+
+	}
 }

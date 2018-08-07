@@ -61,3 +61,10 @@ comment on column tedtask.key1       is 'Search key 1 (task specific)';
 comment on column tedtask.key2       is 'Search key 2 (task specific)';
 comment on column tedtask.data       is 'Task data (parameters)';
 comment on column tedtask.bno        is 'Internal TED field (batch number)';
+
+-- for events queue
+--
+create unique index ix_ted_queue_uniq on tedtask (key1, system)
+    where channel = 'QUEUE' and status in ('NEW', 'RETRY', 'WORK', 'ERROR');
+create index ix_ted_queue_key1 on tedtask (key1)
+    where channel = 'QUEUE' and status = 'SLEEP';

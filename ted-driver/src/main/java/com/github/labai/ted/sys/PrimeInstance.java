@@ -21,7 +21,7 @@ import sun.plugin.dom.exception.InvalidStateException;
 public class PrimeInstance {
 	private final static Logger logger = LoggerFactory.getLogger(PrimeInstance.class);
 	private final static Logger loggerConfig = LoggerFactory.getLogger("ted-config");
-	final static int PERIOD_SKIP_COUNT = 3; // every 3 check periods
+	final static int TICK_SKIP_COUNT = 3; // every 3 check periods
 
 	private final TedContext context;
 
@@ -67,7 +67,7 @@ public class PrimeInstance {
 		this.primeTaskId = context.tedDao.findPrimeTaskId();
 
 		int periodMs = context.config.intervalDriverMs();
-		this.postponeSec = (int)Math.round((1.0 * periodMs * PERIOD_SKIP_COUNT + 500 + 500) / 1000); // 500ms reserve, 500 for rounding up
+		this.postponeSec = (int)Math.round((1.0 * periodMs * TICK_SKIP_COUNT + 500 + 500) / 1000); // 500ms reserve, 500 for rounding up
 
 		becomePrime();
 

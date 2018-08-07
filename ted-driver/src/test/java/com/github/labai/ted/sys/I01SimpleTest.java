@@ -144,7 +144,7 @@ public class I01SimpleTest extends TestBase {
 		assertEquals("NEW", taskRec.status);
 
 		// will start parallel
-		driver.getContext().taskManager.processTasks();
+		driver.getContext().taskManager.processChannelTasks();
 
 		taskRec = driver.getContext().tedDao.getTask(taskId);
 		TestUtils.print(taskRec.toString());
@@ -180,7 +180,7 @@ public class I01SimpleTest extends TestBase {
 		assertEquals("NEW", taskRec.status);
 
 		// will start parallel
-		driver.getContext().taskManager.processTasks();
+		driver.getContext().taskManager.processChannelTasks();
 
 		taskRec = driver.getContext().tedDao.getTask(taskId);
 		TestUtils.print(taskRec.toString());
@@ -218,7 +218,7 @@ public class I01SimpleTest extends TestBase {
 		assertEquals("NEW", taskRec.status);
 
 		// will start parallel
-		driver.getContext().taskManager.processTasks();
+		driver.getContext().taskManager.processChannelTasks();
 
 		taskRec = driver.getContext().tedDao.getTask(taskId);
 		//print(taskRec.toString());

@@ -52,14 +52,14 @@ class QuickCheck {
 	public void quickCheck() {
 		CheckPrimeParams checkPrimeParams = null;
 		if (context.prime.isEnabled()) {
-			boolean needCheck = false;
+			boolean needCheckPrime = false;
 			if (context.prime.isPrime()) {
-				// update every 3 calls
-				needCheck = (checkIteration % PrimeInstance.PERIOD_SKIP_COUNT == 0);
+				// update every 3 ticks
+				needCheckPrime = (checkIteration % PrimeInstance.TICK_SKIP_COUNT == 0);
 			} else {
-				needCheck = (nextPrimeCheckTimeMs <= System.currentTimeMillis());
+				needCheckPrime = (nextPrimeCheckTimeMs <= System.currentTimeMillis());
 			}
-			if (needCheck) {
+			if (needCheckPrime) {
 				checkPrimeParams = context.prime.checkPrimeParams;
 			}
 		}
@@ -75,7 +75,8 @@ class QuickCheck {
 		checkIteration++;
 
 		// process tasks
-		List<String> waitChans = new ArrayList<String>();
+		List<String> taskChannels = new ArrayList<String>();
+		boolean needProcessTedQueue = false;
 		for (CheckResult cres : checkResList) {
 			if ("CHAN".equals(cres.type) == false)
 				continue;
@@ -85,10 +86,19 @@ class QuickCheck {
 				if (chan == null || chan.primeOnly)
 					continue;
 			}
-			waitChans.add(cres.name);
+			if (Model.CHANNEL_QUEUE.equalsIgnoreCase(cres.name)) {
+				needProcessTedQueue = true;
+			} else {
+				if (Model.nonTaskChannels.contains(cres.name) == false)
+					taskChannels.add(cres.name);
+			}
 		}
-		context.taskManager.processTasks(waitChans);
-
+		if (! taskChannels.isEmpty()) {
+			context.taskManager.processChannelTasks(taskChannels);
+		}
+		if (needProcessTedQueue) {
+			context.eventQueueManager.processTedQueue();
+		}
 		// process prime check results
 		if (context.prime.isEnabled()) {
 			boolean canPrime = false;

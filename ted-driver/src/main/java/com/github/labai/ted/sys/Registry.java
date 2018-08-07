@@ -206,12 +206,14 @@ class Registry {
 //			taskType = TaskType.TASK;
 //		}
 
-		String batchTask = ConfigUtils.getString(shortProp, TedProperty.TASK_BATCH_TASK, null);
-
+//		String batchTask = ConfigUtils.getString(shortProp, TedProperty.TASK_BATCH_TASK, null);
 //		if (taskType == TaskType.BATCH) {
 //			logger.debug("Setting batchInterceptProcessorFactory for task {}", taskName);
 //			tedProcessorFactory = context.batchManager.batchInterceptProcessorFactory(tedProcessorFactory);
 //		}
+
+		if (Model.CHANNEL_QUEUE.equalsIgnoreCase(taskName))
+			throw new IllegalStateException("Channel '"+ Model.CHANNEL_QUEUE +"' cannot be assigned to regular task - is is reserved for Ted queue events execution");
 
 		TaskConfig ttc = new TaskConfig(taskName, tedProcessorFactory, tedPackProcessorFactory,
 				workTimeoutInMinutes, retryScheduler, channel,

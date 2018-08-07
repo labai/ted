@@ -61,6 +61,7 @@ public class TedDriverImpl {
 		RetryConfig retryConfig;
 		QuickCheck quickCheck;
 		PrimeInstance prime;
+		EventQueueManager eventQueueManager;
 		//BatchManager batchManager;
 		//ScheduleManager scheduleManager;
 	}
@@ -95,19 +96,23 @@ public class TedDriverImpl {
 		//context.scheduleManager = new ScheduleManager(context);
 		context.quickCheck = new QuickCheck(context);
 		context.prime = new PrimeInstance(context);
+		context.eventQueueManager = new EventQueueManager(context);
 
 
 		// read properties (e.g. from ted.properties.
 		// default MAIN channel configuration: 5/100. Can be overwrite by [properties]
+		// default QUEUE channel configuration: 2/100
 		//
 		// e.g.: ted.channel.MAIN.workersMin
-		String prefix = ConfigUtils.PROPERTY_PREFIX_CHANNEL + Model.CHANNEL_MAIN + ".";
-		Properties mainChanProp = new Properties();
-		mainChanProp.put(prefix + TedProperty.CHANNEL_WORKERS_COUNT, "5");
-		mainChanProp.put(prefix + TedProperty.CHANNEL_TASK_BUFFER, "100");
-		ConfigUtils.readTedProperties(context.config, mainChanProp);
+		Properties defaultChanProp = new Properties();
+		String prefixMain = ConfigUtils.PROPERTY_PREFIX_CHANNEL + Model.CHANNEL_MAIN + ".";
+		defaultChanProp.put(prefixMain + TedProperty.CHANNEL_WORKERS_COUNT, "5");
+		defaultChanProp.put(prefixMain + TedProperty.CHANNEL_TASK_BUFFER, "100");
+		String prefixQueue = ConfigUtils.PROPERTY_PREFIX_CHANNEL + Model.CHANNEL_QUEUE + ".";
+		defaultChanProp.put(prefixQueue + TedProperty.CHANNEL_WORKERS_COUNT, "2");
+		defaultChanProp.put(prefixQueue + TedProperty.CHANNEL_TASK_BUFFER, "100");
+		ConfigUtils.readTedProperties(context.config, defaultChanProp);
 		ConfigUtils.readTedProperties(context.config, properties);
-
 
 		// Create channels
 		for (String channel : context.config.channelMap().keySet()) {
@@ -388,6 +393,14 @@ public class TedDriverImpl {
 		context.tedDao.setStatusPostponed(batchId, TedStatus.NEW, Model.BATCH_MSG, new Date());
 
 		return batchId;
+	}
+
+	public Long createEvent(String taskName, String discriminator, String data, String key2) {
+		return context.eventQueueManager.createEvent(taskName, discriminator, data, key2);
+	}
+
+	public Long createAndTryExecuteEvent(String taskName, String discriminator, String data, String key2) {
+		return context.eventQueueManager.createAndTryExecuteEvent(taskName, discriminator, data, key2);
 	}
 
 	public void registerTaskConfig(String taskName, TedProcessorFactory tedProcessorFactory) {

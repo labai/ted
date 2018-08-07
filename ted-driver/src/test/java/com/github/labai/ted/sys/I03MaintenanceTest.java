@@ -184,7 +184,7 @@ public class I03MaintenanceTest extends TestBase {
 		taskId = driverTmp.createTask(taskName, null, null, null);
 
 		// process unknown task
-		context.taskManager.processTasks();
+		context.taskManager.processChannelTasks();
 		Thread.sleep(20);
 
 		// 1. Must be postponed (new with some nextts > now())
@@ -197,7 +197,7 @@ public class I03MaintenanceTest extends TestBase {
 		dao_setCreateTs(taskId, new Date(new Date().getTime() - 24 * 60 * 61 * 1000));
 		dao_setNextTs(taskId, new Date(new Date().getTime() - 1 * 1000));
 
-		context.taskManager.processTasks();
+		context.taskManager.processChannelTasks();
 		Thread.sleep(20);
 
 		taskRec = context.tedDao.getTask(taskId);

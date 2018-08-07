@@ -31,4 +31,11 @@ class MiscUtils {
 		return id;
 	}
 
+	static <T> T nvl (T obj, T altObj) {
+		return obj == null ? altObj : obj;
+	}
+
+	static String nvle (String str) {
+		return str == null ? "" : str;
+	}
 }

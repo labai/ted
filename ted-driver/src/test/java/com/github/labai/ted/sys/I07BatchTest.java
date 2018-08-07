@@ -105,7 +105,7 @@ public class I07BatchTest extends TestBase {
 	public void testBatch1() throws Exception {
 		dao_cleanupAllTasks();
 
-		String taskName = "TEST71";
+		String taskName = "TEST07-1";
 		String batchName = "BAT07";
 		driver.registerTaskConfig(taskName, forClass(ProcessorRandomOk.class));
 		driver.registerTaskConfig(batchName, forClass(BatchFinishProcessor.class));
@@ -117,8 +117,8 @@ public class I07BatchTest extends TestBase {
 		Long batchId = driver.createBatch(batchName, "data", "key1", "key2", taskParams);
 
 		sleepMs(500); // there can be difference between clocks in dev/tomcat and db server?
-		driver.getContext().taskManager.processTasks();
-		driver.getContext().taskManager.processTasks();
+		driver.getContext().taskManager.processChannelTasks();
+		driver.getContext().taskManager.processChannelTasks();
 		sleepMs(20);
 		Map<TedStatus, Integer> stats = tedDao.getBatchStatusStats(batchId);
 		print(stats.toString());
@@ -128,14 +128,14 @@ public class I07BatchTest extends TestBase {
 		print("sleep...");
 
 		sleepMs(1100 + 500); // wait 1s (retry)
-		driver.getContext().taskManager.processTasks();
+		driver.getContext().taskManager.processChannelTasks();
 		sleepMs(100);
 
 		batchRec = tedDao.getTask(batchId);
 		assertEquals("batch should be RETRY because 1 task was delayed and not finished yet", "RETRY", batchRec.status);
 
 		sleepMs(1000 + 500); // wait 1s (retry)
-		driver.getContext().taskManager.processTasks();
+		driver.getContext().taskManager.processChannelTasks();
 		sleepMs(100);
 
 		batchRec = tedDao.getTask(batchId);

@@ -1,4 +1,4 @@
-package sample2;
+package sample1;
 
 import com.github.labai.ted.Ted.TedDbType;
 import com.github.labai.ted.Ted.TedProcessor;
@@ -20,8 +20,8 @@ import java.util.Properties;
 
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 
-public class Sample2Prime {
-	private static final Logger logger = LoggerFactory.getLogger(Sample2Prime.class);
+public class Sample1_2_prime {
+	private static final Logger logger = LoggerFactory.getLogger(Sample1_2_prime.class);
 
 	private static final String TASK_NAME = "PROCESS_LINE";
 
@@ -45,7 +45,7 @@ public class Sample2Prime {
 	private static TedDriver tedDriver() {
 		Properties properties = new Properties();
 		String propFileName = "ted.properties";
-		InputStream inputStream = Sample2Prime.class.getClassLoader().getResourceAsStream(propFileName);
+		InputStream inputStream = Sample1_2_prime.class.getClassLoader().getResourceAsStream(propFileName);
 		if (inputStream == null)
 			throw new RuntimeException("Property file '" + propFileName + "' not found in the classpath");
 		try {
@@ -83,7 +83,7 @@ public class Sample2Prime {
 
 		// read some big file for processing
 		//
-		File file = new File(Sample2Prime.class.getClassLoader().getResource(fileName).getPath());
+		File file = new File(Sample1_2_prime.class.getClassLoader().getResource(fileName).getPath());
 		List<String> lines = FileUtils.readLines(file, "UTF-8");
 
 		// create tasks for each line

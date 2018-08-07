@@ -69,7 +69,7 @@ public class I05PerfomTest extends TestBase {
 		driver.registerTaskConfig(taskName, TestUtils.forClass(Test05ProcessorOk.class));
 		try {
 			for (int i = 0; i < 30; i++) {
-				getContext().taskManager.processTasks();
+				getContext().taskManager.processChannelTasks();
 				TestUtils.sleepMs(600);
 				if (getContext().tedDao.getWaitChannels().isEmpty()) {
 					TestUtils.print("No more tasks, finish");

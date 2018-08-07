@@ -3,8 +3,12 @@ package com.github.labai.ted.sys;
 import com.github.labai.ted.Ted.TedTask;
 
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static java.util.Arrays.asList;
 
 /**
  * @author Augustus
@@ -14,8 +18,12 @@ import java.util.regex.Pattern;
  */
 class Model {
 	static final String CHANNEL_MAIN = "MAIN";
+	static final String CHANNEL_QUEUE = "QUEUE";
+	static final String CHANNEL_PRIME = "TED"; // for prime instance
 	static final String TIMEOUT_MSG = "Too long in status [work]";
 	static final String BATCH_MSG = "Batch task is waiting for finish of subtasks";
+
+	static final Set<String> nonTaskChannels = new HashSet<String>(asList(Model.CHANNEL_QUEUE, CHANNEL_PRIME));
 
 	static class TaskRec {
 		Long taskId;
@@ -105,6 +113,8 @@ class Model {
 				throw new FieldValidateException("System id length must be <= " + Lengths.len_system + ", systemId=" + system);
 			if (hasInvalidChars(system))
 				throw new FieldValidateException("System id has invalid character, allowed letters, numbers, and \".-_\", systemId=" + system);
+			if (beginsWithIgnoreCase(system, "TED"))
+				throw new IllegalArgumentException("System id is reserved (TED*), system=" + system);
 		}
 		public static void validateTaskName(String taskName) {
 			if (taskName == null || taskName.isEmpty())
@@ -113,6 +123,8 @@ class Model {
 				throw new FieldValidateException("Task name length must be <= " + Lengths.len_name + ", task=" + taskName);
 			if (hasInvalidChars(taskName))
 				throw new FieldValidateException("Task name has invalid character, allowed letters, numbers, and \".-_\", task=" + taskName);
+			if (beginsWithIgnoreCase(taskName, "TED"))
+				throw new IllegalArgumentException("Task name is reserved (TED*), task=" + taskName);
 		}
 		public static void validateTaskChannel(String channel) {
 			if (channel == null || channel.isEmpty())
@@ -121,30 +133,41 @@ class Model {
 				throw new FieldValidateException("Channel name length must be maximum " + Lengths.len_channel + " symbols length, channel=" + channel);
 			if (hasNonLetters(channel))
 				throw new IllegalArgumentException("Channel name has invalid character, allowed letters and numbers, channel=" + channel);
-			if ("TED".equalsIgnoreCase(channel))
-				throw new IllegalArgumentException("Channel name is reserved, channel=" + channel);
+			if (beginsWithIgnoreCase(channel, "TED"))
+				throw new IllegalArgumentException("Channel name is reserved (TED*), channel=" + channel);
+		}
+
+
+
+		// allows letters, numbers, and ".-_"
+		private static final Pattern hasInvalidCharsPattern = Pattern.compile("[^a-z0-9\\_\\-\\.]", Pattern.CASE_INSENSITIVE);
+		static boolean hasInvalidChars(String str){
+			Matcher m = hasInvalidCharsPattern.matcher(str);
+			return m.find();
 		}
 
 		//
 		// private
 		//
 
-		// allows letters, numbers, and ".-_"
-		private static boolean hasInvalidChars(String str){
-			Pattern p = Pattern.compile("[^a-z0-9\\_\\-\\.]", Pattern.CASE_INSENSITIVE);
-			Matcher m = p.matcher(str);
-			return m.find();
-		}
 		// allows letters and numbers
+		private static final Pattern hasNonLettersPattern = Pattern.compile("[^a-z0-9]", Pattern.CASE_INSENSITIVE);
 		private static boolean hasNonLetters(String str){
-			Pattern p = Pattern.compile("[^a-z0-9]", Pattern.CASE_INSENSITIVE);
-			Matcher m = p.matcher(str);
+			Matcher m = hasNonLettersPattern.matcher(str);
 			return m.find();
 		}
 		private static boolean hasNonAscii(String str) {
 			if (str == null)
 				return false;
 			return !str.matches("\\A\\p{ASCII}*\\z");
+		}
+
+		private static boolean beginsWithIgnoreCase(String str, String begins) {
+			if (str == null || begins == null)
+				return false;
+			if (str.length() < begins.length())
+				return false;
+			return str.substring(0, begins.length() - 1).equalsIgnoreCase(begins);
 		}
 
 		private static void checkMaxLengthAscii(String paramName, String str, int maxLen) {
@@ -155,5 +178,6 @@ class Model {
 			if (hasNonAscii(str))
 				throw new FieldValidateException("Parameter's '" + paramName + "' has non ASCII letters, value='" + str + "'");
 		}
+
 	}
 }

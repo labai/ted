@@ -83,14 +83,14 @@ public class I02MultiTest extends TestBase {
 		}
 
 		// will start parallel
-		driver1.getContext().taskManager.processTasks();
+		driver1.getContext().taskManager.processChannelTasks();
 		TestUtils.print("Driver1 active="+ channel1.workers.getActiveCount() + " queue=" + channel1.workers.getQueue().size());
-		driver2.getContext().taskManager.processTasks();
+		driver2.getContext().taskManager.processChannelTasks();
 		TestUtils.print("Driver2 active="+ channel2.workers.getActiveCount() + " queue=" + channel2.workers.getQueue().size());
 
 		for (int i = 0; i < 10; i++) {
 			TestUtils.sleepMs(600);
-			driver2.getContext().taskManager.processTasks();
+			driver2.getContext().taskManager.processChannelTasks();
 		}
 		TestUtils.print("Exit");
 	}

@@ -105,6 +105,17 @@ class TedDaoOracle extends TedDaoAbstract {
 		return res;
 	}
 
+	// TODO is not really bulk. Do we care about Oracle yet?
+	@Override
+	public List<Long> createTasksBulk(List<TaskParam> taskParams) {
+		ArrayList<Long> taskIds = new ArrayList<Long>();
+		for (TaskParam param : taskParams) {
+			Long taskId = createTask(param.name, param.channel, param.data, param.key1, param.key2, param.batchId);
+			taskIds.add(taskId);
+		}
+		return taskIds;
+	}
+
 	@Override
 	public boolean becomePrime(Long primeTaskId, String instanceId) {
 		throw new IllegalStateException("TODO for oracle");
@@ -115,15 +126,19 @@ class TedDaoOracle extends TedDaoAbstract {
 		throw new IllegalStateException("TODO for oracle");
 	}
 
-	// TODO is not really bulk. Do we care about Oracle yet?
 	@Override
-	public List<Long> createTasksBulk(List<TaskParam> taskParams) {
-		ArrayList<Long> taskIds = new ArrayList<Long>();
-		for (TaskParam param : taskParams) {
-			Long taskId = createTask(param.name, param.channel, param.data, param.key1, param.key2, param.batchId);
-			taskIds.add(taskId);
-		}
-		return taskIds;
+	public Long createEvent(String taskName, String discriminator, String data, String key2) {
+		throw new IllegalStateException("TODO for oracle");
+	}
+
+	@Override
+	public TaskRec eventQueueMakeFirst(String discriminator) {
+		throw new IllegalStateException("TODO for oracle");
+	}
+
+	@Override
+	public List<TaskRec> eventQueueGetTail(String discriminator) {
+		throw new IllegalStateException("TODO for oracle");
 	}
 
 	//

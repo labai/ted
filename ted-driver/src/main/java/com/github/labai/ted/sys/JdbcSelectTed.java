@@ -46,6 +46,11 @@ class JdbcSelectTed {
 			super(message, cause);
 		}
 	}
+	static class TedSqlDuplicateException extends TedSqlException {
+		public TedSqlDuplicateException(String message, SQLException cause) {
+			super(message, cause);
+		}
+	}
 
 	static class SqlParam {
 		final String code;

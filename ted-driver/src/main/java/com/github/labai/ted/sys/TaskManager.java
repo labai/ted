@@ -36,7 +36,7 @@ class TaskManager {
 
 	static final int SLOW_START_COUNT = 3;
 	static final int MAX_TASK_COUNT = 1000;
-	private static final int LIMIT_TOTAL_WAIT_TASKS = 20000; // max waiting tasks (aim to don't consume all memory)
+	static final int LIMIT_TOTAL_WAIT_TASKS = 20000; // max waiting tasks (aim to don't consume all memory)
 	private static final long RARE_MAINT_INTERVAL_MILIS = 3 * 3600 * 1000; // every 3 hour
 	private static final long UNKNOWN_TASK_POSTPONE_MS = 120 * 1000; // 2 min
 	private static final long UNKNOWN_TASK_CANCEL_AFTER_MS = 24 * 3600 * 1000;
@@ -169,12 +169,13 @@ class TaskManager {
 
 	// process TED tasks
 	//
-	void processTasks() {
+	void processChannelTasks() {
 		List<String> waitChannelsList = context.tedDao.getWaitChannels();
-		processTasks(waitChannelsList);
+		waitChannelsList.removeAll(Model.nonTaskChannels);
+		processChannelTasks(waitChannelsList);
 	}
 
-	void processTasks(List<String> waitChannelsList) {
+	void processChannelTasks(List<String> waitChannelsList) {
 		int totalProcessing = calcWaitingTaskCountInAllChannels();
 		if (totalProcessing >= LIMIT_TOTAL_WAIT_TASKS) {
 			logger.warn("Total size of waiting tasks ({}) already exceeded limit ({}), skip this iteration", totalProcessing, LIMIT_TOTAL_WAIT_TASKS);
@@ -189,7 +190,8 @@ class TaskManager {
 			return;
 		}
 
-		// check and log for unknown channels
+		// check and log for unknown channels, remove special channels
+
 		for (String waitChan : waitChannelsList) {
 			if (context.registry.getChannel(waitChan) == null)
 				logger.warn("Channel '" + waitChan + "' is not configured, but exists a waiting task with that channel");
@@ -206,14 +208,7 @@ class TaskManager {
 			if (!wc.foundTask)
 				continue;
 			// calc max size of tasks we can take now
-			int workerCount = channel.workers.getMaximumPoolSize();
-			int queueRemain = channel.getQueueRemainingCapacity();
-			int maxTask = workerCount - channel.workers.getActiveCount() + queueRemain;
-			maxTask = Math.max(Math.min(maxTask, MAX_TASK_COUNT), 0);
-			logger.debug(channel.name + " max_count=" + maxTask + " (workerCount=" + workerCount + " activeCount=" + channel.workers.getActiveCount() + " remainingCapacity=" + queueRemain + " maxQueue=" + channel.taskBufferSize + ")");
-			if (maxTask == 0) {
-				logger.debug("Channel " + channel.name + " queue is full");
-			}
+			int maxTask = calcChannelBufferFree(channel);
 			maxTask = Math.min(maxTask, wc.nextSlowLimit); // limit maximums by iteration(slow start)
 			wc.nextPortion = maxTask;
 		}
@@ -328,13 +323,22 @@ class TaskManager {
 	// Remarks:
 	// - all tasks must be of same type (will not be checked)
 	//
-	void processTask(List<TaskRec> taskRecList) {
+//	TedResult processTask(TaskRec taskRec) {
+//		Map<Long, TedResult> results = processTask(Collections.singletonList(taskRec));
+//		TedResult result = results.get(taskRec.taskId);
+//		if (result == null)
+//			result = TedResult.error("Result was lost");
+//		return result;
+//	}
+
+	Map<Long, TedResult> processTask(List<TaskRec> taskRecList) {
 		if (taskRecList == null || taskRecList.isEmpty())
 			throw new IllegalStateException("taskRecList is empty");
 		TaskRec taskRec1 = taskRecList.get(0);
 
 		TedDao tedDao = context.tedDao;
 		String threadName = Thread.currentThread().getName();
+		Map<Long, TedResult> results = new HashMap<Long, TedResult>();
 		try {
 
 			TaskConfig taskConfig = context.registry.getTaskConfig(taskRec1.name);
@@ -350,13 +354,13 @@ class TaskManager {
 					if (batchTimeMn >= taskConfig.batchTimeoutMinutes) {
 						logger.warn("Batch timeout for task_id=" + taskRec1.taskId + " name=" + taskRec1.name + " createTs=" + taskRec1.createTs+ " now=" + dateToStrTs(System.currentTimeMillis()) + " ttl-minutes=" + taskConfig.batchTimeoutMinutes);
 						changeTaskStatus(taskRec1.taskId, TedStatus.ERROR, "Batch processing too long");
-						return;
+						return Collections.emptyMap();
 					}
 					Date nextTm = ConfigUtils.BATCH_RETRY_SCHEDULER.getNextRetryTime(taskRec1.getTedTask(), taskRec1.retries + 1, taskRec1.startTs);
 					if (nextTm == null)
 						nextTm = new Date(System.currentTimeMillis() + 60 * 1000);
 					tedDao.setStatusPostponed(taskRec1.taskId, TedStatus.RETRY, Model.BATCH_MSG, nextTm);
-					return;
+					return Collections.emptyMap();
 				} else {
 					// cleanup retries - then it could be used for task purposes
 					tedDao.cleanupRetries(taskRec1.taskId, "");
@@ -369,7 +373,7 @@ class TaskManager {
 
 			// process
 			//
-			Map<Long, TedResult> results;
+
 			if (taskConfig.isPackProcessing) {
 				TedPackProcessor processor = taskConfig.tedPackProcessorFactory.getPackProcessor(taskRec1.name);
 				List<TedTask> taskList = new ArrayList<TedTask>();
@@ -383,7 +387,6 @@ class TaskManager {
 					throw new IllegalStateException("taskRecList size must by 1");
 				TedProcessor processor = taskConfig.tedProcessorFactory.getProcessor(taskRec1.name);
 				TedResult result1 = processor.process(taskRec1.getTedTask());
-				results = new HashMap<Long, TedResult>();
 				results.put(taskRec1.taskId, result1);
 			}
 
@@ -406,12 +409,16 @@ class TaskManager {
 					changeTaskStatus(trec.taskId, TedStatus.ERROR, "invalid result status: " + result.status);
 				}
 			}
+
+
 		} catch (Exception e) {
 			logger.info("Unhandled exception while calling processor for task '{}': {}", taskRec1.name, e.getMessage());
 			taskExceptionLogger.error("Unhandled exception while calling processor for task '" + taskRec1.name + "'", e);
 			try {
+				TedResult resultError = TedResult.error("Catch: " + e.getMessage());
 				for (TaskRec taskRec : taskRecList) {
-					changeTaskStatus(taskRec.taskId, TedStatus.ERROR, "Catch: " + e.getMessage());
+					results.put(taskRec.taskId, resultError);
+					changeTaskStatus(taskRec.taskId, TedStatus.ERROR, resultError.message);
 				}
 			} catch (Exception e1) {
 				logger.warn("Unhandled exception while handling exception for task '{}', statuses will be not changed: {}", taskRec1.name, e1.getMessage());
@@ -419,11 +426,23 @@ class TaskManager {
 		} finally {
 			Thread.currentThread().setName(threadName);
 		}
+		return results;
+	}
 
+	int calcChannelBufferFree(Channel channel) {
+		int workerCount = channel.workers.getMaximumPoolSize();
+		int queueRemain = channel.getQueueRemainingCapacity();
+		int maxTask = workerCount - channel.workers.getActiveCount() + queueRemain;
+		maxTask = Math.max(Math.min(maxTask, MAX_TASK_COUNT), 0);
+		logger.debug(channel.name + " max_count=" + maxTask + " (workerCount=" + workerCount + " activeCount=" + channel.workers.getActiveCount() + " remainingCapacity=" + queueRemain + " maxQueue=" + channel.taskBufferSize + ")");
+		if (maxTask == 0) {
+			logger.debug("Channel " + channel.name + " queue is full");
+		}
+		return maxTask;
 	}
 
 
-	private int calcWaitingTaskCountInAllChannels() {
+	int calcWaitingTaskCountInAllChannels() {
 		int sum = 0;
 		for (Channel channel : context.registry.getChannels()) {
 			Queue<Runnable> queue = channel.workers.getQueue();

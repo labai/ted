@@ -20,8 +20,8 @@ import java.util.Properties;
 
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 
-public class Sample1 {
-	private static final Logger logger = LoggerFactory.getLogger(Sample1.class);
+public class Sample1_1_tasks {
+	private static final Logger logger = LoggerFactory.getLogger(Sample1_1_tasks.class);
 
 	private static final String TASK_NAME = "PROCESS_LINE";
 
@@ -45,7 +45,7 @@ public class Sample1 {
 	private static TedDriver tedDriver() {
 		Properties properties = new Properties();
 		String propFileName = "ted.properties";
-		InputStream inputStream = Sample1.class.getClassLoader().getResourceAsStream(propFileName);
+		InputStream inputStream = Sample1_1_tasks.class.getClassLoader().getResourceAsStream(propFileName);
 		if (inputStream == null)
 			throw new RuntimeException("Property file '" + propFileName + "' not found in the classpath");
 		try {
@@ -72,7 +72,7 @@ public class Sample1 {
 
 		// read some big file for processing
 		//
-		File file = new File(Sample1.class.getClassLoader().getResource(fileName).getPath());
+		File file = new File(Sample1_1_tasks.class.getClassLoader().getResource(fileName).getPath());
 		List<String> lines = FileUtils.readLines(file, "UTF-8");
 
 		// create tasks for each line

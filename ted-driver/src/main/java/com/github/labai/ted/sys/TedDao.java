@@ -18,6 +18,7 @@ import java.util.Map;
  * for TED internal usage only!!!
  */
 interface TedDao {
+
 	DbType getDbType();
 
 	Long createTask(String name, String channel, String data, String key1, String key2, Long batchId);
@@ -60,5 +61,12 @@ interface TedDao {
 	boolean becomePrime(Long primeTaskId, String instanceId);
 
 	Long findPrimeTaskId();
+
+	Long createEvent(String taskName, String discriminator, String data, String key2);
+
+	TaskRec eventQueueMakeFirst(String discriminator);
+
+	List<TaskRec> eventQueueGetTail(String discriminator);
+
 
 }

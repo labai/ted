@@ -3,7 +3,9 @@ package com.github.labai.ted.sys;
 import com.github.labai.ted.Ted.TedStatus;
 import com.github.labai.ted.sys.JdbcSelectTed.JetJdbcParamType;
 import com.github.labai.ted.sys.JdbcSelectTed.SqlParam;
+import com.github.labai.ted.sys.JdbcSelectTed.TedSqlDuplicateException;
 import com.github.labai.ted.sys.Model.TaskParam;
+import com.github.labai.ted.sys.Model.TaskRec;
 import com.github.labai.ted.sys.PrimeInstance.CheckPrimeParams;
 import com.github.labai.ted.sys.QuickCheck.CheckResult;
 import org.postgresql.copy.CopyManager;
@@ -21,14 +23,14 @@ import java.util.Collections;
 import java.util.List;
 
 import static com.github.labai.ted.sys.JdbcSelectTed.sqlParam;
+import static com.github.labai.ted.sys.MiscUtils.nvle;
 import static java.util.Arrays.asList;
 
 /**
  * @author Augustus
- *         created on 2017.04.14
- *
+ * created on 2017.04.14
+ * <p>
  * for TED internal usage only!!!
- *
  */
 class TedDaoPostgres extends TedDaoAbstract {
 	private static final Logger logger = LoggerFactory.getLogger(TedDaoPostgres.class);
@@ -94,10 +96,13 @@ class TedDaoPostgres extends TedDaoAbstract {
 				+ " where system = '$sys' and nextTs <= $now";
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$now", dbType.sql.now());
-		//logger.debug(sql);
+		//logger.info(sql);
 		return selectData("quick_check(" + logId + ")", sql, CheckResult.class, Collections.<SqlParam>emptyList());
 	}
 
+	//
+	// prime
+	//
 
 	@Override
 	public Long findPrimeTaskId() {
@@ -121,9 +126,10 @@ class TedDaoPostgres extends TedDaoAbstract {
 				+ "  $sequenceTedTask"
 				+ "  )";
 		sql = "insert into tedtask(taskid, system, name, status, channel, startts, nextts, msg)"
-				+ " values (" + sqlNextId + ", '$sys', 'TED:PRIME', 'SLEEP', 'TED', $now, null, 'This is internal TED pseudo-task for prime check')";
+				+ " values (" + sqlNextId + ", '$sys', 'TED:PRIME', 'SLEEP', '$channel', $now, null, 'This is internal TED pseudo-task for prime check')";
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$now", dbType.sql.now());
+		sql = sql.replace("$channel", Model.CHANNEL_PRIME);
 		sql = sql.replace("$sequenceTedTask", dbType.sql.sequenceSql("SEQ_TEDTASK_ID"));
 
 		execute("insert_prime", sql, Collections.<SqlParam>emptyList());
@@ -153,10 +159,79 @@ class TedDaoPostgres extends TedDaoAbstract {
 		return res.size() == 1;
 	}
 
+	//
+	// queue events
+	//
+
+
+	@Override
+	public Long createEvent(String taskName, String discriminator, String data, String key2) {
+		return createTaskInternal(taskName, Model.CHANNEL_QUEUE, data, nvle(discriminator), key2, null, 0, TedStatus.SLEEP);
+	}
+
+	@Override
+	public TaskRec eventQueueMakeFirst(String discriminator) {
+		String sql = "update tedtask set status = 'NEW' where system = '$sys'" +
+				" and key1 = ? and status = 'SLEEP' and channel = 'QUEUE'" +
+				" and taskid = (select min(taskid) from tedtask t2 " +
+				"   where system = '$sys' and channel = 'QUEUE' and t2.key1 = ?" +
+				"   and status = 'SLEEP')" +
+				" and not exists (select taskid from tedtask t3" +
+				"   where system = '$sys' and channel = 'QUEUE' and t3.key1 = ?" +
+				"   and status in ('NEW', 'RETRY', 'WORK', 'ERROR'))" +
+				" returning tedtask.*";
+		sql = sql.replace("$sys", thisSystem);
+		try {
+			List<TaskRec> recs = selectData("event_make_first", sql, TaskRec.class, asList(
+					sqlParam(discriminator, JetJdbcParamType.STRING),
+					sqlParam(discriminator, JetJdbcParamType.STRING),
+					sqlParam(discriminator, JetJdbcParamType.STRING)
+			));
+			if (recs.size() != 1) {
+				//logger.debug("logid='{}' cannot update, does exists taskid={} ?", taskId);
+				return null;
+			}
+			return recs.get(0);
+		} catch (TedSqlDuplicateException e) {
+			return null;
+		}
+	}
+
+	@Override
+	public List<TaskRec> eventQueueGetTail(String discriminator) {
+//		String keys = "";
+//		for (String discriminator : discriminators) {
+//			if (FieldValidator.hasInvalidChars(discriminator)) {
+//				logger.warn("queue discriminator has invalid characters ({}), skipping", discriminator);
+//				continue;
+//			}
+//			keys += ",'" + discriminator + "'";
+//		}
+//		keys = keys.substring(1);
+
+		String sql = "select * from tedtask where key1 = ?"
+				+ " and status = 'SLEEP'"
+				+ " and channel = '$channel' and system = '$sys'"
+				+ " order by taskid"
+				+ " for update nowait"
+				+ " limit 100";
+		sql = sql.replace("$sys", thisSystem);
+		sql = sql.replace("$channel", Model.CHANNEL_QUEUE);
+		List<TaskRec> recs = selectData("queue_tail", sql, TaskRec.class, asList(
+				sqlParam(discriminator, JetJdbcParamType.STRING)
+		));
+
+		return recs;
+	}
+
+	//
+	// private
+	//
+
 	private void executePgCopy(Connection connection, List<TaskParam> taskParams) throws SQLException {
 		String sql = "COPY tedtask (taskId, system, name, channel, status, key1, key2, batchId, data)" +
 				" FROM STDIN " +
-    			" WITH (FORMAT text, DELIMITER '\t', ENCODING 'UTF-8')";
+				" WITH (FORMAT text, DELIMITER '\t', ENCODING 'UTF-8')";
 
 		StringBuilder stringBuilder = new StringBuilder(512);
 		for (TaskParam task : taskParams) {
@@ -213,7 +288,7 @@ class TedDaoPostgres extends TedDaoAbstract {
 		sql = sql.replace("$now", dbType.sql.now());
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$postpone", dbType.sql.intervalSeconds(postponeSec));
-		sql = sql.replace("$status", (status==null? TedStatus.NEW:status).toString());
+		sql = sql.replace("$status", (status == null ? TedStatus.NEW : status).toString());
 
 		List<TaskIdRes> resList = selectData(sqlLogId, sql, TaskIdRes.class, asList(
 				sqlParam(name, JetJdbcParamType.STRING),
@@ -228,4 +303,6 @@ class TedDaoPostgres extends TedDaoAbstract {
 		return taskId;
 
 	}
+
+
 }

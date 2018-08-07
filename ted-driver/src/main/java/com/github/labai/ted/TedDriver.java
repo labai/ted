@@ -82,6 +82,15 @@ public class TedDriver {
 		return tedDriverImpl.createBatch(batchTaskName, data, key1, key2, tedTasks);
 	}
 
+	/** create event in queue */
+	public Long createEvent(String taskName, String discriminator, String data, String key2) {
+		return tedDriverImpl.createEvent(taskName, discriminator, data, key2);
+	}
+
+	public Long createAndTryExecuteEvent(String taskName, String discriminator, String data, String key2) {
+		return tedDriverImpl.createAndTryExecuteEvent(taskName, discriminator, data, key2);
+	}
+
 	/**
 	 * create TedTask for createBatch (with required params only)
 	 */

@@ -17,6 +17,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static java.util.Arrays.asList;
+
 class EventQueueManager {
 	private static final Logger logger = LoggerFactory.getLogger(EventQueueManager.class);
 	private static final Logger taskExceptionLogger = LoggerFactory.getLogger("ted-task");
@@ -29,7 +31,7 @@ class EventQueueManager {
 		this.tedDao = context.tedDao;
 	}
 
-	// channels - always QUEUE.
+	// channels - always TedEQ.
 	// there will be "head" event with status NEW/RETRY, and may be tail events with status SLEEP.
 	// heads uniqueness by key1 should be guaranteed by unique index.
 	void processTedQueue() {
@@ -54,29 +56,6 @@ class EventQueueManager {
 			discriminators.add(task.key1);
 		}
 
-		// add tails to heads to make event queues
-//		List<TaskRec> tails = tedDao.eventQueueGetTail(discriminators);
-//		Map<String, List<TaskRec>> queueMap = new HashMap<String, List<TaskRec>>(heads.size());
-//		for (TaskRec head : heads) {
-//			List<TaskRec> eventQueue = new ArrayList<TaskRec>();
-//			eventQueue.add(head);
-//			queueMap.put(head.key1, eventQueue);
-//		}
-//		for (TaskRec tail : tails) {
-//			queueMap.get(tail.key1).add(tail);
-//		}
-
-		// send to workers
-//		for (final String discriminator : queueMap.keySet()) {
-//			logger.debug("exec eventQueue for '{}'", discriminator);
-//			final List<TaskRec> events = queueMap.get(discriminator);
-//			channel.workers.execute(new TedRunnable(events) {
-//				@Override
-//				public void run() {
-//					processEventQueue(events);
-//				}
-//			});
-//		}
 		for (final TaskRec head : heads) {
 			logger.debug("exec eventQueue for '{}', headTaskId={}", head.key1, head.taskId);
 			channel.workers.execute(new TedRunnable(head) {
@@ -101,8 +80,14 @@ class EventQueueManager {
 	// process events from queue each after other, until ERROR or RETRY will happen
 	void processEventQueue(TaskRec head) {
 		TedResult headResult = processEvent(head);
+		TaskConfig tc = context.registry.getTaskConfig(head.name);
+		if (tc == null) {
+			context.taskManager.handleUnknownTasks(asList(head));
+			return;
+		}
+
 		TaskRec lastUnsavedEvent = null;
-		TedResult lastUnsaved = null;
+		TedResult lastUnsavedResult = null;
 		// try to execute next events, while head is reserved. some events may be created while executing current
 		if (headResult.status == TedStatus.DONE) {
 			outer:
@@ -111,6 +96,10 @@ class EventQueueManager {
 				if (events.isEmpty())
 					break;
 				for (TaskRec event : events) {
+					TaskConfig tc2 = context.registry.getTaskConfig(event.name);
+					if (tc2 == null)
+						break outer; // unknown task, leave it for later
+
 					TedResult result = processEvent(event);
 
 					// DONE - final status, on which can continue with next event
@@ -118,15 +107,16 @@ class EventQueueManager {
 						saveResult(event, result);
 					} else {
 						lastUnsavedEvent = event;
-						lastUnsaved = result;
+						lastUnsavedResult = result;
 						break outer;
 					}
 				}
 			}
 		}
+		// TODO in transaction
 		saveResult(head, headResult);
-		if (lastUnsaved != null) {
-			saveResult(lastUnsavedEvent, lastUnsaved);
+		if (lastUnsavedResult != null) {
+			saveResult(lastUnsavedEvent, lastUnsavedResult);
 		}
 	}
 
@@ -146,11 +136,6 @@ class EventQueueManager {
 
 
 	private TedResult processEvent(TaskRec taskRec1) {
-		TaskConfig tc = context.registry.getTaskConfig(taskRec1.name);
-		if (tc == null) {
-			logger.error("no processor exists for event task={}", taskRec1.name);
-			return TedResult.error("no processor exists"); // TODO handle unknown tasks
-		}
 		String threadName = Thread.currentThread().getName();
 		TedResult result;
 		try {

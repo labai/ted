@@ -172,12 +172,12 @@ class TedDaoPostgres extends TedDaoAbstract {
 	@Override
 	public TaskRec eventQueueMakeFirst(String discriminator) {
 		String sql = "update tedtask set status = 'NEW' where system = '$sys'" +
-				" and key1 = ? and status = 'SLEEP' and channel = 'QUEUE'" +
+				" and key1 = ? and status = 'SLEEP' and channel = 'TedEQ'" +
 				" and taskid = (select min(taskid) from tedtask t2 " +
-				"   where system = '$sys' and channel = 'QUEUE' and t2.key1 = ?" +
+				"   where system = '$sys' and channel = 'TedEQ' and t2.key1 = ?" +
 				"   and status = 'SLEEP')" +
 				" and not exists (select taskid from tedtask t3" +
-				"   where system = '$sys' and channel = 'QUEUE' and t3.key1 = ?" +
+				"   where system = '$sys' and channel = 'TedEQ' and t3.key1 = ?" +
 				"   and status in ('NEW', 'RETRY', 'WORK', 'ERROR'))" +
 				" returning tedtask.*";
 		sql = sql.replace("$sys", thisSystem);

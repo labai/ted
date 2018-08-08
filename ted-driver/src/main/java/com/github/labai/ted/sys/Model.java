@@ -18,8 +18,8 @@ import static java.util.Arrays.asList;
  */
 class Model {
 	static final String CHANNEL_MAIN = "MAIN";
-	static final String CHANNEL_QUEUE = "QUEUE";
-	static final String CHANNEL_PRIME = "TED"; // for prime instance
+	static final String CHANNEL_QUEUE = "TedEQ"; // Event Queue
+	static final String CHANNEL_PRIME = "TedNO"; // Non Operating - just simple rec, e.g. for prime instance
 	static final String TIMEOUT_MSG = "Too long in status [work]";
 	static final String BATCH_MSG = "Batch task is waiting for finish of subtasks";
 

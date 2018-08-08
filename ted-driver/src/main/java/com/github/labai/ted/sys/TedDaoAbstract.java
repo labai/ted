@@ -260,9 +260,9 @@ abstract class TedDaoAbstract implements TedDao {
 
 		// find queue events w/o head
 		sql = "with headless as (" +
-				" select taskid, key1 from tedtask t1 where channel = 'QUEUE' and status = 'SLEEP' and system = '$sys'" +
+				" select taskid, key1 from tedtask t1 where channel = 'TedEQ' and status = 'SLEEP' and system = '$sys'" +
 				" and createts < $now - $seconds10" +
-				" and not exists (select taskid from tedtask t2 where channel = 'QUEUE' " +
+				" and not exists (select taskid from tedtask t2 where channel = 'TedEQ' " +
 				" and status in ('NEW', 'RETRY', 'WORK', 'ERROR')" +
 				"   and t2.key1 = t1.key1 and t2.system = t1.system)" +
 				")" +

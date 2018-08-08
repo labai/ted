@@ -101,7 +101,7 @@ public class TedDriverImpl {
 
 		// read properties (e.g. from ted.properties.
 		// default MAIN channel configuration: 5/100. Can be overwrite by [properties]
-		// default QUEUE channel configuration: 2/100
+		// default TedEQ channel configuration: 2/100
 		//
 		// e.g.: ted.channel.MAIN.workersMin
 		Properties defaultChanProp = new Properties();

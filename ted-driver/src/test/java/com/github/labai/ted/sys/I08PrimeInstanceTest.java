@@ -81,7 +81,7 @@ public class I08PrimeInstanceTest extends TestBase {
 
 		// insert next one
 		String sql = "insert into tedtask(taskid, system, name, status, channel, startts, msg)"
-				+ " values (15, '" + SYSTEM_ID + "', 'TED:PRIME', 'SLEEP', 'TED', null, 'test 2')";
+				+ " values (15, '" + SYSTEM_ID + "', 'TED:PRIME', 'SLEEP', 'TedNO', null, 'test 2')";
 		dao_execSql(sql);
 
 		try {

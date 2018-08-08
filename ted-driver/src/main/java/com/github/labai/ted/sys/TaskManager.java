@@ -307,7 +307,8 @@ class TaskManager {
 		}
 	}
 
-	private void handleUnknownTasks(List<TaskRec> taskRecList) {
+	// can be called from eventQueue also
+	void handleUnknownTasks(List<TaskRec> taskRecList) {
 		long nowMs = System.currentTimeMillis();
 		for (TaskRec taskRec : taskRecList) {
 			if (taskRec.createTs.getTime() < nowMs - UNKNOWN_TASK_CANCEL_AFTER_MS) {

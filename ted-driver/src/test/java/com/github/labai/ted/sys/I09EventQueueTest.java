@@ -63,7 +63,7 @@ public class I09EventQueueTest extends TestBase {
 	@Test
 	public void test01TakeFirst() {
 		String taskName = "TEST09-1-1";
-		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'QUEUE' " +
+		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
 				" and status <> 'DONE'");
 
 		Long taskId = driver.createEvent(taskName, "test9-a", "task1" , null);
@@ -81,7 +81,7 @@ public class I09EventQueueTest extends TestBase {
 	@Test
 	public void test02TryExecute() {
 		String taskName = "TEST09-1-1";
-		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'QUEUE' " +
+		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
 				" and status <> 'DONE'");
 		driver.registerTaskConfig(taskName, TestUtils.forClass(Test09ProcessorOk.class));
 		Long taskId = driver.createAndTryExecuteEvent(taskName, "test9-a", "task1" , null);
@@ -95,7 +95,7 @@ public class I09EventQueueTest extends TestBase {
 	public void test03EventStatuses() {
 		String taskName = "TEST09-1-1";
 		String taskName2 = "TEST09-1-2";
-		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'QUEUE' " +
+		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
 				" and status <> 'DONE'");
 		final TedProcessor tedProcessorErr2 = new Test09Processor01(1, TedResult.error("error"));
 		driver.registerTaskConfig(taskName, new TedProcessorFactory() {
@@ -156,7 +156,7 @@ public class I09EventQueueTest extends TestBase {
 	@Test
 	public void test11EventQueue50() {
 		String taskName = "TEST09-02";
-		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'QUEUE' " +
+		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
 				" and status <> 'DONE'");
 
 

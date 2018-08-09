@@ -1,9 +1,9 @@
 package sample1;
 
-import com.github.labai.ted.Ted.TedDbType;
-import com.github.labai.ted.Ted.TedProcessor;
-import com.github.labai.ted.Ted.TedResult;
-import com.github.labai.ted.TedDriver;
+import labai.ted.Ted.TedDbType;
+import labai.ted.Ted.TedProcessor;
+import labai.ted.Ted.TedResult;
+import labai.ted.TedDriver;
 import com.mchange.v2.c3p0.ComboPooledDataSource;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.RandomUtils;

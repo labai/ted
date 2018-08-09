@@ -1,11 +1,9 @@
 package labai.ted.sys;
 
-import labai.ted.Ted.TedProcessor;
-import labai.ted.Ted.TedResult;
-import labai.ted.Ted.TedTask;
 import labai.ted.sys.JdbcSelectTed.JetJdbcParamType;
 import labai.ted.sys.Model.TaskRec;
 import labai.ted.sys.TedDriverImpl.TedContext;
+import labai.ted.sys.TestTedProcessors.TestProcessorOk;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -20,9 +18,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Properties;
 
-import static labai.ted.sys.JdbcSelectTed.sqlParam;
-import static labai.ted.sys.TestConfig.SYSTEM_ID;
 import static java.util.Arrays.asList;
+import static labai.ted.sys.TestConfig.SYSTEM_ID;
 import static org.junit.Assert.*;
 
 /**
@@ -50,17 +47,6 @@ public class I03MaintenanceTest extends TestBase {
 		this.driver = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), SYSTEM_ID, properties);
 		this.context = driver.getContext();
 	}
-
-
-	public static class Test01ProcessorOk implements TedProcessor {
-		@Override
-		public TedResult process(TedTask task)  {
-			logger.info(this.getClass().getSimpleName() + " process");
-			TestUtils.sleepMs(50);
-			return TedResult.done();
-		}
-	}
-
 
 	private void dao_setDoneAndOld(long taskId, int daysBack) {
 		long delta = daysBack * 3600 * 24 * 1000;
@@ -101,7 +87,7 @@ public class I03MaintenanceTest extends TestBase {
 		String taskName = "TEST03-01";
 		dao_cleanupAllTasks();
 
-		driver.registerTaskConfig(taskName, TestUtils.forClass(Test01ProcessorOk.class), 1, null, Model.CHANNEL_MAIN);
+		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class), 1, null, Model.CHANNEL_MAIN);
 		Long taskId;
 		TaskRec taskRec;
 
@@ -141,7 +127,7 @@ public class I03MaintenanceTest extends TestBase {
 		dao_cleanupAllTasks();
 
 		// with timeout 40 minutes
-		driver.registerTaskConfig(taskName, TestUtils.forClass(Test01ProcessorOk.class));
+		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class));
 		//driver.registerTaskConfig(taskName, forClass(Test01ProcessorOk.class), 40, null, "MAIN");
 		Long taskId;
 		TaskRec taskRec;
@@ -180,7 +166,7 @@ public class I03MaintenanceTest extends TestBase {
 
 		// create unknown task
 		TedDriverImpl driverTmp = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), SYSTEM_ID, new Properties());
-		driverTmp.registerTaskConfig(taskName, TestUtils.forClass(Test01ProcessorOk.class), 40, null, "MAIN");
+		driverTmp.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class), 40, null, "MAIN");
 		taskId = driverTmp.createTask(taskName, null, null, null);
 
 		// process unknown task
@@ -215,7 +201,7 @@ public class I03MaintenanceTest extends TestBase {
 		dao_cleanupAllTasks();
 
 		// with timeout 40 minutes
-		driver.registerTaskConfig(taskName, TestUtils.forClass(Test01ProcessorOk.class));
+		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class));
 
 		Long taskId;
 		TaskRec taskRec;
@@ -251,7 +237,7 @@ public class I03MaintenanceTest extends TestBase {
 		String taskName = "TEST03-03";
 		dao_cleanupAllTasks();
 
-		driver.registerTaskConfig(taskName, TestUtils.forClass(Test01ProcessorOk.class));
+		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class));
 
 		Long taskId = driver.createTask(taskName, null, null, null);
 

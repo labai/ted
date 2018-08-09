@@ -1,12 +1,14 @@
 package labai.ted.sys;
 
 import labai.ted.Ted.TedProcessor;
-import labai.ted.Ted.TedResult;
+import labai.ted.TedResult;
 import labai.ted.Ted.TedStatus;
-import labai.ted.Ted.TedTask;
+import labai.ted.TedTask;
 import labai.ted.sys.JdbcSelectTed.SqlParam;
 import labai.ted.sys.Model.TaskRec;
 import labai.ted.sys.TedDriverImpl.TedContext;
+import labai.ted.sys.TestTedProcessors.TestProcessorException;
+import labai.ted.sys.TestTedProcessors.TestProcessorOk;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -23,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import static labai.ted.sys.TestTedProcessors.forClass;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -61,7 +64,7 @@ public class I01SimpleTest extends TestBase {
 	@Test
 	public void test01ClobVarchar() throws Exception {
 		String taskName = "TEST01-01";
-		driver.registerTaskConfig(taskName, TestUtils.forClass(Test01ProcessorOk.class));
+		driver.registerTaskConfig(taskName, forClass(TestProcessorOk.class));
 
 		// long string
 		String param = "";
@@ -87,7 +90,7 @@ public class I01SimpleTest extends TestBase {
 	@Test
 	public void test01CreateTask() throws Exception {
 		String taskName = "TEST01-01";
-		driver.registerTaskConfig(taskName, TestUtils.forClass(Test01ProcessorOk.class));
+		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class));
 
 		Long taskId = driver.createTask(taskName, "test-data", "test-key1", "test-key2");
 
@@ -120,21 +123,11 @@ public class I01SimpleTest extends TestBase {
 
 	}
 
-	public static class Test01ProcessorOk implements TedProcessor {
-		@Override
-		public TedResult process(TedTask task)  {
-			logger.info(this.getClass().getSimpleName() + " process");
-			TestUtils.sleepMs(20);
-			return TedResult.done();
-		}
-	}
-
-
 	@Test
 	public void test02CreateAndDone() throws Exception {
 		String taskName = "TEST01-02";
 
-		driver.registerTaskConfig(taskName, TestUtils.forClass(Test01ProcessorOk.class));
+		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class));
 
 
 		Long taskId = driver.createTask(taskName, null, null, null);
@@ -158,20 +151,11 @@ public class I01SimpleTest extends TestBase {
 
 	}
 
-	public static class Test01ProcessorException implements TedProcessor {
-		@Override
-		public TedResult process(TedTask task)  {
-			logger.info(this.getClass().getSimpleName() + " process");
-			TestUtils.sleepMs(20);
-			throw new RuntimeException("Test runtime exception");
-		}
-	}
-
 	@Test
 	public void test03CreateAndException() throws Exception {
 		String taskName = "TEST01-03";
 
-		driver.registerTaskConfig(taskName, TestUtils.forClass(Test01ProcessorException.class));
+		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorException.class));
 
 		Long taskId = driver.createTask(taskName, null, null, null);
 
@@ -209,7 +193,7 @@ public class I01SimpleTest extends TestBase {
 	public void test04CreateAndRetry() throws Exception {
 		String taskName = "TEST01-04";
 
-		driver.registerTaskConfig(taskName, TestUtils.forClass(Test01ProcessorRetry.class));
+		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test01ProcessorRetry.class));
 
 		Long taskId = driver.createTask(taskName, null, null, null);
 
@@ -243,7 +227,7 @@ public class I01SimpleTest extends TestBase {
 		//driver.registerTaskConfig(taskName, forClass(Test01ProcessorRetry.class), 1, null, "TEST1");
 		Properties taskProp = new Properties();
 
-		driver.registerTaskConfig(taskName, TestUtils.forClass(Test01ProcessorRetry.class));
+		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test01ProcessorRetry.class));
 
 		Long taskId = driver.createTask(taskName, null, null, null);
 
@@ -266,7 +250,7 @@ public class I01SimpleTest extends TestBase {
 		dao_cleanupAllTasks();
 
 		driver.getContext().registry.registerChannel("TEST1", 5, 100);
-		driver.registerTaskConfig(taskName, TestUtils.forClass(Test01ProcessorRetry.class));
+		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test01ProcessorRetry.class));
 
 		// create 2 tasks, then lock 1 of them
 		driver.createTask(taskName, null, null, null);

@@ -1,9 +1,7 @@
 package labai.ted.sys;
 
-import labai.ted.Ted.TedProcessor;
-import labai.ted.Ted.TedResult;
-import labai.ted.Ted.TedTask;
 import labai.ted.sys.Registry.Channel;
+import labai.ted.sys.TestTedProcessors.TestProcessorOk;
 import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -59,15 +57,6 @@ public class I02MultiTest extends TestBase {
 		executor2.setMaximumPoolSize(2);
 	}
 
-	public static class Test02ProcessorOk implements TedProcessor {
-		@Override
-		public TedResult process(TedTask task)  {
-			logger.info(this.getClass().getSimpleName() + " process");
-			TestUtils.sleepMs(20);
-			return TedResult.done();
-		}
-	}
-
 	// test 2 instances
 	// 1-st will take 20 tasks of 30 (2 workers * 10), 2-nd - remaining 10
 	@Test
@@ -75,8 +64,8 @@ public class I02MultiTest extends TestBase {
 		String taskName = "TEST02-01";
 		dao_cleanupAllTasks();
 
-		driver1.registerTaskConfig(taskName, TestUtils.forClass(Test02ProcessorOk.class));
-		driver2.registerTaskConfig(taskName, TestUtils.forClass(Test02ProcessorOk.class));
+		driver1.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class));
+		driver2.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class));
 
 		for (int i = 0; i < 30; i++) {
 			Long taskId = driver1.createTask(taskName, null, "num-" + i, null);

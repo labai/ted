@@ -1,6 +1,6 @@
 package labai.ted.sys;
 
-import labai.ted.Ted.PrimeEvent;
+import labai.ted.Ted.PrimeChangeEvent;
 import labai.ted.sys.TedDaoAbstract.DbType;
 import labai.ted.sys.TedDriverImpl.TedContext;
 import org.slf4j.Logger;
@@ -31,8 +31,8 @@ public class PrimeInstance {
 	private int postponeSec = 3;
 	private boolean isPrime = false;
 
-	private PrimeEvent onBecomePrime = null;
-	private PrimeEvent onLostPrime = null;
+	private PrimeChangeEvent onBecomePrime = null;
+	private PrimeChangeEvent onLostPrime = null;
 
 	final CheckPrimeParams checkPrimeParams = new CheckPrimeParams() {
 		public boolean isPrime() { return isPrime; };
@@ -113,11 +113,11 @@ public class PrimeInstance {
 		int postponeSec();
 	}
 
-	public void setOnBecomePrime(PrimeEvent onBecomePrime) {
+	public void setOnBecomePrime(PrimeChangeEvent onBecomePrime) {
 		this.onBecomePrime = onBecomePrime;
 	}
 
-	public void setOnLostPrime(PrimeEvent onLostPrime) {
+	public void setOnLostPrime(PrimeChangeEvent onLostPrime) {
 		this.onLostPrime = onLostPrime;
 	}
 }

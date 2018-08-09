@@ -1,7 +1,7 @@
 package labai.ted.sys;
 
 import labai.ted.Ted.TedProcessor;
-import labai.ted.Ted.TedResult;
+import labai.ted.TedResult;
 import labai.ted.Ted.TedStatus;
 import labai.ted.sys.Model.TaskRec;
 import labai.ted.sys.Registry.Channel;

@@ -1,7 +1,7 @@
 package labai.ted.sys;
 
 import labai.ted.Ted.TedRetryScheduler;
-import labai.ted.Ted.TedTask;
+import labai.ted.TedTask;
 import labai.ted.sys.TedDriverImpl.TedContext;
 
 import java.util.ArrayList;

@@ -1,7 +1,5 @@
 package labai.ted.sys;
 
-import labai.ted.Ted.TedProcessor;
-import labai.ted.Ted.TedProcessorFactory;
 import com.mchange.v2.c3p0.ComboPooledDataSource;
 import labai.ted.sys.TestConfig.TedConnOracle;
 import labai.ted.sys.TestConfig.TedConnPostgres;
@@ -108,20 +106,5 @@ class TestUtils {
 //	public static void printJson(Object object){
 //		System.out.println(gson.toJson(object));
 //	}
-
-	public static <T extends TedProcessor> TedProcessorFactory forClass(final Class<T> clazz) {
-		return new TedProcessorFactory() {
-			@Override
-			public TedProcessor getProcessor(String taskName) {
-				try {
-					return clazz.newInstance();
-				} catch (InstantiationException e) {
-					throw new RuntimeException("Class instantiate exception", e);
-				} catch (IllegalAccessException e) {
-					throw new RuntimeException("Class instantiate exception", e);
-				}
-			}
-		};
-	}
 
 }

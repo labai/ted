@@ -2,7 +2,7 @@ package sample1;
 
 import labai.ted.Ted.TedDbType;
 import labai.ted.Ted.TedProcessor;
-import labai.ted.Ted.TedResult;
+import labai.ted.TedResult;
 import labai.ted.TedDriver;
 import com.mchange.v2.c3p0.ComboPooledDataSource;
 import org.apache.commons.io.FileUtils;

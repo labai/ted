@@ -1,8 +1,8 @@
 package labai.ted.sys;
 
 import labai.ted.Ted.TedProcessor;
-import labai.ted.Ted.TedResult;
-import labai.ted.Ted.TedTask;
+import labai.ted.TedResult;
+import labai.ted.TedTask;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -66,7 +66,7 @@ public class I05PerfomTest extends TestBase {
 		*/
 		// dao_cleanupAllTasks();
 		String taskName = "TEST05-01";
-		driver.registerTaskConfig(taskName, TestUtils.forClass(Test05ProcessorOk.class));
+		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test05ProcessorOk.class));
 		try {
 			for (int i = 0; i < 30; i++) {
 				getContext().taskManager.processChannelTasks();

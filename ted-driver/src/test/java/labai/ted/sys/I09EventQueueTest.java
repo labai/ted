@@ -1,15 +1,17 @@
 package labai.ted.sys;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import labai.ted.Ted.TedDbType;
 import labai.ted.Ted.TedProcessor;
-import labai.ted.Ted.TedProcessorFactory;
-import labai.ted.Ted.TedResult;
-import labai.ted.Ted.TedTask;
+import labai.ted.TedResult;
+import labai.ted.TedTask;
 import labai.ted.sys.JdbcSelectTed.SqlParam;
 import labai.ted.sys.Model.TaskRec;
 import labai.ted.sys.QuickCheck.CheckResult;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import labai.ted.sys.TestTedProcessors.SingeInstanceFactory;
+import labai.ted.sys.TestTedProcessors.TestProcessorFailAfterNDone;
+import labai.ted.sys.TestTedProcessors.TestProcessorOk;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -25,7 +27,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static labai.ted.sys.TestConfig.SYSTEM_ID;
-import static labai.ted.sys.TestUtils.forClass;
+import static labai.ted.sys.TestTedProcessors.forClass;
 import static labai.ted.sys.TestUtils.print;
 import static labai.ted.sys.TestUtils.sleepMs;
 import static org.junit.Assert.assertEquals;
@@ -84,7 +86,7 @@ public class I09EventQueueTest extends TestBase {
 		String taskName = "TEST09-1";
 		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
 				" and status <> 'DONE'");
-		driver.registerTaskConfig(taskName, TestUtils.forClass(Test09ProcessorOk.class));
+		driver.registerTaskConfig(taskName, forClass(TestProcessorOk.class));
 		Long taskId = driver.createAndTryExecuteEvent(taskName, "test9-a", "task1" , null);
 		sleepMs(50);
 		TaskRec taskRec = tedDao.getTask(taskId);
@@ -98,22 +100,8 @@ public class I09EventQueueTest extends TestBase {
 		String taskName2 = "TEST09-2";
 		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
 				" and status <> 'DONE'");
-		final TedProcessor tedProcessorErr2 = new Test09Processor01(1, TedResult.error("error"));
-		driver.registerTaskConfig(taskName, new TedProcessorFactory() {
-			@Override
-			public TedProcessor getProcessor(String taskName) {
-				return tedProcessorErr2;
-			}
-		});
-		final TedProcessor tedProcessorRetry2 = new Test09Processor01(1, TedResult.retry("retry"));
-		driver.registerTaskConfig(taskName2, new TedProcessorFactory() {
-			@Override
-			public TedProcessor getProcessor(String taskName) {
-				return tedProcessorRetry2;
-			}
-		});
-		//
-		//
+		driver.registerTaskConfig(taskName, new SingeInstanceFactory(new TestProcessorFailAfterNDone(1, TedResult.error("error"))));
+		driver.registerTaskConfig(taskName2, new SingeInstanceFactory(new TestProcessorFailAfterNDone(1, TedResult.retry("retry"))));
 
 		// first must become NEW
 		Long taskId = driver.createEvent(taskName, "test9-1", "abra1" , null);
@@ -159,19 +147,15 @@ public class I09EventQueueTest extends TestBase {
 		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
 				" and status <> 'DONE'");
 		final Long[] taskId2 = new Long[1];
-		driver.registerTaskConfig(taskName, new TedProcessorFactory() {
-			@Override
-			public TedProcessor getProcessor(String taskName) {
-				return new TedProcessor() {
-					@Override
-					public TedResult process(TedTask task) {
-						taskId2[0] = getContext().tedDriver.createEvent(taskName2, "abra", "2", null);
-						return TedResult.done();
-					}
-				};
+		driver.registerTaskConfig(taskName, new SingeInstanceFactory(new TedProcessor() {
+				@Override
+				public TedResult process(TedTask task) {
+					taskId2[0] = getContext().tedDriver.createEvent(taskName2, "abra", "2", null);
+					return TedResult.done();
+				}
 			}
-		});
-		driver.registerTaskConfig(taskName2, forClass(Test09ProcessorOk.class));
+		));
+		driver.registerTaskConfig(taskName2, forClass(TestProcessorOk.class));
 
 		// first must become NEW
 		Long taskId = driver.createEvent(taskName, "abra", "abra1" , null);
@@ -196,8 +180,7 @@ public class I09EventQueueTest extends TestBase {
 		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
 				" and status <> 'DONE'");
 
-
-		driver.registerTaskConfig(taskName, TestUtils.forClass(Test09RandProcessor.class));
+		driver.registerTaskConfig(taskName, new SingeInstanceFactory(new TestProcessorFailAfterNDone(3, TedResult.retry("error"))));
 
 		for (int i = 0; i < 10; i++) {
 			for (int j = 0; j < 5; j++) {
@@ -220,43 +203,4 @@ public class I09EventQueueTest extends TestBase {
 
 
 	}
-
-	public static class Test09RandProcessor implements TedProcessor {
-		private static int inum = 0;
-		@Override
-		public TedResult process(TedTask task)  {
-			logger.info(this.getClass().getSimpleName() + " process " + task);
-			TestUtils.sleepMs(20);
-			if (++inum % 10 == 0)
-				return TedResult.retry("error-" + inum);
-			return TedResult.done();
-		}
-	}
-	public static class Test09Processor01 implements TedProcessor {
-		private final int okCount;
-		private final TedResult fail;
-		private int inum = 0;
-		public Test09Processor01(int okCount, TedResult fail) {
-			this.okCount = okCount;
-			this.fail = fail;
-		}
-
-		@Override
-		public TedResult process(TedTask task)  {
-			logger.info(this.getClass().getSimpleName() + " process " + task);
-			TestUtils.sleepMs(5);
-			if (++inum > okCount)
-				return fail;
-			return TedResult.done();
-		}
-	}
-	public static class Test09ProcessorOk implements TedProcessor {
-		@Override
-		public TedResult process(TedTask task)  {
-			logger.info(this.getClass().getSimpleName() + " process");
-			TestUtils.sleepMs(20);
-			return TedResult.done();
-		}
-	}
-
 }

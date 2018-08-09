@@ -1,11 +1,11 @@
 package labai.ted.sys;
 
 
-import labai.ted.Ted.TedPackProcessor;
 import labai.ted.Ted.TedProcessor;
-import labai.ted.Ted.TedResult;
 import labai.ted.Ted.TedStatus;
-import labai.ted.Ted.TedTask;
+import labai.ted.TedResult;
+import labai.ted.TedTask;
+import labai.ted.sys.Trash.TedPackProcessor;
 import labai.ted.sys.Model.TaskRec;
 import labai.ted.sys.Registry.Channel;
 import labai.ted.sys.Registry.TaskConfig;
@@ -337,10 +337,10 @@ class TaskManager {
 			TaskConfig taskConfig = context.registry.getTaskConfig(taskRec1.name);
 
 			// check if batch
+			// TODO move into separate channel (?)
 			if (Model.BATCH_MSG.equals(taskRec1.msg)) {
 				// check for finishing all tasks before sending it to consumer
 				boolean finished = tedDao.checkIsBatchFinished(taskRec1.taskId);
-				//String msg1 = "waiting for finish... [B" + taskRec1.taskId + "]";
 				if (!finished) {
 					// retry batch
 					long batchTimeMn = (System.currentTimeMillis() - taskRec1.createTs.getTime()) / 1000 / 60;
@@ -366,7 +366,6 @@ class TaskManager {
 
 			// process
 			//
-
 			if (taskConfig.isPackProcessing) {
 				TedPackProcessor processor = taskConfig.tedPackProcessorFactory.getPackProcessor(taskRec1.name);
 				List<TedTask> taskList = new ArrayList<TedTask>();

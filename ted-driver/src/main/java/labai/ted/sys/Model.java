@@ -1,6 +1,6 @@
 package labai.ted.sys;
 
-import labai.ted.Ted.TedTask;
+import labai.ted.TedTask;
 
 import java.util.Date;
 import java.util.HashSet;

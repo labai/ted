@@ -1,12 +1,12 @@
 package labai.ted.sys;
 
 import labai.ted.Ted.TedProcessor;
-import labai.ted.Ted.TedResult;
 import labai.ted.Ted.TedStatus;
-import labai.ted.Ted.TedTask;
 import labai.ted.TedDriver;
-import labai.ted.sys.I01SimpleTest.Test01ProcessorOk;
+import labai.ted.TedResult;
+import labai.ted.TedTask;
 import labai.ted.sys.Model.TaskRec;
+import labai.ted.sys.TestTedProcessors.TestProcessorOk;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.Properties;
 
 import static labai.ted.sys.TestConfig.SYSTEM_ID;
-import static labai.ted.sys.TestUtils.log;
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -59,7 +58,7 @@ public class I07BatchTest extends TestBase {
 	@Test
 	public void testCreate200() throws Exception {
 		String taskName = "TEST01-01";
-		driver.registerTaskConfig(taskName, TestUtils.forClass(Test01ProcessorOk.class));
+		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class));
 		((TedDaoAbstract)driver.getContext().tedDao).getSequenceNextValue("SEQ_TEDTASK_BNO");
 
 		long startTs = System.currentTimeMillis();
@@ -77,7 +76,7 @@ public class I07BatchTest extends TestBase {
 	public void testCreateBulk200() throws Exception {
 		String taskName = "TEST01-01";
 
-		driver.registerTaskConfig(taskName, TestUtils.forClass(Test01ProcessorOk.class));
+		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class));
 		((TedDaoAbstract)driver.getContext().tedDao).getSequenceNextValue("SEQ_TEDTASK_BNO");
 		String param = "x";
 		// for (int i = 0; i < 1000; i++) {
@@ -104,8 +103,8 @@ public class I07BatchTest extends TestBase {
 
 		String taskName = "TEST07-1";
 		String batchName = "BAT07";
-		driver.registerTaskConfig(taskName, TestUtils.forClass(ProcessorRandomOk.class));
-		driver.registerTaskConfig(batchName, TestUtils.forClass(BatchFinishProcessor.class));
+		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(ProcessorRandomOk.class));
+		driver.registerTaskConfig(batchName, TestTedProcessors.forClass(BatchFinishProcessor.class));
 
 		List<TedTask> taskParams = new ArrayList<TedTask>();
 		for (int i = 0; i < 3; i++) {

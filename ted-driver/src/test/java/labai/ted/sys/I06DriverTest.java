@@ -1,8 +1,8 @@
 package labai.ted.sys;
 
 import labai.ted.Ted.TedProcessor;
-import labai.ted.Ted.TedResult;
-import labai.ted.Ted.TedTask;
+import labai.ted.TedResult;
+import labai.ted.TedTask;
 import labai.ted.sys.Model.TaskRec;
 import labai.ted.sys.TedDriverImpl.TedContext;
 import org.junit.Assert;
@@ -44,7 +44,7 @@ public class I06DriverTest extends TestBase {
 
 
 
-	public static class Test01ProcessorLongOk implements TedProcessor {
+	public static class Test06ProcessorLongOk implements TedProcessor {
 		@Override
 		public TedResult process(TedTask task)  {
 			logger.info(this.getClass().getSimpleName() + " process. sleep for 1000ms");
@@ -58,7 +58,7 @@ public class I06DriverTest extends TestBase {
 		}
 	}
 
-	public static class Test01ProcessorFastOk implements TedProcessor {
+	public static class Test06ProcessorFastOk implements TedProcessor {
 		@Override
 		public TedResult process(TedTask task)  {
 			logger.info(this.getClass().getSimpleName() + " process.");
@@ -72,7 +72,7 @@ public class I06DriverTest extends TestBase {
 		String taskName = "TEST06-01";
 		dao_cleanupAllTasks();
 
-		driver.registerTaskConfig(taskName, TestUtils.forClass(Test01ProcessorLongOk.class), 1, null, Model.CHANNEL_MAIN);
+		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test06ProcessorLongOk.class), 1, null, Model.CHANNEL_MAIN);
 		Long taskId;
 		TaskRec taskRec;
 
@@ -113,7 +113,7 @@ public class I06DriverTest extends TestBase {
 		String taskName = "TEST06-01";
 		dao_cleanupAllTasks();
 
-		driver.registerTaskConfig(taskName, TestUtils.forClass(Test01ProcessorFastOk.class), 1, null, Model.CHANNEL_MAIN);
+		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test06ProcessorFastOk.class), 1, null, Model.CHANNEL_MAIN);
 		Long taskId;
 		TaskRec taskRec;
 

@@ -3,6 +3,7 @@ Version history
 0.2.0 (2018-08-07)
 - prime instance handling
 - events queue
+- small refactoring (package names)
 
 0.1.5 (2018-07-16)
 - batches create programmatically instead of configuration

@@ -23,7 +23,6 @@ public abstract class TestBase {
 		Assume.assumeTrue("Are tests enabled?", TestConfig.INT_TESTS_ENABLED);
 	}
 
-
 	protected TedContext getContext() {
 		return getDriver().getContext();
 	}

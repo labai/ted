@@ -1,20 +1,20 @@
 package labai.ted.sys;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import labai.ted.Ted.TedDbType;
 import labai.ted.sys.JdbcSelectTed.SqlParam;
 import labai.ted.sys.PrimeInstance.CheckPrimeParams;
 import labai.ted.sys.QuickCheck.CheckResult;
 import labai.ted.sys.TedDaoAbstract.DbType;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import org.junit.Assert;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
@@ -36,13 +36,9 @@ public class I08PrimeInstanceTest extends TestBase {
 
 	@Before
 	public void init() throws IOException {
-		Properties properties = new Properties();
-		String propFileName = "ted-I08.properties";
-		InputStream inputStream = TestBase.class.getClassLoader().getResourceAsStream(propFileName);
-		if (inputStream == null)
-			throw new FileNotFoundException("property file '" + propFileName + "' not found in the classpath");
-		properties.load(inputStream);
+		Assume.assumeTrue("Not for Oracle", TestConfig.testDbType == TedDbType.POSTGRES);
 
+		Properties properties = TestUtils.readPropertiesFile("ted-I08.properties");
 		this.driver = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), TestConfig.SYSTEM_ID, properties);
 		this.tedDao = driver.getContext().tedDao;
 		//this.context = driver.getContext();

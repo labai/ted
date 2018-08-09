@@ -255,20 +255,23 @@ abstract class TedDaoAbstract implements TedDao {
 		sql = sql.replace("$sys", thisSystem);
 		execute("maint02", sql, Collections.<SqlParam>emptyList());
 
-		// find queue events w/o head
-		sql = "with headless as (" +
-				" select taskid, key1 from tedtask t1 where channel = 'TedEQ' and status = 'SLEEP' and system = '$sys'" +
-				" and createts < $now - $seconds10" +
-				" and not exists (select taskid from tedtask t2 where channel = 'TedEQ' " +
-				"   and status in ('NEW', 'RETRY', 'WORK', 'ERROR')" +
-				"   and t2.key1 = t1.key1 and t2.system = t1.system)" +
-				")" +
-				" update tedtask set status = 'NEW', nextTs = $now " +
-				" where taskid in (select min(taskid) taskid from headless group by key1)";
-		sql = sql.replace("$now", dbType.sql.now());
-		sql = sql.replace("$sys", thisSystem);
-		sql = sql.replace("$seconds10", dbType.sql.intervalSeconds(10));
-		execute("maint04", sql, Collections.<SqlParam>emptyList());
+
+		if (dbType == DbType.POSTGRES) { // eventsQueue is not for Oracle
+			// find queue events w/o head
+			sql = "with headless as (" +
+					" select taskid, key1 from tedtask t1 where channel = 'TedEQ' and status = 'SLEEP' and system = '$sys'" +
+					" and createts < $now - $seconds10" +
+					" and not exists (select taskid from tedtask t2 where channel = 'TedEQ' " +
+					"   and status in ('NEW', 'RETRY', 'WORK', 'ERROR')" +
+					"   and t2.key1 = t1.key1 and t2.system = t1.system)" +
+					")" +
+					" update tedtask set status = 'NEW', nextTs = $now " +
+					" where taskid in (select min(taskid) taskid from headless group by key1)";
+			sql = sql.replace("$now", dbType.sql.now());
+			sql = sql.replace("$sys", thisSystem);
+			sql = sql.replace("$seconds10", dbType.sql.intervalSeconds(10));
+			execute("maint04", sql, Collections.<SqlParam>emptyList());
+		}
 	}
 
 	@Override

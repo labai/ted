@@ -19,9 +19,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
@@ -35,7 +33,7 @@ import static org.junit.Assert.assertEquals;
 public class I09EventQueueTest extends TestBase {
 	private final static Logger logger = LoggerFactory.getLogger(I09EventQueueTest.class);
 
-	private static TedDriverImpl driver;
+	private TedDriverImpl driver;
 	private TedDao tedDao;
 
 	private Gson gson = new GsonBuilder().setPrettyPrinting().create();
@@ -47,13 +45,7 @@ public class I09EventQueueTest extends TestBase {
 	public void init() throws IOException {
 		Assume.assumeTrue("Not for Oracle", TestConfig.testDbType == TedDbType.POSTGRES);
 
-		Properties properties = new Properties();
-		String propFileName = "ted-I09.properties";
-		InputStream inputStream = TestBase.class.getClassLoader().getResourceAsStream(propFileName);
-		if (inputStream == null)
-			throw new FileNotFoundException("property file '" + propFileName + "' not found in the classpath");
-		properties.load(inputStream);
-
+		Properties properties = TestUtils.readPropertiesFile("ted-I09.properties");
 		this.driver = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), SYSTEM_ID, properties);
 		this.tedDao = driver.getContext().tedDao;
 		//this.context = driver.getContext();

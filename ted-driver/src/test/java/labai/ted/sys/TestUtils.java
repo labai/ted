@@ -6,9 +6,13 @@ import labai.ted.sys.TestConfig.TedConnPostgres;
 
 import javax.sql.DataSource;
 import java.beans.PropertyVetoException;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Properties;
 
 /**
  * @author Augustus
@@ -78,6 +82,15 @@ class TestUtils {
 			System.exit(1);
 		}
 		return comboPooledDataSourcePostgres;
+	}
+
+	static Properties readPropertiesFile(String propFileName) throws IOException {
+		Properties properties = new Properties();
+		InputStream inputStream = TestBase.class.getClassLoader().getResourceAsStream(propFileName);
+		if (inputStream == null)
+			throw new FileNotFoundException("property file '" + propFileName + "' not found in the classpath");
+		properties.load(inputStream);
+		return properties;
 	}
 
 	static void sleepMs(int ms) {

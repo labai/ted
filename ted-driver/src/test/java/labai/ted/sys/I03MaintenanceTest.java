@@ -10,9 +10,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -37,13 +35,7 @@ public class I03MaintenanceTest extends TestBase {
 
 	@Before
 	public void init() throws IOException {
-		Properties properties = new Properties();
-		String propFileName = "ted-I03.properties";
-		InputStream inputStream = TestBase.class.getClassLoader().getResourceAsStream(propFileName);
-		if (inputStream == null)
-			throw new FileNotFoundException("property file '" + propFileName + "' not found in the classpath");
-		properties.load(inputStream);
-
+		Properties properties = TestUtils.readPropertiesFile("ted-I03.properties");
 		this.driver = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), SYSTEM_ID, properties);
 		this.context = driver.getContext();
 	}

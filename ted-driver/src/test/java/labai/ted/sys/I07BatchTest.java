@@ -13,9 +13,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -42,13 +40,7 @@ public class I07BatchTest extends TestBase {
 
 	@Before
 	public void init() throws IOException {
-		Properties properties = new Properties();
-		String propFileName = "ted-I07.properties";
-		InputStream inputStream = TestBase.class.getClassLoader().getResourceAsStream(propFileName);
-		if (inputStream == null)
-			throw new FileNotFoundException("property file '" + propFileName + "' not found in the classpath");
-		properties.load(inputStream);
-
+		Properties properties = TestUtils.readPropertiesFile("ted-I07.properties");
 		this.driver = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), SYSTEM_ID, properties);
 		this.tedDao = driver.getContext().tedDao;
 		//this.context = driver.getContext();

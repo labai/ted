@@ -1,8 +1,8 @@
 package labai.ted.sys;
 
 import labai.ted.Ted.TedProcessor;
-import labai.ted.TedResult;
 import labai.ted.Ted.TedStatus;
+import labai.ted.TedResult;
 import labai.ted.TedTask;
 import labai.ted.sys.JdbcSelectTed.SqlParam;
 import labai.ted.sys.Model.TaskRec;
@@ -15,9 +15,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -25,13 +23,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-import static labai.ted.sys.TestTedProcessors.forClass;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 import static labai.ted.sys.TestConfig.SYSTEM_ID;
+import static labai.ted.sys.TestTedProcessors.forClass;
+import static org.junit.Assert.*;
 
 /**
  * @author Augustus
@@ -48,13 +42,7 @@ public class I01SimpleTest extends TestBase {
 
 	@Before
 	public void init() throws IOException {
-		Properties properties = new Properties();
-		String propFileName = "ted-I01.properties";
-		InputStream inputStream = TestBase.class.getClassLoader().getResourceAsStream(propFileName);
-		if (inputStream == null)
-			throw new FileNotFoundException("property file '" + propFileName + "' not found in the classpath");
-		properties.load(inputStream);
-
+		Properties properties = TestUtils.readPropertiesFile("ted-I01.properties");
 		driver = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), SYSTEM_ID, properties);
 		this.context = driver.getContext();
 	}

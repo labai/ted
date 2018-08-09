@@ -326,11 +326,12 @@ abstract class TedDaoAbstract implements TedDao {
 	}
 
 	@Override
-	public void cleanupRetries(Long taskId, String msg) {
+	public void cleanupBatchTask(Long taskId, String msg, String channel) {
 		String sqlLogId = "clean_retry";
-		String sql = "update tedtask set retries = 0, msg = ? where taskId = ?";
+		String sql = "update tedtask set retries = 0, msg = ?, channel = ? where taskId = ?";
 		execute(sqlLogId, sql, asList(
 				sqlParam(msg, JetJdbcParamType.STRING),
+				sqlParam(channel, JetJdbcParamType.STRING),
 				sqlParam(taskId, JetJdbcParamType.LONG)
 		));
 	}

@@ -34,21 +34,6 @@ class Registry {
 
 	private Map<String, TaskConfig> tasks = new ConcurrentHashMap<String, TaskConfig>();
 	private Map<String, Channel> channels = new ConcurrentHashMap<String, Channel>();
-	//private Map<String, Schedule> schedules = new ConcurrentHashMap<String, Schedule>();
-
-	// enum TaskType { TASK, BATCH }
-
-//	static class Schedule {
-//		final String name;
-//		final String produceTask;
-//		final String cron;
-//
-//		public Schedule(String name, String produceTask, String cron) {
-//			this.name = name;
-//			this.produceTask = produceTask;
-//			this.cron = cron;
-//		}
-//	}
 
 	static class Channel {
 		final String name;
@@ -86,8 +71,6 @@ class Registry {
 		final int workTimeoutMinutes;
 		final String channel;
 		final TedRetryScheduler retryScheduler;
-		//final TaskType taskType;
-		//final String batchTask;
 		final int batchTimeoutMinutes;
 		final boolean isPackProcessing;
 		final String shortLogName; // 5 letters name for threadName
@@ -95,7 +78,6 @@ class Registry {
 		public TaskConfig(String taskName, TedProcessorFactory tedProcessorFactory,
 				TedPackProcessorFactory tedPackProcessorFactory,
 				int workTimeoutMinutes, TedRetryScheduler retryScheduler, String channel,
-				// TaskType taskType, String batchTask,
 				int batchTimeoutMinutes) {
 			if ((tedProcessorFactory == null && tedPackProcessorFactory == null) || (tedProcessorFactory != null && tedPackProcessorFactory != null))
 				throw new IllegalStateException("must be 1 of tedProcessorFactory or tedPackProcessorFactory");
@@ -105,8 +87,6 @@ class Registry {
 			this.workTimeoutMinutes = Math.max(workTimeoutMinutes, 1); // timeout, less than 1 minute, is invalid, as process will check timeouts only >= 1 min
 			this.retryScheduler = retryScheduler;
 			this.channel = channel == null ? Model.CHANNEL_MAIN : channel;
-			//this.taskType = taskType == null ? TaskType.TASK : taskType;
-			//this.batchTask = batchTask;
 			this.batchTimeoutMinutes = batchTimeoutMinutes;
 			this.isPackProcessing = tedPackProcessorFactory != null;
 			this.shortLogName = makeShortName(taskName);
@@ -136,33 +116,16 @@ class Registry {
 	//
 	// tasks
 	//
+
 	/** register task with default/ted.properties settings */
 	public void registerTaskConfig(String taskName, TedProcessorFactory tedProcessorFactory) {
 		registerTaskConfig(taskName, tedProcessorFactory, null, null, null, null);
 	}
+
 	/** register task with default/ted.properties settings */
 	public void registerTaskConfig(String taskName, TedPackProcessorFactory tedPackProcessorFactory) {
 		registerTaskConfig(taskName, null, tedPackProcessorFactory, null, null, null);
 	}
-	/* register task with default/ted.properties settings, but overwrote with properties param */
-//	private void registerTaskConfig(String taskName, TedProcessorFactory tedProcessorFactory, Properties properties) {
-//		//Map<String, Properties> shortPropMap = ConfigUtils.getShortPropertiesByPrefix(properties, ConfigUtils.PROPERTY_PREFIX_TASK);
-//		Properties shortProp = new Properties();
-//
-//		Properties tmp = context.config.taskMap().get(taskName);
-//		if (tmp != null)
-//			shortProp.putAll(tmp);
-//
-//		//tmp = shortPropMap.get(taskName);
-//		//if (tmp != null)
-//		//	shortProp.putAll(tmp); // will overwrite
-//
-//		Integer workTimeoutInMinutes = ConfigUtils.getInteger(shortProp, ConfigUtils.TedProperty.TASK_TIMEOUT_MINUTES, null);
-//		String retryPattern = ConfigUtils.getString(shortProp, ConfigUtils.TedProperty.TASK_RETRY_PATTERN, null);
-//		String channel = ConfigUtils.getString(shortProp, ConfigUtils.TedProperty.TASK_CHANNEL, null);
-//
-//		registerTaskConfig(taskName, tedProcessorFactory, workTimeoutInMinutes, retryPattern, channel);
-//	}
 
 	void registerTaskConfig(String taskName, TedProcessorFactory tedProcessorFactory,
 			TedPackProcessorFactory tedPackProcessorFactory,
@@ -200,23 +163,8 @@ class Registry {
 			retryScheduler = new PeriodPatternRetryScheduler(retryPattern);
 		}
 
-//		String taskTypeStr = ConfigUtils.getString(shortProp, TedProperty.TASK_TYPE, TaskType.TASK.toString());
-//		TaskType taskType;
-//		try {
-//			taskType = TaskType.valueOf(taskTypeStr);
-//		} catch (IllegalArgumentException e) {
-//			logger.warn("Invalid taskType value ({}) for task {}, allowed {}", taskTypeStr, taskName, Arrays.asList(TaskType.values()));
-//			taskType = TaskType.TASK;
-//		}
-
-//		String batchTask = ConfigUtils.getString(shortProp, TedProperty.TASK_BATCH_TASK, null);
-//		if (taskType == TaskType.BATCH) {
-//			logger.debug("Setting batchInterceptProcessorFactory for task {}", taskName);
-//			tedProcessorFactory = context.batchManager.batchInterceptProcessorFactory(tedProcessorFactory);
-//		}
-
-		if (Model.CHANNEL_QUEUE.equalsIgnoreCase(taskName))
-			throw new IllegalStateException("Channel '"+ Model.CHANNEL_QUEUE +"' cannot be assigned to regular task - is is reserved for Ted queue events execution");
+		if (Model.nonTaskChannels.contains(channel))
+			throw new IllegalStateException("Channel '"+ channel +"' cannot be assigned to regular task - is is reserved for Ted");
 
 		TaskConfig ttc = new TaskConfig(taskName, tedProcessorFactory, tedPackProcessorFactory,
 				workTimeoutInMinutes, retryScheduler, channel,
@@ -249,7 +197,7 @@ class Registry {
 		if (workerCount < 1 || workerCount > 1000)
 			throw new IllegalArgumentException("Worker count must be number between 1 and 1000, channel=" + channel);
 		FieldValidator.validateTaskChannel(channel);
-		if (tasks.containsKey(channel)) {
+		if (channels.containsKey(channel)) {
 			logger.warn("Channel '" + channel + "' already exists in registry, skip to register new one");
 			return;
 		}
@@ -265,38 +213,5 @@ class Registry {
 	Collection<Channel> getChannels() {
 		return Collections.unmodifiableCollection(channels.values());
 	}
-
-	//
-	// schedules
-	// (create internally in TedDriverImpl)
-	//
-/*
-	void registerSchedule(String scheduleName, Properties shortProperties) {
-		String produceTask = ConfigUtils.getString(shortProperties, TedProperty.SCHEDULE_PRODUCE_TASK, null);
-		String cron = ConfigUtils.getString(shortProperties, TedProperty.SCHEDULE_CRON, null);
-		registerSchedule(scheduleName, produceTask, cron);
-	}
-
-
-	void registerSchedule(String scheduleName, String produceTask, String cron) {
-		FieldValidator.validateTaskChannel(scheduleName);
-		if (tasks.containsKey(scheduleName)) {
-			logger.warn("Schedule '" + scheduleName + "' already exists in registry, skip to register new one");
-			return;
-		}
-		if (FieldValidator.isEmpty(produceTask))
-			throw new IllegalArgumentException("Parameter 'produceTask' is required for schedule '" + scheduleName + "'");
-		if (FieldValidator.isEmpty(cron))
-			throw new IllegalArgumentException("Parameter 'cron' is required for schedule '" + scheduleName + "'");
-
-		logger.info("Register schedule "+ scheduleName +" with produceTask="+ produceTask +", cron="+ cron);
-		Schedule schedule = new Schedule(scheduleName, produceTask, cron);
-		schedules.put(scheduleName, schedule);
-	}
-
-	Collection<Schedule> getSchedules() {
-		return Collections.unmodifiableCollection(schedules.values());
-	}
-*/
 
 }

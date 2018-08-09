@@ -5,15 +5,14 @@ import labai.ted.Ted.TedProcessor;
 import labai.ted.Ted.TedStatus;
 import labai.ted.TedResult;
 import labai.ted.TedTask;
-import labai.ted.sys.Trash.TedPackProcessor;
 import labai.ted.sys.Model.TaskRec;
 import labai.ted.sys.Registry.Channel;
 import labai.ted.sys.Registry.TaskConfig;
 import labai.ted.sys.TedDriverImpl.TedContext;
+import labai.ted.sys.Trash.TedPackProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -59,8 +58,6 @@ class TaskManager {
 	}
 	private Map<String, ChannelWorkContext> channelContextMap = new HashMap<String, ChannelWorkContext>();
 
-
-
 	private long lastRareMaintExecTimeMilis = 0;
 
 	abstract static class TedRunnable implements Runnable {
@@ -84,29 +81,11 @@ class TaskManager {
 		}
 	}
 
-// TODO
-//	private static class SetStatus {
-//		final long taskId;
-//		final TedStatus status;
-//		final String msg;
-//		final Date nextTs;
-//		public SetStatus(long taskId, TedStatus status, String msg, Date nextTs) {
-//			this.taskId = taskId;
-//			this.status = status;
-//			this.msg = msg;
-//			this.nextTs = nextTs;
-//		}
-//	}
-//
-//	private ConcurrentLinkedQueue<SetStatus> statusQueue = new ConcurrentLinkedQueue<SetStatus>();
-
 	TaskManager(TedContext context) {
 		this.context = context;
 	}
 
 	public void changeTaskStatusPostponed(long taskId, TedStatus status, String msg, Date nextTs){
-		// TODO
-		//statusQueue.add(new SetStatus(taskId, status, msg, nextTs));
 		context.tedDao.setStatusPostponed(taskId, status, msg, nextTs);
 
 	}
@@ -144,37 +123,25 @@ class TaskManager {
 			}
 			if (tc.workTimeoutMinutes <= workingTimeMn) {
 				if (logger.isDebugEnabled())
-					logger.debug("Work timeout for task_id=" + task.taskId + " name=" + task.name + " startTs=" + task.startTs+ " now=" + dateToStrTs(nowTime) + " ttl-minutes=" + tc.workTimeoutMinutes);
+					logger.debug("Work timeout for task_id=" + task.taskId + " name=" + task.name + " startTs=" + task.startTs+ " now=" + MiscUtils.dateToStrTs(nowTime) + " ttl-minutes=" + tc.workTimeoutMinutes);
 				changeTaskStatusPostponed(task.taskId, TedStatus.RETRY, Model.TIMEOUT_MSG + "(3)", new Date());
 			} else {
 				if (logger.isDebugEnabled())
-					logger.debug("Set finishTs for task_id=" + task.taskId + " name=" + task.name + " startTs=" + task.startTs+ " now=" + dateToStrTs(nowTime) + " ttl-minutes=" + tc.workTimeoutMinutes);
+					logger.debug("Set finishTs for task_id=" + task.taskId + " name=" + task.name + " startTs=" + task.startTs+ " now=" + MiscUtils.dateToStrTs(nowTime) + " ttl-minutes=" + tc.workTimeoutMinutes);
 				context.tedDao.setTaskPlannedWorkTimeout(task.taskId, new Date(task.startTs.getTime() + tc.workTimeoutMinutes * 60 * 1000));
 			}
 		}
 	}
 
-// TODO
-//	void submitStatuses() {
-//		List<SetStatus> statuses = new ArrayList<SetStatus>();
-//		for (int i = 0; i < 999; i++) {
-//			SetStatus ss = statusQueue.poll();
-//			if (ss == null) break;
-//			statuses.add(ss);
-//		}
-//		if (statuses.isEmpty())
-//			return;
-//		context.tedDao.submitStatuses(statuses);
-//	}
-
-	// process TED tasks
-	//
+	// tests only
 	void processChannelTasks() {
 		List<String> waitChannelsList = context.tedDao.getWaitChannels();
 		waitChannelsList.removeAll(Model.nonTaskChannels);
 		processChannelTasks(waitChannelsList);
 	}
 
+	// process TED tasks
+	//
 	void processChannelTasks(List<String> waitChannelsList) {
 		int totalProcessing = calcWaitingTaskCountInAllChannels();
 		if (totalProcessing >= LIMIT_TOTAL_WAIT_TASKS) {
@@ -336,32 +303,6 @@ class TaskManager {
 
 			TaskConfig taskConfig = context.registry.getTaskConfig(taskRec1.name);
 
-			// check if batch
-			// TODO move into separate channel (?)
-			if (Model.BATCH_MSG.equals(taskRec1.msg)) {
-				// check for finishing all tasks before sending it to consumer
-				boolean finished = tedDao.checkIsBatchFinished(taskRec1.taskId);
-				if (!finished) {
-					// retry batch
-					long batchTimeMn = (System.currentTimeMillis() - taskRec1.createTs.getTime()) / 1000 / 60;
-					if (batchTimeMn >= taskConfig.batchTimeoutMinutes) {
-						logger.warn("Batch timeout for task_id=" + taskRec1.taskId + " name=" + taskRec1.name + " createTs=" + taskRec1.createTs+ " now=" + dateToStrTs(System.currentTimeMillis()) + " ttl-minutes=" + taskConfig.batchTimeoutMinutes);
-						changeTaskStatus(taskRec1.taskId, TedStatus.ERROR, "Batch processing too long");
-						return Collections.emptyMap();
-					}
-					Date nextTm = ConfigUtils.BATCH_RETRY_SCHEDULER.getNextRetryTime(taskRec1.getTedTask(), taskRec1.retries + 1, taskRec1.startTs);
-					if (nextTm == null)
-						nextTm = new Date(System.currentTimeMillis() + 60 * 1000);
-					tedDao.setStatusPostponed(taskRec1.taskId, TedStatus.RETRY, Model.BATCH_MSG, nextTm);
-					return Collections.emptyMap();
-				} else {
-					// cleanup retries - then it could be used for task purposes
-					tedDao.cleanupRetries(taskRec1.taskId, "");
-					taskRec1.retries = 0;
-					taskRec1.msg = "";
-				}
-			}
-
 			Thread.currentThread().setName(threadName + "-" + taskConfig.shortLogName + "-" + taskRec1.taskId);
 
 			// process
@@ -451,9 +392,4 @@ class TaskManager {
 		return sum;
 	}
 
-	// for logging
-	private static String dateToStrTs(long dateMs) {
-		SimpleDateFormat df = new SimpleDateFormat ("yyyy-MM-dd'T'HH:mm:ss.SSS");
-		return df.format(new Date(dateMs));
-	}
 }

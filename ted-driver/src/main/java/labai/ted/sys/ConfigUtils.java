@@ -31,7 +31,6 @@ class ConfigUtils {
 
 	static final String PROPERTY_PREFIX_CHANNEL = "ted.channel.";
 	static final String PROPERTY_PREFIX_TASK = "ted.task.";
-	static final String PROPERTY_PREFIX_SCHEDULE = "ted.schedule.";
 
 	static class TedProperty {
 		public static final String SYSTEM_ID 						= "ted.systemId";
@@ -62,10 +61,6 @@ class ConfigUtils {
 		public static final String TASK_BATCH_TASK				= "batchTask";
 		public static final String TASK_BATCH_TIMEOUT_MINUTES	= "batchTimeoutMinutes";
 
-		// short schedule properties (w/o prefix "ted.schedule.<SCHEDULE>.")
-		//public static final String SCHEDULE_PRODUCE_TASK = "produceTask";
-		//public static final String SCHEDULE_CRON = "cron";
-
 	}
 	static class TedConfig {
 		private String defaultRetryPauses = "12s,36s,90s,300s,16m,50m,2h,5h,7h*5;dispersion=10";
@@ -78,7 +73,6 @@ class ConfigUtils {
 		private Map<String, Properties> channelMap = new HashMap<String, Properties>();
 		private Map<String, Properties> taskMap = new HashMap<String, Properties>();
 		private final String systemId;
-		//private Map<String, Properties> scheduleMap = new HashMap<String, Properties>();
 		private final String instanceId;
 
 		public TedConfig(String systemId) {
@@ -98,7 +92,6 @@ class ConfigUtils {
 		public Map<String, Properties> taskMap() { return Collections.unmodifiableMap(taskMap); }
 		public String systemId() { return systemId; }
 		public String instanceId() { return instanceId; }
-		//public Map<String, Properties> scheduleMap() { return Collections.unmodifiableMap(scheduleMap); }
 	}
 
 
@@ -138,7 +131,6 @@ class ConfigUtils {
 		// channels and tasks config
 		config.channelMap.putAll(getShortPropertiesByPrefix(properties, PROPERTY_PREFIX_CHANNEL));
 		config.taskMap.putAll(getShortPropertiesByPrefix(properties, PROPERTY_PREFIX_TASK));
-		//config.scheduleMap.putAll(getShortPropertiesByPrefix(properties, PROPERTY_PREFIX_SCHEDULE));
 	}
 
 	static void printConfigToLog(TedConfig config) {
@@ -156,8 +148,6 @@ class ConfigUtils {
 				+ " retryPattern=" + config.defaultRetryPauses
 				);
 		loggerConfig.info("channels: " + config.channelMap.keySet().toString());
-		//loggerConfig.info("triggers: " + config.scheduleMap.keySet().toString());
-		// add tasks?
 	}
 
 	static Map<String, Properties> getShortPropertiesByPrefix(Properties properties, String prefix) {

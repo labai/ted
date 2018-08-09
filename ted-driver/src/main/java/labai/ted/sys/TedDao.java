@@ -29,8 +29,6 @@ interface TedDao {
 
 	List<Long> createTasksBulk(List<TaskParam> taskParams);
 
-//	boolean existsActiveTaskByKey1(String name, String key1);
-
 	void processMaintenanceFrequent();
 
 	void processMaintenanceRare(int deleteAfterDays);
@@ -52,7 +50,7 @@ interface TedDao {
 
 	boolean checkIsBatchFinished(long batchId);
 
-	void cleanupRetries(Long taskId, String msg);
+	void cleanupBatchTask(Long taskId, String msg, String chanel);
 
 	Map<TedStatus, Integer> getBatchStatusStats(long batchId);
 

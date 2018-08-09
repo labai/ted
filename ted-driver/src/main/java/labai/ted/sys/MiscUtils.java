@@ -21,6 +21,12 @@ class MiscUtils {
 		return new SimpleDateFormat("yyyy-MM-dd").format(date);
 	}
 
+	// for logging
+	static String dateToStrTs(long dateMs) {
+		SimpleDateFormat df = new SimpleDateFormat ("yyyy-MM-dd'T'HH:mm:ss.SSS");
+		return df.format(new Date(dateMs));
+	}
+
 	static String generateInstanceId() {
 		// hostname with pid
 		String id = ManagementFactory.getRuntimeMXBean().getName();

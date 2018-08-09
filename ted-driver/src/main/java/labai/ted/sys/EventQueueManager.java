@@ -19,6 +19,12 @@ import java.util.Map;
 
 import static java.util.Arrays.asList;
 
+/**
+ * @author Augustus
+ *         created on 2018.08.07
+ *
+ * for internal usage only!!!
+ */
 class EventQueueManager {
 	private static final Logger logger = LoggerFactory.getLogger(EventQueueManager.class);
 	private static final Logger taskExceptionLogger = LoggerFactory.getLogger("ted-task");

@@ -19,11 +19,12 @@ import static java.util.Arrays.asList;
 class Model {
 	static final String CHANNEL_MAIN = "MAIN";
 	static final String CHANNEL_QUEUE = "TedEQ"; // Event Queue
+	static final String CHANNEL_BATCH = "TedBW"; // Batch Wait
 	static final String CHANNEL_PRIME = "TedNO"; // Non Operating - just simple rec, e.g. for prime instance
 	static final String TIMEOUT_MSG = "Too long in status [work]";
 	static final String BATCH_MSG = "Batch task is waiting for finish of subtasks";
 
-	static final Set<String> nonTaskChannels = new HashSet<String>(asList(Model.CHANNEL_QUEUE, CHANNEL_PRIME));
+	static final Set<String> nonTaskChannels = new HashSet<String>(asList(Model.CHANNEL_QUEUE, CHANNEL_PRIME, CHANNEL_BATCH));
 
 	static class TaskRec {
 		Long taskId;
@@ -33,7 +34,6 @@ class Model {
 		String status;
 		String channel;
 		Date nextTs;
-		//String tasktp;
 		String msg;
 		Integer retries;
 		String key1;
@@ -69,13 +69,6 @@ class Model {
 		String data;
 	}
 
-//	enum TaskType {
-//		T, 	// Task
-//		S, 	// Schedule
-//		B,	// Batch
-//		L,  // Lock
-//	}
-
 	private static class Lengths {
 		static final int len_system = 8;
 		static final int len_name = 15;
@@ -86,7 +79,6 @@ class Model {
 		static final int len_key2 = 30;
 		static final int len_data = 500; // not used
 	}
-
 
 	static class FieldValidateException extends IllegalArgumentException {
 		public FieldValidateException(String s) {

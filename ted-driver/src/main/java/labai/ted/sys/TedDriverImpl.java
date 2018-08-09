@@ -62,7 +62,7 @@ public class TedDriverImpl {
 		QuickCheck quickCheck;
 		PrimeInstance prime;
 		EventQueueManager eventQueueManager;
-		//BatchManager batchManager;
+		BatchWaitManager batchWaitManager;
 		//ScheduleManager scheduleManager;
 	}
 
@@ -92,12 +92,10 @@ public class TedDriverImpl {
 		context.registry = new Registry(context);
 		context.taskManager = new TaskManager(context);
 		context.retryConfig = new RetryConfig(context);
-		//context.batchManager = new BatchManager(context);
-		//context.scheduleManager = new ScheduleManager(context);
 		context.quickCheck = new QuickCheck(context);
 		context.prime = new PrimeInstance(context);
 		context.eventQueueManager = new EventQueueManager(context);
-
+		context.batchWaitManager = new BatchWaitManager(context);
 
 		// read properties (e.g. from ted.properties.
 		// default MAIN channel configuration: 5/100. Can be overwrite by [properties]
@@ -111,6 +109,9 @@ public class TedDriverImpl {
 		String prefixQueue = ConfigUtils.PROPERTY_PREFIX_CHANNEL + Model.CHANNEL_QUEUE + ".";
 		defaultChanProp.put(prefixQueue + TedProperty.CHANNEL_WORKERS_COUNT, "2");
 		defaultChanProp.put(prefixQueue + TedProperty.CHANNEL_TASK_BUFFER, "100");
+		String prefixBatch = ConfigUtils.PROPERTY_PREFIX_CHANNEL + Model.CHANNEL_BATCH + ".";
+		defaultChanProp.put(prefixBatch + TedProperty.CHANNEL_WORKERS_COUNT, "1");
+		defaultChanProp.put(prefixBatch + TedProperty.CHANNEL_TASK_BUFFER, "200");
 		ConfigUtils.readTedProperties(context.config, defaultChanProp);
 		ConfigUtils.readTedProperties(context.config, properties);
 
@@ -118,12 +119,6 @@ public class TedDriverImpl {
 		for (String channel : context.config.channelMap().keySet()) {
 			context.registry.registerChannel(channel, context.config.channelMap().get(channel));
 		}
-
-//		// register schedules
-//		for (String schedule : context.config.scheduleMap().keySet()) {
-//			context.registry.registerSchedule(schedule, context.config.scheduleMap().get(schedule));
-//		}
-//		context.tedDao.createUpdateSchedules(context.registry.getSchedules());
 
 	}
 
@@ -260,35 +255,6 @@ public class TedDriverImpl {
 		return context.tedDao.createTask(taskName, tc.channel, data, key1, key2, batchId);
 	}
 
-/*
-	public Long createTaskUniqueKey1(String taskName, String data, String key1, String key2) {
-		FieldValidator.validateTaskData(data);
-		FieldValidator.validateTaskKey1(key1);
-		FieldValidator.validateTaskKey2(key2);
-		if (key1 == null || key1.isEmpty())
-			throw new FieldValidateException("key1 must be not empty");
-		TaskConfig tc = context.registry.getTaskConfig(taskName);
-		if (tc == null)
-			throw new IllegalArgumentException("Task '" + taskName + "' is not known for TED");
-		if (context.tedDao.existsActiveTaskByKey1(taskName, key1)) {
-			logger.debug("duplicate was found for unique (on check) task={}, key1={}, skip task creation", taskName, key1);
-			return null;
-		}
-		try {
-			return context.tedDao.createTask(taskName, tc.channel, data, key1, key2, null);
-		} catch (TedSqlException e) {
-			if (e.getCause() != null && e.getCause() instanceof SQLException) {
-				SQLException sqle = (SQLException) e.getCause();
-				if ("23505".equals(sqle.getSQLState())) { // 23505 in postgres: duplicate key value violates unique constraint
-					logger.info("duplicate was found for unique (unique index) task={}, key1={}, skip task creation", taskName, key1);
-					return null;
-				}
-			}
-			throw e;
-		}
-	}
-*/
-
 	Long createTask(String taskName, String data, String key1, String key2) {
 		return createTask(taskName, data, key1, key2, null);
 	}
@@ -365,11 +331,6 @@ public class TedDriverImpl {
 	}
 
 	// create tasks by list and batch task for them. return batch taskId
-//	public Long createBatch(List<TedTask> tedTasks) {
-//		return createBatch(null, null, null, null, tedTasks);
-//	}
-
-	// create tasks by list and batch task for them. return batch taskId
 	// if batchTaskName is null - will take from taskConfiguration
 	public Long createBatch(String batchTaskName, String data, String key1, String key2, List<TedTask> tedTasks) {
 		if (tedTasks == null || tedTasks.isEmpty())
@@ -381,7 +342,7 @@ public class TedDriverImpl {
 		if (batchTC == null)
 			throw new IllegalArgumentException("Batch task '" + batchTaskName + "' is not known for TED");
 
-		Long batchId = context.tedDao.createTaskPostponed(batchTC.taskName, batchTC.channel, data, key1, key2, 30 * 60);
+		Long batchId = context.tedDao.createTaskPostponed(batchTC.taskName, Model.CHANNEL_BATCH, data, key1, key2, 30 * 60);
 		createTasksBulk(tedTasks, batchId);
 		context.tedDao.setStatusPostponed(batchId, TedStatus.NEW, Model.BATCH_MSG, new Date());
 
@@ -418,6 +379,7 @@ public class TedDriverImpl {
 	public PrimeInstance prime() {
 		return context.prime;
 	}
+
 	//
 	// package scoped - for tests only
 	//

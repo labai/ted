@@ -77,6 +77,7 @@ class QuickCheck {
 		// process tasks
 		List<String> taskChannels = new ArrayList<String>();
 		boolean needProcessTedQueue = false;
+		boolean needProcessTedBatch = false;
 		for (CheckResult cres : checkResList) {
 			if ("CHAN".equals(cres.type) == false)
 				continue;
@@ -86,8 +87,10 @@ class QuickCheck {
 				if (chan == null || chan.primeOnly)
 					continue;
 			}
-			if (Model.CHANNEL_QUEUE.equalsIgnoreCase(cres.name)) {
+			if (Model.CHANNEL_QUEUE.equals(cres.name)) {
 				needProcessTedQueue = true;
+			} else if (Model.CHANNEL_BATCH.equals(cres.name)) {
+				needProcessTedBatch = true;
 			} else {
 				if (Model.nonTaskChannels.contains(cres.name) == false)
 					taskChannels.add(cres.name);
@@ -99,6 +102,10 @@ class QuickCheck {
 		if (needProcessTedQueue) {
 			context.eventQueueManager.processTedQueue();
 		}
+		if (needProcessTedBatch) {
+			context.batchWaitManager.processBatchWaitTasks();
+		}
+
 		// process prime check results
 		if (context.prime.isEnabled()) {
 			boolean canPrime = false;

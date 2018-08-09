@@ -9,7 +9,7 @@ create table tedtask(
     taskid      bigint not null,
     system      varchar(8) not null, -- system id. e.g. myapp
     name        varchar(15) not null,
-    status      varchar(5) not null, -- NEW, WORK, RETRY, ERROR, DONE
+    status      varchar(5) not null, -- NEW, WORK, RETRY, ERROR, DONE, SLEEP
     channel     varchar(5), -- channel: MAIN
     nextts      timestamp(3) default now(),
     batchid     bigint null,
@@ -36,7 +36,7 @@ create index ix_tedtask_key1 on tedtask (key1);
 create index ix_tedtask_key2 on tedtask (key2);
 create index ix_tedtask_createts on tedtask (createts);
 create index ix_tedtask_bno on tedtask (bno);
-create index ix_tedtask_status on tedtask (status); -- maintenance task
+create index ix_tedtask_status on tedtask (status);
 
 -- Comments for tedtask
 comment on table tedtask is 'TED (Task Execution Driver) tasks';

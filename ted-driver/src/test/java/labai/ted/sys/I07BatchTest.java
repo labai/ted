@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Properties;
 
 import static labai.ted.sys.TestConfig.SYSTEM_ID;
+import static labai.ted.sys.TestUtils.print;
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -28,7 +29,6 @@ import static org.junit.Assert.assertEquals;
  *
  *  creates a lot of tasks.
  */
-@Ignore
 public class I07BatchTest extends TestBase {
 	private final static Logger logger = LoggerFactory.getLogger(I07BatchTest.class);
 
@@ -104,36 +104,46 @@ public class I07BatchTest extends TestBase {
 		}
 		Long batchId = driver.createBatch(batchName, "data", "key1", "key2", taskParams);
 
-		TestUtils.sleepMs(500); // there can be difference between clocks in dev/tomcat and db server?
+		TestUtils.sleepMs(50); // there can be difference between clocks in dev/tomcat and db server?
 		driver.getContext().taskManager.processChannelTasks();
-		driver.getContext().taskManager.processChannelTasks();
-		TestUtils.sleepMs(20);
+		TestUtils.sleepMs(50);
+		driver.getContext().batchWaitManager.processBatchWaitTasks();
+		TestUtils.sleepMs(50);
 		Map<TedStatus, Integer> stats = tedDao.getBatchStatusStats(batchId);
-		TestUtils.print(stats.toString());
+		print(stats.toString());
 		TaskRec batchRec = tedDao.getTask(batchId);
+		print(batchRec.toString());
 		assertEquals("batch should be RETRY until all task will be finished", "RETRY", batchRec.status);
 		assertEquals("Batch task is waiting for finish of subtasks", batchRec.msg);
-		TestUtils.print("sleep...");
+		print("sleep...");
 
 		TestUtils.sleepMs(1100 + 500); // wait 1s (retry)
-		driver.getContext().taskManager.processChannelTasks();
+		driver.getContext().taskManager.processChannelTasks(); // here all subtask should be finished
+		TestUtils.sleepMs(50);
+		print(tedDao.getBatchStatusStats(batchId).toString());
+
+		driver.getContext().batchWaitManager.processBatchWaitTasks();
 		TestUtils.sleepMs(100);
 
 		batchRec = tedDao.getTask(batchId);
+		print(batchRec.toString());
 		assertEquals("batch should be RETRY because 1 task was delayed and not finished yet", "RETRY", batchRec.status);
+		assertEquals("channel should be as is in config", "BAT", batchRec.channel);
 
+		print("subtasks finished, waiting for batch tasks own retry");
 		TestUtils.sleepMs(1000 + 500); // wait 1s (retry)
 		driver.getContext().taskManager.processChannelTasks();
 		TestUtils.sleepMs(100);
 
 		batchRec = tedDao.getTask(batchId);
-		assertEquals("batch should be RETRY because even all tasks should be finished, but got RETRY from batch task", "RETRY", batchRec.status);
+		print(batchRec.toString());
+		assertEquals("batch should be finished", "DONE", batchRec.status);
 		assertEquals("retries should be cleanup after batch subtasks finished", 1L, batchRec.retries.longValue());
 
 		stats = tedDao.getBatchStatusStats(batchId);
 
-		TestUtils.print("batchTaskRec: " + batchRec.toString());
-		TestUtils.print("statusStats: " + stats.toString());
+		print("batchTaskRec: " + batchRec.toString());
+		print("statusStats: " + stats.toString());
 	}
 
 	// set second task to retry

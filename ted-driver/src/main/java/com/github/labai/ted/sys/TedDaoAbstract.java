@@ -82,9 +82,6 @@ abstract class TedDaoAbstract implements TedDao {
 		return dbType;
 	}
 
-	// abstract
-//	protected abstract String selectLocked(String sql);
-
 	@Override
 	public Long createTask(String name, String channel, String data, String key1, String key2, Long batchId) {
 		return createTaskInternal(name, channel, data, key1, key2, batchId, 0, TedStatus.NEW);
@@ -263,7 +260,7 @@ abstract class TedDaoAbstract implements TedDao {
 				" select taskid, key1 from tedtask t1 where channel = 'TedEQ' and status = 'SLEEP' and system = '$sys'" +
 				" and createts < $now - $seconds10" +
 				" and not exists (select taskid from tedtask t2 where channel = 'TedEQ' " +
-				" and status in ('NEW', 'RETRY', 'WORK', 'ERROR')" +
+				"   and status in ('NEW', 'RETRY', 'WORK', 'ERROR')" +
 				"   and t2.key1 = t1.key1 and t2.system = t1.system)" +
 				")" +
 				" update tedtask set status = 'NEW', nextTs = $now " +
@@ -378,9 +375,9 @@ abstract class TedDaoAbstract implements TedDao {
 //		}
 //		return ids;
 //	}
-	private static class TaskIdRes {
-		Long taskid;
-	}
+//	private static class TaskIdRes {
+//		Long taskid;
+//	}
 
 /*
 	@Override

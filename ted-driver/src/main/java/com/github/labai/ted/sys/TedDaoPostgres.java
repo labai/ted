@@ -199,16 +199,6 @@ class TedDaoPostgres extends TedDaoAbstract {
 
 	@Override
 	public List<TaskRec> eventQueueGetTail(String discriminator) {
-//		String keys = "";
-//		for (String discriminator : discriminators) {
-//			if (FieldValidator.hasInvalidChars(discriminator)) {
-//				logger.warn("queue discriminator has invalid characters ({}), skipping", discriminator);
-//				continue;
-//			}
-//			keys += ",'" + discriminator + "'";
-//		}
-//		keys = keys.substring(1);
-
 		String sql = "select * from tedtask where key1 = ?"
 				+ " and status = 'SLEEP'"
 				+ " and channel = '$channel' and system = '$sys'"
@@ -217,9 +207,15 @@ class TedDaoPostgres extends TedDaoAbstract {
 				+ " limit 100";
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$channel", Model.CHANNEL_QUEUE);
-		List<TaskRec> recs = selectData("queue_tail", sql, TaskRec.class, asList(
-				sqlParam(discriminator, JetJdbcParamType.STRING)
-		));
+		List<TaskRec> recs;
+		try {
+			recs = selectData("queue_tail", sql, TaskRec.class, asList(
+					sqlParam(discriminator, JetJdbcParamType.STRING)
+			));
+		} catch (Exception e) {
+			logger.info("select queue_tail got exception: {}", e.getMessage());
+			return Collections.emptyList();
+		}
 
 		return recs;
 	}

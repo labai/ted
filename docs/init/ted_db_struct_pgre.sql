@@ -26,21 +26,17 @@ create table tedtask(
 
 
 -- Indexes for tedtask.
--- Warning: It is expected that tedtask table is for single app (system). In case of few apps use one tedtask, it may be better to use other indexes
+-- Warning: It is expected that tedtask table is for single app (system). In case of few apps (system) use one tedtask, it may be better to use other indexes
 create unique index ix_tedtask_pk on tedtask (taskid);
 create index ix_tedtask_batchid on tedtask (batchid, status);
 create index ix_tedtask_name on tedtask (name, status);
---create index ix_tedtask_quickchk on tedtask (nextts);
+create index ix_tedtask_quickchk on tedtask (nextts);
 create index ix_tedtask_nextts on tedtask (channel, system, nextts);
 create index ix_tedtask_key1 on tedtask (key1);
--- unique key1 - to ensure maximum one active task for some object
--- create unique index ix_tedtask_key1_uniq on tedtask (key1, name)
---    where status in ('NEW', 'WORK', 'RETRY'); -- ... not key1 is null and key1 > ''
 create index ix_tedtask_key2 on tedtask (key2);
 create index ix_tedtask_createts on tedtask (createts);
 create index ix_tedtask_bno on tedtask (bno);
 create index ix_tedtask_status on tedtask (status); -- maintenance task
-
 
 -- Comments for tedtask
 comment on table tedtask is 'TED (Task Execution Driver) tasks';

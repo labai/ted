@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static com.github.labai.ted.sys.TestConfig.SYSTEM_ID;
+import static com.github.labai.ted.sys.TestUtils.forClass;
 import static com.github.labai.ted.sys.TestUtils.print;
 import static com.github.labai.ted.sys.TestUtils.sleepMs;
 import static org.junit.Assert.assertEquals;
@@ -62,7 +63,7 @@ public class I09EventQueueTest extends TestBase {
 	}
 	@Test
 	public void test01TakeFirst() {
-		String taskName = "TEST09-1-1";
+		String taskName = "TEST09-1";
 		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
 				" and status <> 'DONE'");
 
@@ -80,7 +81,7 @@ public class I09EventQueueTest extends TestBase {
 	}
 	@Test
 	public void test02TryExecute() {
-		String taskName = "TEST09-1-1";
+		String taskName = "TEST09-1";
 		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
 				" and status <> 'DONE'");
 		driver.registerTaskConfig(taskName, TestUtils.forClass(Test09ProcessorOk.class));
@@ -93,8 +94,8 @@ public class I09EventQueueTest extends TestBase {
 
 	@Test
 	public void test03EventStatuses() {
-		String taskName = "TEST09-1-1";
-		String taskName2 = "TEST09-1-2";
+		String taskName = "TEST09-1";
+		String taskName2 = "TEST09-2";
 		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
 				" and status <> 'DONE'");
 		final TedProcessor tedProcessorErr2 = new Test09Processor01(1, TedResult.error("error"));
@@ -151,11 +152,47 @@ public class I09EventQueueTest extends TestBase {
 		assertEquals("SLEEP", tedDao.getTask(taskId6).status);
 
 	}
+	@Test
+	public void test04EventCreateEvent() {
+		String taskName = "TEST09-1";
+		final String taskName2 = "TEST09-2";
+		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
+				" and status <> 'DONE'");
+		final Long[] taskId2 = new Long[1];
+		driver.registerTaskConfig(taskName, new TedProcessorFactory() {
+			@Override
+			public TedProcessor getProcessor(String taskName) {
+				return new TedProcessor() {
+					@Override
+					public TedResult process(TedTask task) {
+						taskId2[0] = getContext().tedDriver.createEvent(taskName2, "abra", "2", null);
+						return TedResult.done();
+					}
+				};
+			}
+		});
+		driver.registerTaskConfig(taskName2, forClass(Test09ProcessorOk.class));
+
+		// first must become NEW
+		Long taskId = driver.createEvent(taskName, "abra", "abra1" , null);
+		TaskRec taskRec = tedDao.getTask(taskId);
+		TestUtils.print(taskRec.toString());
+		assertEquals("NEW", taskRec.status);
+
+		sleepMs(20);
+		driver.getContext().eventQueueManager.processTedQueue();
+
+		sleepMs(100);
+		assertEquals("DONE", tedDao.getTask(taskId).status);
+		assertEquals("DONE", tedDao.getTask(taskId2[0]).status);
+
+
+	}
 
 	@Ignore
 	@Test
 	public void test11EventQueue50() {
-		String taskName = "TEST09-02";
+		String taskName = "TEST09-3";
 		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
 				" and status <> 'DONE'");
 

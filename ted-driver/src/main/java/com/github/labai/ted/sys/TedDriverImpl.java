@@ -376,13 +376,6 @@ public class TedDriverImpl {
 			return null;
 		if (batchTaskName == null) {
 			throw new IllegalStateException("batchTaskName is required (yet, TODO?)!");
-			/*
-			TedTask task = tedTasks.get(0);
-			TaskConfig taskConfig = context.registry.getTaskConfig(task.getName());
-			if (taskConfig.batchTask == null)
-				throw new IllegalArgumentException("Batch task is not configured for task '" + taskConfig.taskName + "'");
-			batchTaskName = taskConfig.batchTask;
-			*/
 		}
 		TaskConfig batchTC = context.registry.getTaskConfig(batchTaskName);
 		if (batchTC == null)

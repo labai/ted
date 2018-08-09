@@ -324,14 +324,6 @@ class TaskManager {
 	// Remarks:
 	// - all tasks must be of same type (will not be checked)
 	//
-//	TedResult processTask(TaskRec taskRec) {
-//		Map<Long, TedResult> results = processTask(Collections.singletonList(taskRec));
-//		TedResult result = results.get(taskRec.taskId);
-//		if (result == null)
-//			result = TedResult.error("Result was lost");
-//		return result;
-//	}
-
 	Map<Long, TedResult> processTask(List<TaskRec> taskRecList) {
 		if (taskRecList == null || taskRecList.isEmpty())
 			throw new IllegalStateException("taskRecList is empty");

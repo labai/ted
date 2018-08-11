@@ -28,7 +28,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 class Registry {
 	private final static Logger logger = LoggerFactory.getLogger(Registry.class);
 	private final static Logger loggerConfig = LoggerFactory.getLogger("ted-config");
-	private final static int CHANNEL_EXTRA_SIZE = 100; // queue size increase - reserved for createAndStart tasks
+	private final static int CHANNEL_EXTRA_SIZE = 500; // queue size increase - reserved for createAndStart tasks
 
 	private final TedContext context;
 
@@ -48,7 +48,6 @@ class Registry {
 			this.workerCount = workerCount;
 			this.taskBufferSize = taskBufferSize;
 			this.primeOnly = primeOnly;
-			// create queue bigger by workerCount - to be sure queue will not be oversize (on very fast tasks RejectedExecutionException occurs). this count will be deducted when calculate pack size
 			this.workers = TedDriverImpl.createWorkersExecutor(tedNamePrefix + "-" + name, workerCount, taskBufferSize + workerCount + CHANNEL_EXTRA_SIZE);
 		}
 

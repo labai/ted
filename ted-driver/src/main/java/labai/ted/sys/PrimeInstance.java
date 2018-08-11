@@ -7,6 +7,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.plugin.dom.exception.InvalidStateException;
 
+import java.util.concurrent.ThreadPoolExecutor;
+
 /**
  * @author Augustus
  *         created on 2018.07.28
@@ -18,7 +20,7 @@ import sun.plugin.dom.exception.InvalidStateException;
  * - after prime dies, any other instance will become the prime
  *
  */
-public class PrimeInstance {
+public final class PrimeInstance {
 	private final static Logger logger = LoggerFactory.getLogger(PrimeInstance.class);
 	private final static Logger loggerConfig = LoggerFactory.getLogger("ted-config");
 	final static int TICK_SKIP_COUNT = 3; // every 3 check periods
@@ -80,11 +82,18 @@ public class PrimeInstance {
 			return;
 		this.isPrime = context.tedDao.becomePrime(primeTaskId, context.config.instanceId());
 		if (isPrime) {
-			try {
-				onBecomePrime.onEvent();
-			} catch (Exception e) {
-				logger.error("Exception onBecomePrime handler", e);
-			}
+			logger.info("TED become prime. instanceId={}", context.config.instanceId());
+			ThreadPoolExecutor workers = context.registry.getChannel(Model.CHANNEL_SYSTEM).workers;
+			workers.execute(new Runnable() {
+				@Override
+				public void run() {
+					try {
+						onBecomePrime.onEvent();
+					} catch (Exception e) {
+						logger.error("Exception onBecomePrime handler", e);
+					}
+				}
+			});
 		}
 	}
 
@@ -94,11 +103,17 @@ public class PrimeInstance {
 		logger.info("TED lost prime. instanceId={}", context.config.instanceId());
 		this.isPrime = false;
 		if (onLostPrime != null) {
-			try {
-				onLostPrime.onEvent();
-			} catch (Exception e) {
-				logger.error("Exception onLostPrime handler", e);
-			}
+			ThreadPoolExecutor workers = context.registry.getChannel(Model.CHANNEL_SYSTEM).workers;
+			workers.execute(new Runnable() {
+				@Override
+				public void run() {
+					try {
+						onLostPrime.onEvent();
+					} catch (Exception e) {
+						logger.error("Exception onLostPrime handler", e);
+					}
+				}
+			});
 		}
 	}
 

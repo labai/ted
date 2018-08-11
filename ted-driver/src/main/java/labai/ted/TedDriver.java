@@ -73,13 +73,13 @@ public class TedDriver {
 	}
 
 	/** create event in queue */
-	public Long createEvent(String taskName, String discriminator, String data, String key2) {
-		return tedDriverImpl.createEvent(taskName, discriminator, data, key2);
+	public Long createEvent(String taskName, String queueId, String data, String key2) {
+		return tedDriverImpl.createEvent(taskName, queueId, data, key2);
 	}
 
 	/** create event in queue. If possible, try to execute */
-	public Long createAndTryExecuteEvent(String taskName, String discriminator, String data, String key2) {
-		return tedDriverImpl.createAndTryExecuteEvent(taskName, discriminator, data, key2);
+	public Long createAndTryExecuteEvent(String taskName, String queueId, String data, String key2) {
+		return tedDriverImpl.createAndTryExecuteEvent(taskName, queueId, data, key2);
 	}
 
 	/**

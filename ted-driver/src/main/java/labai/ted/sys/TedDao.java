@@ -60,11 +60,11 @@ interface TedDao {
 
 	Long findPrimeTaskId();
 
-	Long createEvent(String taskName, String discriminator, String data, String key2);
+	Long createEvent(String taskName, String queueId, String data, String key2);
 
-	TaskRec eventQueueMakeFirst(String discriminator);
+	TaskRec eventQueueMakeFirst(String queueId);
 
-	List<TaskRec> eventQueueGetTail(String discriminator);
+	List<TaskRec> eventQueueGetTail(String queueId);
 
 
 }

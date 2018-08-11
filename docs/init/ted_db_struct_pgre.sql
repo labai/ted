@@ -43,7 +43,7 @@ comment on table tedtask is 'TED (Task Execution Driver) tasks';
 
 comment on column tedtask.taskid     is 'Id - primary key';
 comment on column tedtask.batchid    is 'Reference to batch taskId';
-comment on column tedtask.system     is 'System id. E.g. "myapp"';
+comment on column tedtask.system     is 'System Id';
 comment on column tedtask.name       is 'Task name';
 comment on column tedtask.status     is 'Status';
 comment on column tedtask.channel    is 'Channel';

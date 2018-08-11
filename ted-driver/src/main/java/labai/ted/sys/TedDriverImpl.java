@@ -44,7 +44,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * public class for TedDriver usage only
  *
  */
-public class TedDriverImpl {
+public final class TedDriverImpl {
 	private final static Logger logger = LoggerFactory.getLogger(TedDriverImpl.class);
 
 	private static int driverLocalInstanceCounter = 0; // expected always 1, more for testings
@@ -63,7 +63,6 @@ public class TedDriverImpl {
 		PrimeInstance prime;
 		EventQueueManager eventQueueManager;
 		BatchWaitManager batchWaitManager;
-		//ScheduleManager scheduleManager;
 	}
 
 	private final TedContext context;
@@ -101,7 +100,6 @@ public class TedDriverImpl {
 		// default MAIN channel configuration: 5/100. Can be overwrite by [properties]
 		// default TedEQ channel configuration: 2/100
 		//
-		// e.g.: ted.channel.MAIN.workersMin
 		Properties defaultChanProp = new Properties();
 		String prefixMain = ConfigUtils.PROPERTY_PREFIX_CHANNEL + Model.CHANNEL_MAIN + ".";
 		defaultChanProp.put(prefixMain + TedProperty.CHANNEL_WORKERS_COUNT, "5");
@@ -109,9 +107,9 @@ public class TedDriverImpl {
 		String prefixQueue = ConfigUtils.PROPERTY_PREFIX_CHANNEL + Model.CHANNEL_QUEUE + ".";
 		defaultChanProp.put(prefixQueue + TedProperty.CHANNEL_WORKERS_COUNT, "2");
 		defaultChanProp.put(prefixQueue + TedProperty.CHANNEL_TASK_BUFFER, "100");
-		String prefixBatch = ConfigUtils.PROPERTY_PREFIX_CHANNEL + Model.CHANNEL_BATCH + ".";
-		defaultChanProp.put(prefixBatch + TedProperty.CHANNEL_WORKERS_COUNT, "1");
-		defaultChanProp.put(prefixBatch + TedProperty.CHANNEL_TASK_BUFFER, "200");
+		String prefixSystem = ConfigUtils.PROPERTY_PREFIX_CHANNEL + Model.CHANNEL_SYSTEM + ".";
+		defaultChanProp.put(prefixSystem + TedProperty.CHANNEL_WORKERS_COUNT, "2");
+		defaultChanProp.put(prefixSystem + TedProperty.CHANNEL_TASK_BUFFER, "200");
 		ConfigUtils.readTedProperties(context.config, defaultChanProp);
 		ConfigUtils.readTedProperties(context.config, properties);
 
@@ -336,7 +334,7 @@ public class TedDriverImpl {
 		if (tedTasks == null || tedTasks.isEmpty())
 			return null;
 		if (batchTaskName == null) {
-			throw new IllegalStateException("batchTaskName is required (yet, TODO?)!");
+			throw new IllegalStateException("batchTaskName is required!");
 		}
 		TaskConfig batchTC = context.registry.getTaskConfig(batchTaskName);
 		if (batchTC == null)
@@ -349,12 +347,12 @@ public class TedDriverImpl {
 		return batchId;
 	}
 
-	public Long createEvent(String taskName, String discriminator, String data, String key2) {
-		return context.eventQueueManager.createEvent(taskName, discriminator, data, key2);
+	public Long createEvent(String taskName, String queueId, String data, String key2) {
+		return context.eventQueueManager.createEvent(taskName, queueId, data, key2);
 	}
 
-	public Long createAndTryExecuteEvent(String taskName, String discriminator, String data, String key2) {
-		return context.eventQueueManager.createAndTryExecuteEvent(taskName, discriminator, data, key2);
+	public Long createAndTryExecuteEvent(String taskName, String queueId, String data, String key2) {
+		return context.eventQueueManager.createAndTryExecuteEvent(taskName, queueId, data, key2);
 	}
 
 	public void registerTaskConfig(String taskName, TedProcessorFactory tedProcessorFactory) {

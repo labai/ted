@@ -21,10 +21,11 @@ class Model {
 	static final String CHANNEL_QUEUE = "TedEQ"; // Event Queue
 	static final String CHANNEL_BATCH = "TedBW"; // Batch Wait
 	static final String CHANNEL_PRIME = "TedNO"; // Non Operating - just simple rec, e.g. for prime instance
+	static final String CHANNEL_SYSTEM = "TedSS"; // System Services - for internal tasks, just ThreadPoolExecutor
 	static final String TIMEOUT_MSG = "Too long in status [work]";
 	static final String BATCH_MSG = "Batch task is waiting for finish of subtasks";
 
-	static final Set<String> nonTaskChannels = new HashSet<String>(asList(Model.CHANNEL_QUEUE, CHANNEL_PRIME, CHANNEL_BATCH));
+	static final Set<String> nonTaskChannels = new HashSet<String>(asList(Model.CHANNEL_QUEUE, CHANNEL_PRIME, CHANNEL_BATCH, CHANNEL_SYSTEM));
 
 	static class TaskRec {
 		Long taskId;
@@ -54,7 +55,7 @@ class Model {
 			if (this.name == null)
 				throw new NullPointerException("task.name is null");
 			boolean isTimeout = msg != null && msg.startsWith(TIMEOUT_MSG);
-			return new TedTask(this.taskId, this.name, this.key1, this.key2, this.data, this.retries, this.createTs, isTimeout);
+			return new TedTask(this.taskId, this.name, this.key1, this.key2, this.data, this.batchId, this.retries, this.createTs, isTimeout);
 		}
 
 	}

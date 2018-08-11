@@ -86,7 +86,7 @@ public class Sample1_1_tasks {
 		sleep(10000);
 
 		tedDriver.shutdown();
-		System.out.println("finish sample1");
+		System.out.println("finish sample1_1_tasks");
 	}
 
 	// file line processor

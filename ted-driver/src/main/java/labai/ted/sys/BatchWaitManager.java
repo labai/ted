@@ -20,7 +20,7 @@ import static java.util.Arrays.asList;
  * @author Augustus
  *         created on 2018.08.09
  *
- * for internal usage only!!!
+ * for TED internal usage only!!!
  *
  */
 class BatchWaitManager {
@@ -35,15 +35,15 @@ class BatchWaitManager {
 		this.tedDao = context.tedDao;
 	}
 
-	// channel - TedBW.
 	// will check, are all subtasks finished (DONE or ERROR)
 	// if finished, then move this batchTask to his channel and then will be processed as regular task
 	void processBatchWaitTasks() {
-		Channel channel = context.registry.getChannel(Model.CHANNEL_BATCH);
-		if (channel == null)
-			throw new IllegalStateException("Channel '" + Model.CHANNEL_BATCH + "' does not exists, but is required for batch processing");
+		// channel in db - TedBW, but will use TedSS threadPool - less different threads
+		Channel systemChannel = context.registry.getChannel(Model.CHANNEL_SYSTEM);
+		if (systemChannel == null)
+			throw new IllegalStateException("Channel '" + Model.CHANNEL_SYSTEM + "' does not exists, but is required for batch processing");
 
-		int maxTask = context.taskManager.calcChannelBufferFree(channel);
+		int maxTask = context.taskManager.calcChannelBufferFree(systemChannel);
 		Map<String, Integer> channelSizes = new HashMap<String, Integer>();
 		channelSizes.put(Model.CHANNEL_BATCH, maxTask);
 		List<TaskRec> batches = context.tedDao.reserveTaskPortion(channelSizes);
@@ -51,7 +51,7 @@ class BatchWaitManager {
 			return;
 
 		for (final TaskRec batchTask : batches) {
-			channel.workers.execute(new TedRunnable(batchTask) {
+			systemChannel.workers.execute(new TedRunnable(batchTask) {
 				@Override
 				public void run() {
 					processBatchWaitTask(batchTask);
@@ -73,7 +73,7 @@ class BatchWaitManager {
 			// cleanup retries - then it could be used for task purposes
 			logger.debug("Batch {} waiting finished, changing channel to {} and status to NEW", batch.taskId, tc.channel);
 			tedDao.cleanupBatchTask(batch.taskId, "", tc.channel);
-			tedDao.setStatus(batch.taskId, TedStatus.NEW, "");
+			tedDao.setStatusPostponed(batch.taskId, TedStatus.NEW, "", new Date());
 		}
 
 		// retry batch

@@ -16,7 +16,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static labai.ted.sys.JdbcSelectTed.sqlParam;
 import static java.util.Arrays.asList;
 
 /**
@@ -127,17 +126,17 @@ class TedDaoOracle extends TedDaoAbstract {
 	}
 
 	@Override
-	public Long createEvent(String taskName, String discriminator, String data, String key2) {
+	public Long createEvent(String taskName, String queueId, String data, String key2) {
 		throw new IllegalStateException("TODO for oracle");
 	}
 
 	@Override
-	public TaskRec eventQueueMakeFirst(String discriminator) {
+	public TaskRec eventQueueMakeFirst(String queueId) {
 		throw new IllegalStateException("TODO for oracle");
 	}
 
 	@Override
-	public List<TaskRec> eventQueueGetTail(String discriminator) {
+	public List<TaskRec> eventQueueGetTail(String queueId) {
 		throw new IllegalStateException("TODO for oracle");
 	}
 

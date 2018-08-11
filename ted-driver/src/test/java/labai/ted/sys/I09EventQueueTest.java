@@ -109,7 +109,7 @@ public class I09EventQueueTest extends TestBase {
 
 		Long taskId3 = driver.createEvent(taskName, "test9-1", "abra2" , null);
 
-		// by other discriminator - again first NEW
+		// by other queueId - again first NEW
 		Long taskId4 = driver.createEvent(taskName2, "test9-2", "abra2" , null);
 		taskRec = tedDao.getTask(taskId4);
 		TestUtils.print(taskRec.toString());

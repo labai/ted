@@ -1,8 +1,8 @@
 package labai.ted.sys;
 
 import labai.ted.Ted.TedProcessor;
-import labai.ted.TedResult;
 import labai.ted.Ted.TedStatus;
+import labai.ted.TedResult;
 import labai.ted.sys.Model.TaskRec;
 import labai.ted.sys.Registry.Channel;
 import labai.ted.sys.Registry.TaskConfig;
@@ -11,7 +11,6 @@ import labai.ted.sys.TedDriverImpl.TedContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -56,11 +55,6 @@ class EventQueueManager {
 		List<TaskRec> heads = tedDao.reserveTaskPortion(channelSizes);
 		if (heads.isEmpty())
 			return;
-		List<String> discriminators = new ArrayList<String>();
-
-		for (TaskRec task : heads) {
-			discriminators.add(task.key1);
-		}
 
 		for (final TaskRec head : heads) {
 			logger.debug("exec eventQueue for '{}', headTaskId={}", head.key1, head.taskId);
@@ -84,7 +78,7 @@ class EventQueueManager {
 	}
 
 	// process events from queue each after other, until ERROR or RETRY will happen
-	void processEventQueue(TaskRec head) {
+	private void processEventQueue(TaskRec head) {
 		TedResult headResult = processEvent(head);
 		TaskConfig tc = context.registry.getTaskConfig(head.name);
 		if (tc == null) {
@@ -126,14 +120,15 @@ class EventQueueManager {
 		}
 	}
 
-	Long createEvent(String taskName, String discriminator, String data, String key2) {
-		Long taskId = tedDao.createEvent(taskName, discriminator, data, key2);
-		tedDao.eventQueueMakeFirst(discriminator);
+	Long createEvent(String taskName, String queueId, String data, String key2) {
+		Long taskId = tedDao.createEvent(taskName, queueId, data, key2);
+		tedDao.eventQueueMakeFirst(queueId);
 		return taskId;
 	}
-	Long createAndTryExecuteEvent(String taskName, String discriminator, String data, String key2) {
-		Long taskId = tedDao.createEvent(taskName, discriminator, data, key2);
-		TaskRec task = tedDao.eventQueueMakeFirst(discriminator);
+
+	Long createAndTryExecuteEvent(String taskName, String queueId, String data, String key2) {
+		Long taskId = tedDao.createEvent(taskName, queueId, data, key2);
+		TaskRec task = tedDao.eventQueueMakeFirst(queueId);
 		if (task != null && task.taskId == (long) taskId) {
 			processEventQueue(task);
 		}
@@ -162,10 +157,10 @@ class EventQueueManager {
 				if (nextTm == null) {
 					result = TedResult.error("max retries. " + result.message);
 				} else {
-					//tedDao.setStatusPostponed(trec.taskId, result.status, result.message, nextTm);
+					// return as is
 				}
 			} else if (result.status == TedStatus.DONE || result.status == TedStatus.ERROR) {
-
+				// return as is
 			} else {
 				result = TedResult.error("invalid result status: " + result.status);
 			}

@@ -75,6 +75,7 @@ class QuickCheck {
 		checkIteration++;
 
 		// process tasks
+		//
 		List<String> taskChannels = new ArrayList<String>();
 		boolean needProcessTedQueue = false;
 		boolean needProcessTedBatch = false;
@@ -107,6 +108,7 @@ class QuickCheck {
 		}
 
 		// process prime check results
+		//
 		if (context.prime.isEnabled()) {
 			boolean canPrime = false;
 			boolean lostPrime = false;

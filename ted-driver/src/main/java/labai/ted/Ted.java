@@ -9,7 +9,7 @@ import java.util.Date;
  *
  * 	various TED public interfaces, classes, enums
  */
-public class Ted {
+public final class Ted {
 
 	public enum TedDbType {
 		ORACLE,

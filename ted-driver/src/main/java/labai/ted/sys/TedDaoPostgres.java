@@ -165,12 +165,12 @@ class TedDaoPostgres extends TedDaoAbstract {
 
 
 	@Override
-	public Long createEvent(String taskName, String discriminator, String data, String key2) {
-		return createTaskInternal(taskName, Model.CHANNEL_QUEUE, data, nvle(discriminator), key2, null, 0, TedStatus.SLEEP);
+	public Long createEvent(String taskName, String queueId, String data, String key2) {
+		return createTaskInternal(taskName, Model.CHANNEL_QUEUE, data, nvle(queueId), key2, null, 0, TedStatus.SLEEP);
 	}
 
 	@Override
-	public TaskRec eventQueueMakeFirst(String discriminator) {
+	public TaskRec eventQueueMakeFirst(String queueId) {
 		String sql = "update tedtask set status = 'NEW' where system = '$sys'" +
 				" and key1 = ? and status = 'SLEEP' and channel = 'TedEQ'" +
 				" and taskid = (select min(taskid) from tedtask t2 " +
@@ -183,9 +183,9 @@ class TedDaoPostgres extends TedDaoAbstract {
 		sql = sql.replace("$sys", thisSystem);
 		try {
 			List<TaskRec> recs = selectData("event_make_first", sql, TaskRec.class, asList(
-					sqlParam(discriminator, JetJdbcParamType.STRING),
-					sqlParam(discriminator, JetJdbcParamType.STRING),
-					sqlParam(discriminator, JetJdbcParamType.STRING)
+					sqlParam(queueId, JetJdbcParamType.STRING),
+					sqlParam(queueId, JetJdbcParamType.STRING),
+					sqlParam(queueId, JetJdbcParamType.STRING)
 			));
 			if (recs.size() != 1) {
 				//logger.debug("logid='{}' cannot update, does exists taskid={} ?", taskId);
@@ -198,7 +198,7 @@ class TedDaoPostgres extends TedDaoAbstract {
 	}
 
 	@Override
-	public List<TaskRec> eventQueueGetTail(String discriminator) {
+	public List<TaskRec> eventQueueGetTail(String queueId) {
 		String sql = "select * from tedtask where key1 = ?"
 				+ " and status = 'SLEEP'"
 				+ " and channel = '$channel' and system = '$sys'"
@@ -210,7 +210,7 @@ class TedDaoPostgres extends TedDaoAbstract {
 		List<TaskRec> recs;
 		try {
 			recs = selectData("queue_tail", sql, TaskRec.class, asList(
-					sqlParam(discriminator, JetJdbcParamType.STRING)
+					sqlParam(queueId, JetJdbcParamType.STRING)
 			));
 		} catch (Exception e) {
 			logger.info("select queue_tail got exception: {}", e.getMessage());

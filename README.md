@@ -32,14 +32,14 @@ TED can be helpful when:
 - need retry logic;
 
 There can be many use cases of TED, just few examples:
-- maintenance task (e.g. for cleaning db data) - will ensure only one instance do this task;
-- send (or wait for) asynchronous response to external system (task will remain in db even if tomcat will be shutdown, task will be retried until success)
+- send (or wait for) asynchronous response to external system - task will remain in db even if tomcat will be shutdown, task will be retried until success;
 - generate lot of (say 50k) reports for customers (just create 50k tasks);
 - generate report by request asynchronously;
+- maintenance task (e.g. for cleaning db data) - will ensure only one instance do this task;
 
 
 Where TED isn't best solution
-- (very) intensive data processing, where milliseconds matters, like real-time client request handling, heavy db replication and etc;
+- (very) intensive data processing, streaming, where latency milliseconds matters, like real-time client request handling, heavy db replication and etc;
 - as applications integration solution (e.g. one app can create task for other app);
 - nuclear reactor management;
 
@@ -48,7 +48,7 @@ Where TED isn't best solution
 Difference from spring-batch
 - spring-batch is designed for big batch processing, while TED approach is to divide big batch into independent small(er) tasks, which will have their own live cycle (e.g. instead of creating 50k reports in one batch, in TED scenario you will need to create 50k separate tasks). While it is possible to execute and long-running tasks in TED, but task's internal logic is not interesting for TED.
 
-Diffenece from quartz
+Difference from quartz
 - TED is not designed as scheduler, but it is possible to use it as simple scheduler (e.g. tasks with settings retryPauses=2h*999999 may work like scheduler) 
  
 ## Usage
@@ -57,7 +57,7 @@ Diffenece from quartz
 <dependency>
    <groupId>com.github.labai</groupId>
    <artifactId>ted</artifactId>
-   <version>0.1.3</version>
+   <version>0.2.0</version>
 </dependency>
 ```
 
@@ -126,17 +126,24 @@ Mode samples can be found in (ted)/ted-samples
 - `RETRY` – retryable error while executing, will retry later
 - `DONE` – finished successfully
 - `ERROR` – error occurred, will not retry
+- `SLEEP` - task is created, but will not be taken to processing yet (used for events queue)
 
 #### Retry pauses
 It is possible to configure task's retry policy in ted.properties.
 
-E.g. `ted.task.CHKSTA.retryPauses=20s,30s*5,2m*100;dispersion=10` first retry will be after 20s, then 5 times every 30s, then 100 times every 2 minutes. Periods will be calculated with 10% dispersion.
+E.g. `ted.task.MYTASK.retryPauses=20s,30s*5,2m*100;dispersion=10` first retry will be after 20s, then 5 times every 30s, then 100 times every 2 minutes. Periods will be calculated with 10% dispersion.
 
 `TedRetryScheduler` allows to programmatically configure non-standard logic.    
-
 
 #### Channels
 Each channel is separate thread pool with own configuration.
 They can be used when different priorities are required for different tasks. 
 
-There are default _MAIN_ channel.  
+#### Prime instance
+It is possible to use TED for managed prime (master) instance between few instances/nodes.
+
+#### Event queue
+With _event queues_ it is possible to execute tasks in strictly the same sequence, as they were created.
+
+For more details see 
+[Ted features](docs/wiki/Ted-features.md) in wiki

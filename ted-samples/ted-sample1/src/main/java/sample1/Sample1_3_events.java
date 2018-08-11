@@ -97,7 +97,7 @@ public class Sample1_3_events {
 		sleep(10000);
 
 		tedDriver.shutdown();
-		System.out.println("finish sample1");
+		System.out.println("finish sample1_3_events");
 	}
 
 	// file line processor

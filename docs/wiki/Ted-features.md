@@ -1,6 +1,6 @@
 # Ted
 
-Tasks registered into tedtask table and then TED process them. 
+Tasks registered into _tedtask_ table and then TED process them. 
 As TED is as part of app (jar), it does not require separate process.
 Every app instance check for new tasks, reserves portion of them and retrieves to process.
 
@@ -111,9 +111,9 @@ It can be useful in some situations:
 * cases, when you can have only one connection to external resource;
 * can precise tune workers count (workers count will not grow with each new instance);
 
-When prime is enabled, TED regularly checks in db which instance is prime.
+When prime is enabled (use `enablePrime`), TED regularly checks in db which instance is prime.
 If there are no prime, then any instance will try to become prime.
-After instance became prime, the event _onBecomePrime_ will be called.
+After instance became prime, the event `onBecomePrime` will be called.
 
 Switching to other instance will happen in few seconds.
 
@@ -123,11 +123,13 @@ With PostgreSQL db only!
 
 There are functionality for tasks, which must be executed in exactly same sequence, as they were created.
 In TED these tasks called _events_ and created using `createEvent` api method.
-Events have _discriminator_ (tedtask.key1 column) - some object id, for which queue will be formed, i.e. there can be many queues - each for discriminator.
-When few events created for one discriminator, the first of them will be executed, while others will for successful finish of it.
+Events have _queueId_ - some id of object, for which queue will be formed, i.e. there can be many queues - each for queueId. 
+When few events created for one queueId, the first of them will be executed, while others will for successful finish of it.
 After finish of first event, next will be processed.
+For queueId _tedtask_ column _key1_ is used and special unique index `ix_ted_queue_uniq` is created for it.
 
-NB! If event finishes with RETRY or ERROR, then all queue by this discriminator _**will be blocked**_ - next events will not be executed, unless the first event finishes successfully. 
+For event queues _TedEQ_ channel is used. It can be configured in properties as other channels. 
+
+NB! If event finishes with RETRY or ERROR, then all queue by this queueId _**will be blocked**_ - next events will not be executed, unless the first event finish successfully. 
 While RETRY will retry later, ERROR will stop processing this queue until manual fix.
 
-To use this functionality, don't forget to create unique index `ix_ted_queue_uniq`.

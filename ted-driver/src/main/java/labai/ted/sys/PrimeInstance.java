@@ -5,7 +5,6 @@ import labai.ted.sys.TedDaoAbstract.DbType;
 import labai.ted.sys.TedDriverImpl.TedContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.plugin.dom.exception.InvalidStateException;
 
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -54,7 +53,7 @@ public final class PrimeInstance {
 
 	public void enable() {
 		if (context.tedDao.getDbType() != DbType.POSTGRES)
-			throw new InvalidStateException("Prime instance feature is allowed for PostgreSQL db yet. TODO");
+			throw new IllegalStateException("Prime instance feature is allowed for PostgreSQL db yet. TODO");
 		enabled = true;
 		if (initiated)
 			init(); // re-init

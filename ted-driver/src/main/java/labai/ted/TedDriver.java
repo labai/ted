@@ -82,6 +82,11 @@ public class TedDriver {
 		return tedDriverImpl.createAndTryExecuteEvent(taskName, queueId, data, key2);
 	}
 
+	/** send notification to instances */
+	public Long sendNotification(String taskName, String data) {
+		return tedDriverImpl.sendNotification(taskName, data);
+	}
+
 	/**
 	 * create TedTask for createBatch (with required params only)
 	 */

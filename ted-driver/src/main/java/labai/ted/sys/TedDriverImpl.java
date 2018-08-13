@@ -63,6 +63,7 @@ public final class TedDriverImpl {
 		PrimeInstance prime;
 		EventQueueManager eventQueueManager;
 		BatchWaitManager batchWaitManager;
+		NotificationManager notificationManager;
 	}
 
 	private final TedContext context;
@@ -95,6 +96,7 @@ public final class TedDriverImpl {
 		context.prime = new PrimeInstance(context);
 		context.eventQueueManager = new EventQueueManager(context);
 		context.batchWaitManager = new BatchWaitManager(context);
+		context.notificationManager = new NotificationManager(context);
 
 		// read properties (e.g. from ted.properties.
 		// default MAIN channel configuration: 5/100. Can be overwrite by [properties]
@@ -109,7 +111,7 @@ public final class TedDriverImpl {
 		defaultChanProp.put(prefixQueue + TedProperty.CHANNEL_TASK_BUFFER, "100");
 		String prefixSystem = ConfigUtils.PROPERTY_PREFIX_CHANNEL + Model.CHANNEL_SYSTEM + ".";
 		defaultChanProp.put(prefixSystem + TedProperty.CHANNEL_WORKERS_COUNT, "2");
-		defaultChanProp.put(prefixSystem + TedProperty.CHANNEL_TASK_BUFFER, "200");
+		defaultChanProp.put(prefixSystem + TedProperty.CHANNEL_TASK_BUFFER, "2000");
 		ConfigUtils.readTedProperties(context.config, defaultChanProp);
 		ConfigUtils.readTedProperties(context.config, properties);
 
@@ -353,6 +355,10 @@ public final class TedDriverImpl {
 
 	public Long createAndTryExecuteEvent(String taskName, String queueId, String data, String key2) {
 		return context.eventQueueManager.createAndTryExecuteEvent(taskName, queueId, data, key2);
+	}
+
+	public Long sendNotification(String taskName, String data) {
+		return context.notificationManager.sendNotification(taskName, data);
 	}
 
 	public void registerTaskConfig(String taskName, TedProcessorFactory tedProcessorFactory) {

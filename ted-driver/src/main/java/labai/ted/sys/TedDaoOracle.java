@@ -13,6 +13,7 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -140,6 +141,16 @@ class TedDaoOracle extends TedDaoAbstract {
 		throw new IllegalStateException("TODO for oracle");
 	}
 
+	@Override
+	public List<TaskRec> getLastNotifications(Date fromTs) {
+		throw new IllegalStateException("TODO for oracle");
+	}
+
+	@Override
+	public void cleanupNotifications(Date tillTs) {
+		throw new IllegalStateException("TODO for oracle");
+	}
+
 	//
 	// wrapper
 	//
@@ -171,7 +182,12 @@ class TedDaoOracle extends TedDaoAbstract {
 			throw new RuntimeException("SQL exception while calling sqlId '" + sqlLogId + "'", e);
 		}
 
-		logger.debug("After [{}] time={}ms items={}", sqlLogId, (System.currentTimeMillis() - startTm), list.size());
+		long durationMs = System.currentTimeMillis() - startTm;
+		if (durationMs >= 50)
+			logger.info("After [{}] time={}ms items={}", sqlLogId, durationMs, list.size());
+		else
+			logger.debug("After [{}] time={}ms items={}", sqlLogId, durationMs, list.size());
+
 		return list;
 	}
 

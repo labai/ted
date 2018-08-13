@@ -58,7 +58,7 @@ public class I09EventQueueTest extends TestBase {
 	@Test
 	public void test01TakeFirst() {
 		String taskName = "TEST09-1";
-		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
+		dao_execSql("update tedtask set status = 'DONE', nextts = null where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
 				" and status <> 'DONE'");
 
 		Long taskId = driver.createEvent(taskName, "test9-a", "task1" , null);

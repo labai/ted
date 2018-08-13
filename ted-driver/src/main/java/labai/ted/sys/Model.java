@@ -19,13 +19,14 @@ import static java.util.Arrays.asList;
 class Model {
 	static final String CHANNEL_MAIN = "MAIN";
 	static final String CHANNEL_QUEUE = "TedEQ"; // Event Queue
-	static final String CHANNEL_BATCH = "TedBW"; // Batch Wait
 	static final String CHANNEL_PRIME = "TedNO"; // Non Operating - just simple rec, e.g. for prime instance
 	static final String CHANNEL_SYSTEM = "TedSS"; // System Services - for internal tasks, just ThreadPoolExecutor
+	static final String CHANNEL_BATCH = "TedBW"; // Batch Wait
+	static final String CHANNEL_NOTIFY = "TedIN"; // Instance Notification
 	static final String TIMEOUT_MSG = "Too long in status [work]";
 	static final String BATCH_MSG = "Batch task is waiting for finish of subtasks";
 
-	static final Set<String> nonTaskChannels = new HashSet<String>(asList(Model.CHANNEL_QUEUE, CHANNEL_PRIME, CHANNEL_BATCH, CHANNEL_SYSTEM));
+	static final Set<String> nonTaskChannels = new HashSet<String>(asList(Model.CHANNEL_QUEUE, CHANNEL_PRIME, CHANNEL_BATCH, CHANNEL_NOTIFY, CHANNEL_SYSTEM));
 
 	static class TaskRec {
 		Long taskId;

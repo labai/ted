@@ -20,6 +20,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 import static labai.ted.sys.JdbcSelectTed.sqlParam;
@@ -218,6 +219,39 @@ class TedDaoPostgres extends TedDaoAbstract {
 		}
 
 		return recs;
+	}
+
+	@Override
+	public List<TaskRec> getLastNotifications(Date fromTs) {
+		String sql = "select * from tedtask where "
+				+ " system = '$sys' and channel = '$channel'"
+				+ " and nextts >= ?"
+				+ " limit 1000";
+		sql = sql.replace("$sys", thisSystem);
+		sql = sql.replace("$channel", Model.CHANNEL_NOTIFY);
+		List<TaskRec> recs = selectData("notif_get", sql, TaskRec.class, asList(
+				sqlParam(fromTs, JetJdbcParamType.TIMESTAMP)
+		));
+		return recs;
+	}
+
+	@Override
+	public void cleanupNotifications(Date tillTs) {
+		String sql = "update tedtask "
+				+ " set nextts = null, status = 'DONE', finishts = now()"
+				+ " where system = '$sys'"
+				+ " and taskid in (select taskid from tedtask"
+				+ "  where system = '$sys' and channel = '$channel' and status = 'NEW'"
+				+ "  and nextts < ?"
+				+ "  limit 1000"
+				+ "  for update skip locked"
+				+ " )";
+
+		sql = sql.replace("$sys", thisSystem);
+		sql = sql.replace("$channel", Model.CHANNEL_NOTIFY);
+		execute("notif_clean", sql, asList(
+				sqlParam(tillTs, JetJdbcParamType.TIMESTAMP)
+		));
 	}
 
 	//

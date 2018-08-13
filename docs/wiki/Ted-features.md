@@ -4,6 +4,7 @@ Tasks registered into _tedtask_ table and then TED process them.
 As TED is as part of app (jar), it does not require separate process.
 Every app instance check for new tasks, reserves portion of them and retrieves to process.
 
+## Main features
 
 ### TedDriver configuration
 Tasks should be registered in initialization phase, their configuration provided as properties (can be read from *.properties file, see _ted-sample.properties_ under test/resources dir in project)
@@ -98,6 +99,29 @@ It will create all tasks, provided by parameter, and special _batch task_.
 The _batch task_ will be processed only after all child task finished.
 
 
+## Additional features
+
+In addition to main TED functionality - tasks execution - there are some additional useful functionality, build in TED.
+But it works with PostgreSQL db only.
+
+Usually these features use _tedtask_ table but with specific channels.
+
+### Events queue
+With PostgreSQL db only!
+
+There are functionality for tasks, which must be executed in exactly same sequence, as they were created.
+In TED these tasks called _events_ and created using `createEvent` api method.
+Events have _queueId_ - some id of object, for which queue will be formed, i.e. there can be many queues - each for queueId. 
+When few events created for one queueId, the first of them will be executed, while others will for successful finish of it.
+After finish of first event, next will be processed.
+For queueId _tedtask_ column _key1_ is used and special unique index `ix_ted_queue_uniq` is created for it.
+
+For event queues _TedEQ_ channel is used. It can be configured in properties as other channels. 
+
+NB! If event finishes with RETRY or ERROR, then all queue by this queueId _**will be blocked**_ - next events will not be executed, unless the first event finish successfully. 
+While RETRY will retry later, ERROR will stop processing this queue until manual fix.
+
+
 ### Prime instance
 With PostgreSQL db only!
 
@@ -118,18 +142,11 @@ After instance became prime, the event `onBecomePrime` will be called.
 Switching to other instance will happen in few seconds.
 
 
-### Events queue
+### Instances notification
 With PostgreSQL db only!
 
-There are functionality for tasks, which must be executed in exactly same sequence, as they were created.
-In TED these tasks called _events_ and created using `createEvent` api method.
-Events have _queueId_ - some id of object, for which queue will be formed, i.e. there can be many queues - each for queueId. 
-When few events created for one queueId, the first of them will be executed, while others will for successful finish of it.
-After finish of first event, next will be processed.
-For queueId _tedtask_ column _key1_ is used and special unique index `ix_ted_queue_uniq` is created for it.
+_Instances notification_ allows to send notification messages to all active instances.
+Example of usage - notify all instances to clear some cache.
 
-For event queues _TedEQ_ channel is used. It can be configured in properties as other channels. 
-
-NB! If event finishes with RETRY or ERROR, then all queue by this queueId _**will be blocked**_ - next events will not be executed, unless the first event finish successfully. 
-While RETRY will retry later, ERROR will stop processing this queue until manual fix.
-
+Notification message will be processed in all active instances and will disappear in few seconds, i.e. if instance will be started later, it will not be executed. 
+Method `sendNotification`.

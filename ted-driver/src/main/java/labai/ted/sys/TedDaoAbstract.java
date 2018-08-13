@@ -470,8 +470,11 @@ abstract class TedDaoAbstract implements TedDao {
 		} catch (SQLException e) {
 			handleSQLException(e, sqlLogId, sql);
 		}
-
-		logger.debug("After [{}] time={}ms items={}", sqlLogId, (System.currentTimeMillis() - startTm), list.size());
+		long durationMs = System.currentTimeMillis() - startTm;
+		if (durationMs >= 50)
+			logger.info("After [{}] time={}ms items={}", sqlLogId, durationMs, list.size());
+		else
+			logger.debug("After [{}] time={}ms items={}", sqlLogId, durationMs, list.size());
 		return list;
 	}
 
@@ -495,7 +498,12 @@ abstract class TedDaoAbstract implements TedDao {
 		} catch (SQLException e) {
 			handleSQLException(e, sqlLogId, sql);
 		}
-		logger.debug("After [{}] time={}ms result={}", sqlLogId, (System.currentTimeMillis() - startTm), result);
+
+		long durationMs = System.currentTimeMillis() - startTm;
+		if (durationMs >= 50)
+			logger.info("After [{}] time={}ms result={}", sqlLogId, durationMs, result);
+		else
+			logger.debug("After [{}] time={}ms result={}", sqlLogId, durationMs, result);
 		return result;
 	}
 

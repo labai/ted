@@ -66,5 +66,8 @@ interface TedDao {
 
 	List<TaskRec> eventQueueGetTail(String queueId);
 
+	List<TaskRec> getLastNotifications(Date fromTs);
+
+	void cleanupNotifications(Date tillTs);
 
 }

@@ -28,8 +28,8 @@ class EventQueueManager {
 	private static final Logger logger = LoggerFactory.getLogger(EventQueueManager.class);
 	private static final Logger taskExceptionLogger = LoggerFactory.getLogger("ted-task");
 
-	private TedContext context;
-	private TedDao tedDao;
+	private final TedContext context;
+	private final TedDao tedDao;
 
 	public EventQueueManager(TedContext context) {
 		this.context = context;

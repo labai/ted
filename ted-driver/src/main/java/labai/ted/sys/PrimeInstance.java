@@ -83,17 +83,19 @@ public final class PrimeInstance {
 		this.isPrime = context.tedDao.becomePrime(primeTaskId, context.config.instanceId());
 		if (isPrime) {
 			logger.info("TED become prime. instanceId={}", context.config.instanceId());
-			ThreadPoolExecutor workers = context.registry.getChannel(Model.CHANNEL_SYSTEM).workers;
-			workers.execute(new Runnable() {
-				@Override
-				public void run() {
-					try {
-						onBecomePrime.onEvent();
-					} catch (Exception e) {
-						logger.error("Exception onBecomePrime handler", e);
+			if (onBecomePrime != null) {
+				ThreadPoolExecutor workers = context.registry.getChannel(Model.CHANNEL_SYSTEM).workers;
+				workers.execute(new Runnable() {
+					@Override
+					public void run() {
+						try {
+							onBecomePrime.onEvent();
+						} catch (Exception e) {
+							logger.error("Exception onBecomePrime handler", e);
+						}
 					}
-				}
-			});
+				});
+			}
 		}
 	}
 

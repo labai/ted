@@ -42,7 +42,7 @@ public class I01SimpleTest {
 	@Test
 	public void testSchd01() {
 		scheduler.builder().name("TEST1")
-				.scheduleCron("0/11 14/19 0 1,11,21 1/2 *")
+				.scheduleCron("0 0/10 * 1/1 * *")
 				.runnable(() -> {
 					logger.info("eina 1");
 				}).register();

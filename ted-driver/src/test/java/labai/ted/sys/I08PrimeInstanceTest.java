@@ -51,7 +51,7 @@ public class I08PrimeInstanceTest extends TestBase {
 	@Test
 	public void testPrimeInit() throws Exception {
 		// delete if exists
-		dao_execSql("delete from tedtask where system = '" + TestConfig.SYSTEM_ID + "' and name = 'TED:PRIME'");
+		dao_execSql("delete from tedtask where system = '" + TestConfig.SYSTEM_ID + "' and name = 'TED_PRIME'");
 
 		Long primeTaskId = null;
 		try {
@@ -74,7 +74,7 @@ public class I08PrimeInstanceTest extends TestBase {
 
 		// insert next one
 		String sql = "insert into tedtask(taskid, system, name, status, channel, startts, msg)"
-				+ " values (15, '" + TestConfig.SYSTEM_ID + "', 'TED:PRIME', 'SLEEP', 'TedNO', null, 'test 2')";
+				+ " values (199, '" + TestConfig.SYSTEM_ID + "', 'TED_PRIME', 'SLEEP', 'TedNO', null, 'test 2')";
 		dao_execSql(sql);
 
 		try {
@@ -86,7 +86,7 @@ public class I08PrimeInstanceTest extends TestBase {
 		}
 
 		// cleanup
-		dao_execSql("delete from tedtask where taskid = 15");
+		dao_execSql("delete from tedtask where taskid = 199");
 	}
 
 	@Test

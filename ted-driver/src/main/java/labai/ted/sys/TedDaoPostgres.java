@@ -4,6 +4,7 @@ import labai.ted.Ted.TedStatus;
 import labai.ted.sys.JdbcSelectTed.JetJdbcParamType;
 import labai.ted.sys.JdbcSelectTed.SqlParam;
 import labai.ted.sys.JdbcSelectTed.TedSqlDuplicateException;
+import labai.ted.sys.JdbcSelectTed.TedSqlException;
 import labai.ted.sys.Model.TaskParam;
 import labai.ted.sys.Model.TaskRec;
 import labai.ted.sys.PrimeInstance.CheckPrimeParams;
@@ -23,9 +24,9 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
+import static java.util.Arrays.asList;
 import static labai.ted.sys.JdbcSelectTed.sqlParam;
 import static labai.ted.sys.MiscUtils.nvle;
-import static java.util.Arrays.asList;
 
 /**
  * @author Augustus
@@ -40,7 +41,6 @@ class TedDaoPostgres extends TedDaoAbstract {
 		super(system, dataSource, DbType.POSTGRES);
 	}
 
-
 	private static class TaskIdRes {
 		Long taskid;
 	}
@@ -53,11 +53,19 @@ class TedDaoPostgres extends TedDaoAbstract {
 		for (TaskParam param : taskParams) {
 			param.taskId = taskIds.get(iNum++);
 		}
-
+		Connection connection;
 		try {
-			executePgCopy(dataSource.getConnection(), taskParams);
+			connection = dataSource.getConnection();
 		} catch (SQLException e) {
-			throw new RuntimeException(e);
+			logger.error("Failed to get DB connection: " + e.getMessage());
+			throw new TedSqlException("Cannot get DB connection", e);
+		}
+		try {
+			executePgCopy(connection, taskParams);
+		} catch (SQLException e) {
+			throw new TedSqlException("can't execute pgCopy", e);
+		} finally {
+			try { if (connection != null) connection.close(); } catch (Exception e) {logger.error("Cannot close connection", e);};
 		}
 		return taskIds;
 	}
@@ -70,17 +78,16 @@ class TedDaoPostgres extends TedDaoAbstract {
 			String sqlPrime;
 			if (checkPrimeParams.isPrime()) {
 				sqlPrime = ""
-						+ "with updatedMasterTask as ("
+						+ "with updatedPrimeTask as ("
 						+ "  update tedtask set finishts = $now + $intervalSec"
 						+ "  where taskid = $primeTaskId"
 						+ "  and system = '$sys'"
 						+ "  and data = '$instanceId'"
 						+ "  returning 'PRIME'::text as result"
 						+ ")"
-						+ " select case when exists(select * from updatedMasterTask) then 'PRIME' else 'LOST_PRIME' end as name, 'PRIM' as type, null::timestamp as tillts";
+						+ " select case when exists(select * from updatedPrimeTask) then 'PRIME' else 'LOST_PRIME' end as name, 'PRIM' as type, null::timestamp as tillts";
 				logId = "b";
 			} else {
-				// TODO return tillTs until prime is reserved
 				sqlPrime = "select case when finishts < $now then 'CAN_PRIME' else 'NEXT_CHECK' end as name, 'PRIM' as type, finishts as tillts"
 						+ " from tedtask"
 						+ " where taskid = $primeTaskId and system = '$sys'";
@@ -89,7 +96,7 @@ class TedDaoPostgres extends TedDaoAbstract {
 			sqlPrime = sqlPrime.replace("$intervalSec", dbType.sql.intervalSeconds(checkPrimeParams.postponeSec()));
 			sqlPrime = sqlPrime.replace("$instanceId", checkPrimeParams.instanceId());
 			sqlPrime = sqlPrime.replace("$primeTaskId", Long.toString(checkPrimeParams.primeTaskId()));
-			sql += sqlPrime + " union ";
+			sql += sqlPrime + " union all ";
 		}
 		// check for new tasks
 		sql += "select distinct channel as name, 'CHAN' as type, null::timestamp as tillts "
@@ -97,8 +104,8 @@ class TedDaoPostgres extends TedDaoAbstract {
 				+ " where system = '$sys' and nextTs <= $now";
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$now", dbType.sql.now());
-		//logger.info(sql);
-		return selectData("quick_check(" + logId + ")", sql, CheckResult.class, Collections.<SqlParam>emptyList());
+		logger.info(sql);
+		return selectData("qckchk_" + logId, sql, CheckResult.class, Collections.<SqlParam>emptyList());
 	}
 
 	//
@@ -108,7 +115,7 @@ class TedDaoPostgres extends TedDaoAbstract {
 	@Override
 	public Long findPrimeTaskId() {
 		String sql;
-		sql = "select taskid from tedtask where system = '$sys' and name = 'TED:PRIME' limit 2";
+		sql = "select taskid from tedtask where system = '$sys' and name = 'TED_PRIME' limit 2";
 		sql = sql.replace("$sys", thisSystem);
 		List<TaskIdRes> ls2 = selectData("find_primetask", sql, TaskIdRes.class, Collections.<SqlParam>emptyList());
 		if (ls2.size() == 1) {
@@ -116,7 +123,7 @@ class TedDaoPostgres extends TedDaoAbstract {
 			return ls2.get(0).taskid;
 		}
 		if (ls2.size() > 1)
-			throw new IllegalStateException("found few primeTaskId tasks for system=" + thisSystem + " (name='TED:PRIME'). Ther should be only 1. Please delete them and restart again");
+			throw new IllegalStateException("found few primeTaskId tasks for system=" + thisSystem + " (name='TED_PRIME'). Ther should be only 1. Please delete them and restart again");
 
 		// not exists yet - try to create new. alternatively it is possible create manually by deployment script.
 		// this part will be executed only once per live of system..
@@ -127,7 +134,7 @@ class TedDaoPostgres extends TedDaoAbstract {
 				+ "  $sequenceTedTask"
 				+ "  )";
 		sql = "insert into tedtask(taskid, system, name, status, channel, startts, nextts, msg)"
-				+ " values (" + sqlNextId + ", '$sys', 'TED:PRIME', 'SLEEP', '$channel', $now, null, 'This is internal TED pseudo-task for prime check')";
+				+ " values (" + sqlNextId + ", '$sys', 'TED_PRIME', 'SLEEP', '$channel', $now, null, 'This is internal TED pseudo-task for prime check')";
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$now", dbType.sql.now());
 		sql = sql.replace("$channel", Model.CHANNEL_PRIME);
@@ -136,11 +143,11 @@ class TedDaoPostgres extends TedDaoAbstract {
 		execute("insert_prime", sql, Collections.<SqlParam>emptyList());
 
 		// check again, to be sure
-		sql = "select taskid from tedtask where system = '$sys' and name = 'TED:PRIME'";
+		sql = "select taskid from tedtask where system = '$sys' and name = 'TED_PRIME'";
 		sql = sql.replace("$sys", thisSystem);
 		Long taskId = selectSingleLong("find_primetask(2)", sql);
 		if (taskId == null)
-			throw new IllegalStateException("Something went wrong, please try to create manually 'TED:PRIME' task for system '" + thisSystem + "'");
+			throw new IllegalStateException("Something went wrong, please try to create manually 'TED_PRIME' task for system '" + thisSystem + "'");
 
 		return taskId;
 	}

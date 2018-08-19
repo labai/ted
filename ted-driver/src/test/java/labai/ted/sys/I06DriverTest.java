@@ -5,7 +5,6 @@ import labai.ted.TedResult;
 import labai.ted.TedTask;
 import labai.ted.sys.Model.TaskRec;
 import labai.ted.sys.TedDriverImpl.TedContext;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
@@ -13,6 +12,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Properties;
+
+import static labai.ted.sys.TestUtils.print;
+import static labai.ted.sys.TestUtils.sleepMs;
+import static org.junit.Assert.assertTrue;
 
 /**
  * @author Augustus
@@ -41,7 +44,7 @@ public class I06DriverTest extends TestBase {
 		public TedResult process(TedTask task)  {
 			logger.info(this.getClass().getSimpleName() + " process. sleep for 1000ms");
 			try {
-				TestUtils.sleepMs(1000);
+				sleepMs(1000);
 			} catch (Exception e) {
 				//e.printStackTrace();
 				return TedResult.error("Interrupted");
@@ -54,7 +57,7 @@ public class I06DriverTest extends TestBase {
 		@Override
 		public TedResult process(TedTask task)  {
 			logger.info(this.getClass().getSimpleName() + " process.");
-			TestUtils.sleepMs(10);
+			sleepMs(10);
 			return TedResult.done();
 		}
 	}
@@ -72,9 +75,11 @@ public class I06DriverTest extends TestBase {
 		Long taskId2 = driver.createTask(taskName, null, null, null);
 
 		driver.start();
-		TestUtils.sleepMs(50);
+		sleepMs(100);
 		// 1 task is processing and other is waiting in queue. last one should be returned to status 'NEW'
-		driver.shutdown(50);
+		print("Start to shutdown");
+		driver.shutdown(100);
+		print("Shutdown finished");
 
 		boolean isNew = false;
 		boolean isInterrupted = false;
@@ -91,12 +96,12 @@ public class I06DriverTest extends TestBase {
 		else if (taskRec.status.equals("ERROR") && taskRec.msg.equals("Interrupted"))
 			isInterrupted = true;
 
-		Assert.assertTrue("One of task is in status NEW?", isNew);
-		Assert.assertTrue("One of task is in status ERROR (interrupted)?", isInterrupted);
+		assertTrue("One of task is in status NEW?", isNew);
+		assertTrue("One of task is in status ERROR (interrupted)?", isInterrupted);
 		//print(taskRec.toString());
 
-		TestUtils.sleepMs(100);
-		TestUtils.print("finish");
+		sleepMs(100);
+		print("finish");
 
 	}
 
@@ -113,9 +118,9 @@ public class I06DriverTest extends TestBase {
 		driver.createTask(taskName, null, null, null);
 
 		driver.start();
-		TestUtils.sleepMs(50);
+		sleepMs(50);
 		driver.shutdown(10); // no working tasks left after 50ms
-		TestUtils.print("finish test");
+		print("finish test");
 
 	}
 

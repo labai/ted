@@ -12,13 +12,13 @@ Tasks should be registered in initialization phase, their configuration provided
 There can be use such properties:
 
 ##### Driver internals
-* **ted.systemId** - few systems can share same db table for their tasks. To separate those tasks, a systemId must be provided. The systemId must be unique among other systems. Each system will take only its own tasks. Can be useful and for testing/development purpose also - having own system id will prevent from steeling tasks by other developers.
+* **ted.systemId** - few systems can share same db table for their tasks. To separate those tasks, a systemId must be provided. The systemId must be unique among other systems. Each system will take only its own tasks. Can be useful and for testing/development purpose also - having own system id will prevent from stealing tasks by other developers.
 * ted.driver.**intervalDriverMs** - how frequently driver will check for new tasks in db, default 700(ms)
 * ted.driver.**intervalMaintenanceMs** - how frequently driver will do maintenance tasks, default 50000(ms)
 * ted.maintenance.**oldTaskArchiveDays** - how long to keep finished tasks in days (later they will be deleted), default 35
 
 ##### Task default settings (will be used if not defined for task individually)
-* ted.taskDefault.**retryPauses** - intervals for retries, default "12s,36s,90s,300s,16m,50m,2h,5h,7h,14h,14h;dispersion=10"
+* ted.taskDefault.**retryPauses** - intervals for retries, default "12s,36s,90s,300s,16m,50m,2h,5h,7h*5;dispersion=10"
 * ted.taskDefault.**timeoutMinutes** - task in status WORK longer than this time will be considered as dead and it's status will be changed to RETRY, default 30 minutes;
 * ted.taskDefault.**batchTimeoutMinutes** - timeout for batch tasks (how long to wait for finish all subtasks), default 180
 

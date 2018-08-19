@@ -5,6 +5,7 @@ import labai.ted.Ted.TedStatus;
 import labai.ted.TedDriver;
 import labai.ted.TedResult;
 import labai.ted.TedTask;
+import labai.ted.sys.JdbcSelectTed.SqlParam;
 import labai.ted.sys.Model.TaskRec;
 import labai.ted.sys.TestTedProcessors.TestProcessorOk;
 import org.junit.Before;
@@ -15,6 +16,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -87,6 +89,8 @@ public class I07BatchTest extends TestBase {
 
 	}
 
+
+
 	// create batch tasks, wait for finish (one of subtasks will retry once).
 	// after subtasks finish, batch task processor will be executed and will return retry itself.
 	@Test
@@ -104,26 +108,27 @@ public class I07BatchTest extends TestBase {
 		}
 		Long batchId = driver.createBatch(batchName, "data", "key1", "key2", taskParams);
 
-		TestUtils.sleepMs(50); // there can be difference between clocks in dev/tomcat and db server?
+		setTaskNextTsNow(batchId); // there can be difference between clocks in dev/tomcat and db server?..
+		TestUtils.sleepMs(10);
 		driver.getContext().taskManager.processChannelTasks();
-		TestUtils.sleepMs(50);
 		driver.getContext().batchWaitManager.processBatchWaitTasks();
-		TestUtils.sleepMs(50);
+		TestUtils.sleepMs(300);
 		Map<TedStatus, Integer> stats = tedDao.getBatchStatusStats(batchId);
 		print(stats.toString());
 		TaskRec batchRec = tedDao.getTask(batchId);
 		print(batchRec.toString());
+		print(batchRec.getTedTask().toString());
 		assertEquals("batch should be RETRY until all task will be finished", "RETRY", batchRec.status);
 		assertEquals("Batch task is waiting for finish of subtasks", batchRec.msg);
 		print("sleep...");
 
-		TestUtils.sleepMs(1100 + 500); // wait 1s (retry)
+		TestUtils.sleepMs(1100 + 1500); // wait 1s (retry)
 		driver.getContext().taskManager.processChannelTasks(); // here all subtask should be finished
 		TestUtils.sleepMs(50);
 		print(tedDao.getBatchStatusStats(batchId).toString());
 
 		driver.getContext().batchWaitManager.processBatchWaitTasks();
-		TestUtils.sleepMs(100);
+		TestUtils.sleepMs(120);
 
 		batchRec = tedDao.getTask(batchId);
 		print(batchRec.toString());
@@ -131,7 +136,7 @@ public class I07BatchTest extends TestBase {
 		assertEquals("channel should be as is in config", "BAT", batchRec.channel);
 
 		print("subtasks finished, waiting for batch tasks own retry");
-		TestUtils.sleepMs(1000 + 500); // wait 1s (retry)
+		TestUtils.sleepMs(1000 + 1500); // wait 1s (retry)
 		driver.getContext().taskManager.processChannelTasks();
 		TestUtils.sleepMs(100);
 
@@ -181,6 +186,11 @@ public class I07BatchTest extends TestBase {
 		}
 	}
 
-
+	private void setTaskNextTsNow(Long taskId) {
+		String sql = "update tedtask set nextts = $now where taskId=" + taskId
+			+ " and status in ('NEW', 'RETRY')";
+		sql = sql.replace("$now", tedDao.getDbType().sql.now());
+		((TedDaoAbstract)tedDao).execute("setTaskNextTsNow", sql, Collections.<SqlParam>emptyList());
+	}
 
 }

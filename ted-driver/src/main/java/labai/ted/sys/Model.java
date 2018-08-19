@@ -1,5 +1,6 @@
 package labai.ted.sys;
 
+import labai.ted.Ted.TedStatus;
 import labai.ted.TedTask;
 
 import java.util.Date;
@@ -56,7 +57,9 @@ class Model {
 			if (this.name == null)
 				throw new NullPointerException("task.name is null");
 			boolean isTimeout = msg != null && msg.startsWith(TIMEOUT_MSG);
-			return new TedTask(this.taskId, this.name, this.key1, this.key2, this.data, this.batchId, this.retries, this.createTs, isTimeout);
+			TedStatus status = null;
+			try { status = TedStatus.valueOf(this.status); } catch (IllegalArgumentException e) { }
+			return new TedTask(this.taskId, this.name, this.key1, this.key2, this.data, this.batchId, this.retries, this.createTs, isTimeout, status);
 		}
 
 	}

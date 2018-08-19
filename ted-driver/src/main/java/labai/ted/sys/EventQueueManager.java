@@ -45,9 +45,7 @@ class EventQueueManager {
 			logger.warn("Total size of waiting tasks ({}) already exceeded limit ({}), skip this iteration (2)", totalProcessing, TaskManager.LIMIT_TOTAL_WAIT_TASKS);
 			return;
 		}
-		Channel channel = context.registry.getChannel(Model.CHANNEL_QUEUE);
-		if (channel == null)
-			throw new IllegalStateException("Channel '" + Model.CHANNEL_QUEUE + "' does not exists, but is required for event queue processing");
+		Channel channel = context.registry.getChannelOrMain(Model.CHANNEL_QUEUE);
 		int maxTask = context.taskManager.calcChannelBufferFree(channel);
 		maxTask = Math.min(maxTask, 50);
 		Map<String, Integer> channelSizes = new HashMap<String, Integer>();

@@ -55,8 +55,8 @@ public final class PrimeInstance {
 		if (context.tedDao.getDbType() != DbType.POSTGRES)
 			throw new IllegalStateException("Prime instance feature is allowed for PostgreSQL db yet. TODO");
 		enabled = true;
-		if (initiated)
-			init(); // re-init
+		//if (initiated)
+		init(); // re-init
 	}
 
 	// after configs read
@@ -120,6 +120,10 @@ public final class PrimeInstance {
 
 	public boolean isPrime() {
 		return isPrime;
+	}
+
+	Long primeTaskId() {
+		return primeTaskId;
 	}
 
 	interface CheckPrimeParams {

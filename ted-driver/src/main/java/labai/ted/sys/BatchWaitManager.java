@@ -38,12 +38,8 @@ class BatchWaitManager {
 	// will check, are all subtasks finished (DONE or ERROR)
 	// if finished, then move this batchTask to his channel and then will be processed as regular task
 	void processBatchWaitTasks() {
-		// channel in db - TedBW, but will use TedSS threadPool - less different threads
-		Channel systemChannel = context.registry.getChannel(Model.CHANNEL_SYSTEM);
-		if (systemChannel == null)
-			throw new IllegalStateException("Channel '" + Model.CHANNEL_SYSTEM + "' does not exists, but is required for batch processing");
-
-		int maxTask = context.taskManager.calcChannelBufferFree(systemChannel);
+		Channel channel = context.registry.getChannelOrSystem(Model.CHANNEL_BATCH); // channel TedBW or TedSS
+		int maxTask = context.taskManager.calcChannelBufferFree(channel);
 		Map<String, Integer> channelSizes = new HashMap<String, Integer>();
 		channelSizes.put(Model.CHANNEL_BATCH, maxTask);
 		List<TaskRec> batches = context.tedDao.reserveTaskPortion(channelSizes);
@@ -51,7 +47,7 @@ class BatchWaitManager {
 			return;
 
 		for (final TaskRec batchTask : batches) {
-			systemChannel.workers.execute(new TedRunnable(batchTask) {
+			channel.workers.execute(new TedRunnable(batchTask) {
 				@Override
 				public void run() {
 					processBatchWaitTask(batchTask);

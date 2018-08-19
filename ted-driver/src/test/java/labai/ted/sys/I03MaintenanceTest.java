@@ -250,11 +250,8 @@ public class I03MaintenanceTest extends TestBase {
 		dao_setDoneAndOld(taskId, 6);
 		context.tedDao.processMaintenanceRare(driver.getContext().config.oldTaskArchiveDays());
 
-		try {
-			taskRec = context.tedDao.getTask(taskId);
-			fail("Expected exception as not task should exists");
-		} catch (Exception e) {
-		}
+		taskRec = context.tedDao.getTask(taskId);
+		assertNull("task should not exist", taskRec);
 
 	}
 

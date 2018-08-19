@@ -209,6 +209,20 @@ class Registry {
 		return channels.get(name);
 	}
 
+	Channel getChannelOrMain(String name) {
+		Channel channel = channels.get(name);
+		if (channel == null)
+			channel = channels.get(Model.CHANNEL_MAIN);
+		return channel;
+	}
+
+	Channel getChannelOrSystem(String name) {
+		Channel channel = channels.get(name);
+		if (channel == null)
+			channel = channels.get(Model.CHANNEL_SYSTEM);
+		return channel;
+	}
+
 	Collection<Channel> getChannels() {
 		return Collections.unmodifiableCollection(channels.values());
 	}

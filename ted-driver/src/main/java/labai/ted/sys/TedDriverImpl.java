@@ -66,6 +66,7 @@ public final class TedDriverImpl {
 		NotificationManager notificationManager;
 	}
 
+	final DataSource dataSource;
 	private final TedContext context;
 	private AtomicBoolean isStartedFlag = new AtomicBoolean(false);
 	private ScheduledExecutorService driverExecutor;
@@ -80,6 +81,7 @@ public final class TedDriverImpl {
 	}
 
 	TedDriverImpl(TedDbType dbType, DataSource dataSource, String system, Properties properties) {
+		this.dataSource = dataSource;
 		if (properties != null && properties.containsKey(TedProperty.SYSTEM_ID))
 			system = properties.getProperty(TedProperty.SYSTEM_ID);
 		FieldValidator.validateTaskSystem(system);
@@ -100,15 +102,11 @@ public final class TedDriverImpl {
 
 		// read properties (e.g. from ted.properties.
 		// default MAIN channel configuration: 5/100. Can be overwrite by [properties]
-		// default TedEQ channel configuration: 2/100
 		//
 		Properties defaultChanProp = new Properties();
 		String prefixMain = ConfigUtils.PROPERTY_PREFIX_CHANNEL + Model.CHANNEL_MAIN + ".";
 		defaultChanProp.put(prefixMain + TedProperty.CHANNEL_WORKERS_COUNT, "5");
 		defaultChanProp.put(prefixMain + TedProperty.CHANNEL_TASK_BUFFER, "100");
-		String prefixQueue = ConfigUtils.PROPERTY_PREFIX_CHANNEL + Model.CHANNEL_QUEUE + ".";
-		defaultChanProp.put(prefixQueue + TedProperty.CHANNEL_WORKERS_COUNT, "2");
-		defaultChanProp.put(prefixQueue + TedProperty.CHANNEL_TASK_BUFFER, "100");
 		String prefixSystem = ConfigUtils.PROPERTY_PREFIX_CHANNEL + Model.CHANNEL_SYSTEM + ".";
 		defaultChanProp.put(prefixSystem + TedProperty.CHANNEL_WORKERS_COUNT, "2");
 		defaultChanProp.put(prefixSystem + TedProperty.CHANNEL_TASK_BUFFER, "2000");
@@ -238,6 +236,7 @@ public final class TedDriverImpl {
 		ThreadPoolExecutor executor = new ThreadPoolExecutor(workerCount, workerCount,
 				0, TimeUnit.SECONDS,
 				new LinkedBlockingQueue<Runnable>(queueSize), threadFactory);
+
 		return executor;
 	}
 
@@ -361,6 +360,35 @@ public final class TedDriverImpl {
 		return context.notificationManager.sendNotification(taskName, data);
 	}
 
+	/*
+	public Long createTaskUniqueKey1(String taskName, String data, String key1, String key2) {
+		FieldValidator.validateTaskData(data);
+		FieldValidator.validateTaskKey1(key1);
+		FieldValidator.validateTaskKey2(key2);
+		if (key1 == null || key1.isEmpty())
+			throw new FieldValidateException("key1 must be not empty");
+		TaskConfig tc = context.registry.getTaskConfig(taskName);
+		if (tc == null)
+			throw new IllegalArgumentException("Task '" + taskName + "' is not known for TED");
+		if (context.tedDao.existsActiveTaskByKey1(taskName, key1)) {
+			logger.debug("duplicate was found for unique (on check) task={}, key1={}, skip task creation", taskName, key1);
+			return null;
+		}
+		try {
+			return context.tedDao.createTask(taskName, tc.channel, data, key1, key2, null);
+		} catch (TedSqlException e) {
+			if (e.getCause() != null && e.getCause() instanceof SQLException) {
+				SQLException sqle = (SQLException) e.getCause();
+				if ("23505".equals(sqle.getSQLState())) { // 23505 in postgres: duplicate key value violates unique constraint
+					logger.info("duplicate was found for unique (unique index) task={}, key1={}, skip task creation", taskName, key1);
+					return null;
+				}
+			}
+			throw e;
+		}
+	}
+*/
+
 	public void registerTaskConfig(String taskName, TedProcessorFactory tedProcessorFactory) {
 		FieldValidator.validateTaskName(taskName);
 		context.registry.registerTaskConfig(taskName, tedProcessorFactory);
@@ -380,12 +408,17 @@ public final class TedDriverImpl {
 		context.registry.registerChannel(channel, workerCount, taskBufferSize);
 	}
 
+	public TedTask getTask(long taskId) {
+		TaskRec taskRec = context.tedDao.getTask(taskId);
+		return taskRec == null ? null : taskRec.getTedTask();
+	}
+
 	public PrimeInstance prime() {
 		return context.prime;
 	}
 
 	//
-	// package scoped - for tests only
+	// package scoped - for tests and ted-ext only
 	//
 	TedContext getContext() {
 		return context;

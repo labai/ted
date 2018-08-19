@@ -58,7 +58,7 @@ class TaskManager {
 	}
 	private Map<String, ChannelWorkContext> channelContextMap = new HashMap<String, ChannelWorkContext>();
 
-	private long lastRareMaintExecTimeMilis = 0;
+	private long lastRareMaintExecTimeMilis = System.currentTimeMillis();
 
 	abstract static class TedRunnable implements Runnable {
 		private final TaskRec task;
@@ -161,7 +161,7 @@ class TaskManager {
 
 		for (String waitChan : waitChannelsList) {
 			if (context.registry.getChannel(waitChan) == null)
-				logger.warn("Channel '" + waitChan + "' is not configured, but exists a waiting task with that channel");
+				logger.warn("Channel '{}' is not configured, but exists a waiting task with that channel", waitChan);
 		}
 
 		Collection<Channel> channels = context.registry.getChannels();
@@ -244,7 +244,7 @@ class TaskManager {
 			TaskRec trec1 = taskList.get(0);
 			Channel channel = context.registry.getChannel(trec1.channel);
 			if (channel == null) { // should never happen
-				logger.warn("Task channel '" + trec1.channel + "' not exists. Use channel MAIN (task={} taskId={})", trec1.name, trec1.taskId);
+				logger.warn("Task channel '{}' not exists. Use channel MAIN (task={} taskId={})", trec1.channel, trec1.name, trec1.taskId);
 				channel = context.registry.getChannel(Model.CHANNEL_MAIN);
 			}
 			TaskConfig taskConfig = context.registry.getTaskConfig(trec1.name);

@@ -58,8 +58,7 @@ public class I09EventQueueTest extends TestBase {
 	@Test
 	public void test01TakeFirst() {
 		String taskName = "TEST09-1";
-		dao_execSql("update tedtask set status = 'DONE', nextts = null where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
-				" and status <> 'DONE'");
+		cleanupData();
 
 		Long taskId = driver.createEvent(taskName, "test9-a", "task1" , null);
 		TaskRec taskRec = tedDao.getTask(taskId);
@@ -76,7 +75,7 @@ public class I09EventQueueTest extends TestBase {
 	@Test
 	public void test02TryExecute() {
 		String taskName = "TEST09-1";
-		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
+		dao_execSql("update tedtask set status = 'DONE', nextts = null where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
 				" and status <> 'DONE'");
 		driver.registerTaskConfig(taskName, forClass(TestProcessorOk.class));
 		Long taskId = driver.createAndTryExecuteEvent(taskName, "test9-a", "task1" , null);
@@ -90,8 +89,8 @@ public class I09EventQueueTest extends TestBase {
 	public void test03EventStatuses() {
 		String taskName = "TEST09-1";
 		String taskName2 = "TEST09-2";
-		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
-				" and status <> 'DONE'");
+		cleanupData();
+
 		driver.registerTaskConfig(taskName, new SingeInstanceFactory(new TestProcessorFailAfterNDone(1, TedResult.error("error"))));
 		driver.registerTaskConfig(taskName2, new SingeInstanceFactory(new TestProcessorFailAfterNDone(1, TedResult.retry("retry"))));
 
@@ -136,8 +135,8 @@ public class I09EventQueueTest extends TestBase {
 	public void test04EventCreateEvent() {
 		String taskName = "TEST09-1";
 		final String taskName2 = "TEST09-2";
-		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
-				" and status <> 'DONE'");
+		cleanupData();
+
 		final Long[] taskId2 = new Long[1];
 		driver.registerTaskConfig(taskName, new SingeInstanceFactory(new TedProcessor() {
 				@Override
@@ -158,9 +157,9 @@ public class I09EventQueueTest extends TestBase {
 		sleepMs(20);
 		driver.getContext().eventQueueManager.processTedQueue();
 
-		sleepMs(100);
-		assertEquals("DONE", tedDao.getTask(taskId).status);
-		assertEquals("DONE", tedDao.getTask(taskId2[0]).status);
+		sleepMs(120);
+		assertEquals("task1:" + taskId,"DONE", tedDao.getTask(taskId).status);
+		assertEquals("task2:" + taskId2[0], "DONE", tedDao.getTask(taskId2[0]).status);
 
 
 	}
@@ -169,8 +168,7 @@ public class I09EventQueueTest extends TestBase {
 	@Test
 	public void test11EventQueue50() {
 		String taskName = "TEST09-3";
-		dao_execSql("update tedtask set status = 'DONE' where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
-				" and status <> 'DONE'");
+		cleanupData();
 
 		driver.registerTaskConfig(taskName, new SingeInstanceFactory(new TestProcessorFailAfterNDone(3, TedResult.retry("error"))));
 
@@ -192,7 +190,10 @@ public class I09EventQueueTest extends TestBase {
 		// here we wait for time, not finish event, so sometimes it can fail
 		TaskRec taskRec = driver.getContext().tedDao.getTask(taskId);
 		assertEquals("DONE", taskRec.status);
+	}
 
-
+	private void cleanupData() {
+		dao_execSql("update tedtask set status = 'DONE', nextts = null where system = '" + SYSTEM_ID + "' and channel = 'TedEQ' " +
+				" and status <> 'DONE'");
 	}
 }

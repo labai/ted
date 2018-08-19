@@ -1,5 +1,8 @@
 package labai.ted;
 
+import labai.ted.Ted.TedStatus;
+
+import java.text.SimpleDateFormat;
 import java.util.Date;
 
 /**
@@ -17,15 +20,19 @@ public class TedTask {
 	private final Integer retries;
 	private final Date createTs;
 	private final Long batchId;
+	private final TedStatus status;
 	private final boolean isNew;
 	private final boolean isRetry;
 	private final boolean isAfterTimeout;
 
 	public TedTask(Long taskId, String name, String key1, String key2, String data) {
-		this(taskId, name, key1, key2, data, null, 0, new Date(), false);
+		this(taskId, name, key1, key2, data, null, 0, new Date(), false, TedStatus.NEW);
 	}
 
-	public TedTask(Long taskId, String name, String key1, String key2, String data, Long batchId, Integer retries, Date createTs, boolean isAfterTimeout) {
+	public TedTask(Long taskId, String name, String key1, String key2, String data, Long batchId, Integer retries, Date createTs, boolean isAfterTimeout, TedStatus status) {
+		if (status == null)
+			status = TedStatus.NEW;
+		boolean work = status == TedStatus.WORK;
 		this.taskId = taskId;
 		this.name = name;
 		this.key1 = key1;
@@ -34,9 +41,10 @@ public class TedTask {
 		this.retries = retries;
 		this.createTs = createTs;
 		this.batchId = batchId;
-		this.isRetry = retries != null && retries > 0;
-		this.isAfterTimeout = isAfterTimeout;
-		this.isNew = ! (this.isRetry || this.isAfterTimeout);
+		this.status = status;
+		this.isRetry = status == TedStatus.RETRY || (work && retries != null && retries > 0);
+		this.isAfterTimeout = (status == TedStatus.RETRY || work) && isAfterTimeout;
+		this.isNew = status == TedStatus.NEW || (work && !(this.isRetry || this.isAfterTimeout));
 	}
 
 	public Long getTaskId() { return taskId; }
@@ -47,12 +55,14 @@ public class TedTask {
 	public Integer getRetries() { return retries; }
 	public Date getCreateTs() { return createTs; }
 	public Long getBatchId() { return batchId; }
+	public TedStatus getStatus() { return status; }
 	public boolean isRetry() { return isRetry; }
 	public boolean isAfterTimeout() { return isAfterTimeout; }
 	public boolean isNew() { return isNew; }
 
 	@Override
 	public String toString() {
-		return "TedTask{" + name + " " + taskId + " key1='" + key1 + '\'' + " key2='" + key2 + '\'' + " retries=" + retries + " createTs=" + createTs + " is=" + (isRetry?"R":"") + (isAfterTimeout ?"T":"") + (isNew?"N":"") + (batchId == null?"":" batchId="+batchId) + '}';
+		SimpleDateFormat iso = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
+		return "TedTask{" + name + " " + taskId + " " + (isRetry?"R"+retries:"") + (isAfterTimeout ?"T":"") + (isNew?"N":"") + (key1==null?"":" key1='"+key1+'\'') + (key2==null?"":" key2='"+key2+'\'') + " createTs=" + (createTs==null?"null":iso.format(createTs)) + (batchId == null?"":" batchId="+batchId) + '}';
 	}
 }

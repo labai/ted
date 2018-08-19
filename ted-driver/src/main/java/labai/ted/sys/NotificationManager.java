@@ -48,8 +48,6 @@ class NotificationManager {
 
 	void processNotifications() {
 		Channel systemChannel = context.registry.getChannel(Model.CHANNEL_SYSTEM);
-		if (systemChannel == null)
-			throw new IllegalStateException("Channel '" + Model.CHANNEL_SYSTEM + "' does not exists, but is required for batch processing");
 		long nowMs = System.currentTimeMillis();
 		List<TaskRec> notifications = getNewNotifications();
 		for (final TaskRec notify : notifications) {

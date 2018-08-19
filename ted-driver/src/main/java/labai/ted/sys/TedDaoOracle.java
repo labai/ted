@@ -10,7 +10,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -168,15 +167,8 @@ class TedDaoOracle extends TedDaoAbstract {
 
 		long startTm = System.currentTimeMillis();
 		List<T> list = null;
-		Connection connection;
 		try {
-			connection = dataSource.getConnection();
-		} catch (SQLException e) {
-			logger.debug("Failed to get DB connection: " + e.getMessage());
-			throw new RuntimeException("Cannot get DB connection", e);
-		}
-		try {
-			list = JdbcSelectTed.executeBlock(connection, sql, clazz, params);
+			list = JdbcSelectTed.executeBlock(dataSource, sql, clazz, params);
 		} catch (SQLException e) {
 			logger.error("SQLException while selectSingleLong '{}': {}. SQL={}", sqlLogId, e.getMessage(), sql);
 			throw new RuntimeException("SQL exception while calling sqlId '" + sqlLogId + "'", e);

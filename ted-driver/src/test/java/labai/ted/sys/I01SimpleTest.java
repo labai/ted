@@ -6,6 +6,7 @@ import labai.ted.TedResult;
 import labai.ted.TedTask;
 import labai.ted.sys.JdbcSelectTed.SqlParam;
 import labai.ted.sys.Model.TaskRec;
+import labai.ted.sys.TedDaoAbstract.DbType;
 import labai.ted.sys.TedDriverImpl.TedContext;
 import labai.ted.sys.TestTedProcessors.TestProcessorException;
 import labai.ted.sys.TestTedProcessors.TestProcessorOk;
@@ -25,6 +26,7 @@ import java.util.Properties;
 
 import static labai.ted.sys.TestConfig.SYSTEM_ID;
 import static labai.ted.sys.TestTedProcessors.forClass;
+import static labai.ted.sys.TestUtils.shortTime;
 import static org.junit.Assert.*;
 
 /**
@@ -45,8 +47,29 @@ public class I01SimpleTest extends TestBase {
 		Properties properties = TestUtils.readPropertiesFile("ted-I01.properties");
 		driver = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), SYSTEM_ID, properties);
 		this.context = driver.getContext();
+
 	}
 
+	private static class DateVal {
+		Date dateVal;
+	}
+
+	@Test
+	public void testCompareNows() {
+		String sql = "select $now as dateVal";
+		sql = sql.replace("$now", context.tedDao.getDbType().sql.now());
+		if (context.tedDao.getDbType() == DbType.ORACLE)
+			sql += " from dual";
+		Date before = new Date();
+		List<DateVal> res = ((TedDaoAbstract)context.tedDao).selectData("getnow", sql, DateVal.class, Collections.<SqlParam>emptyList());
+		Date sqlNow = res.get(0).dateVal;
+		//Date sqlNow =  new Date(res.get(0).dateVal.getTime());
+		Date after = new Date();
+		TestUtils.print(shortTime(before) + " - " + shortTime(sqlNow) + " - " + shortTime(after));
+		TestUtils.print(before.getTime() + " - " + sqlNow.getTime() + " - " + after.getTime());
+		assertTrue("clocks differs between db server and this machine(1)", before.compareTo(sqlNow) <= 0);
+		assertTrue("clocks differs between db server and this machine(2)", sqlNow.compareTo(after) <= 0);
+	}
 
 	@Ignore // data not limited
 	@Test

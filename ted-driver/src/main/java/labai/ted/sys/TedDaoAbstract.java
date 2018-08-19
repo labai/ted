@@ -11,7 +11,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -20,8 +19,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static labai.ted.sys.JdbcSelectTed.sqlParam;
 import static java.util.Arrays.asList;
+import static labai.ted.sys.JdbcSelectTed.sqlParam;
 
 /**
  * @author Augustus
@@ -166,6 +165,9 @@ abstract class TedDaoAbstract implements TedDao {
 
 	@Override
 	public void setStatus(long taskId, TedStatus status, String msg) {
+//		Date nextTs = null;
+//		if (status == TedStatus.NEW || status == TedStatus.RETRY)
+//			nextTs = new Date(System.currentTimeMillis() - 500);
 		setStatusPostponed(taskId, status, msg, null);
 	}
 
@@ -272,6 +274,13 @@ abstract class TedDaoAbstract implements TedDao {
 			sql = sql.replace("$seconds10", dbType.sql.intervalSeconds(10));
 			execute("maint04", sql, Collections.<SqlParam>emptyList());
 		}
+
+		//  update finished statuses (DONE, ERROR) with nextTs (should not happen, may occurs during dev)
+		sql = "update tedtask set nextTs = null where status in ('DONE', 'ERROR') and system = '$sys' and nextTs < $now - $delta";
+		sql = sql.replace("$now", dbType.sql.now());
+		sql = sql.replace("$sys", thisSystem);
+		sql = sql.replace("$delta", dbType.sql.intervalSeconds(120));
+		execute("maint05", sql, Collections.<SqlParam>emptyList());
 	}
 
 	@Override
@@ -303,11 +312,7 @@ abstract class TedDaoAbstract implements TedDao {
 		List<TaskRec> results = selectData(sqlLogId, sql, TaskRec.class, asList(
 				sqlParam(taskId, JetJdbcParamType.LONG)
 		));
-		if (results.size() == 0)
-			throw new RuntimeException("No task was for taskid=" + taskId);
-		if (results.size() > 1)
-			throw new RuntimeException("Expected only 1 record, but found " + results.size() + " for taskid=" + taskId);
-		return results.get(0);
+		return results.isEmpty() ? null : results.get(0);
 	}
 
 	@Override
@@ -359,29 +364,6 @@ abstract class TedDaoAbstract implements TedDao {
 		}
 		return resMap;
 	}
-
-	//	private static class LongRes {
-//		Long longVal;
-//	}
-//
-//	@Override
-//	public List<Long> getTaskIdListByBatchId(long batchId) {
-//		String sqlLogId = "batch_tasks";
-//		String sql = "select taskId as longVal from tedtask where system = '$sys'"
-//				+ " and batchid = ?";
-//		sql = sql.replace("$sys", thisSystem);
-//		List<LongRes> results = selectData(sqlLogId, sql, LongRes.class, asList(
-//				sqlParam(batchId, JetJdbcParamType.LONG)
-//		));
-//		List<Long> ids = new ArrayList<Long>();
-//		for (LongRes longRes : results) {
-//			ids.add(longRes.longVal);
-//		}
-//		return ids;
-//	}
-//	private static class TaskIdRes {
-//		Long taskid;
-//	}
 
 /*
 	@Override
@@ -438,16 +420,8 @@ abstract class TedDaoAbstract implements TedDao {
 	protected void execute(String sqlLogId, String sql, List<SqlParam> params) {
 		logSqlParams(sqlLogId, sql, params);
 		long startTm = System.currentTimeMillis();
-		Connection connection;
 		try {
-			connection = dataSource.getConnection();
-		} catch (SQLException e) {
-			logger.error("Failed to get DB connection: " + e.getMessage());
-			throw new TedSqlException("Cannot get DB connection", e);
-		}
-
-		try {
-			JdbcSelectTed.execute(connection, sql, params);
+			JdbcSelectTed.execute(dataSource, sql, params);
 		} catch (SQLException e) {
 			handleSQLException(e, sqlLogId, sql);
 		}
@@ -458,15 +432,8 @@ abstract class TedDaoAbstract implements TedDao {
 		logSqlParams(sqlLogId, sql, params);
 		long startTm = System.currentTimeMillis();
 		List<T> list = Collections.emptyList();
-		Connection connection;
 		try {
-			connection = dataSource.getConnection();
-		} catch (SQLException e) {
-			logger.error("Failed to get DB connection: " + e.getMessage());
-			throw new TedSqlException("Cannot get DB connection", e);
-		}
-		try {
-			list = JdbcSelectTed.selectData(connection, sql, clazz, params);
+			list = JdbcSelectTed.selectData(dataSource, sql, clazz, params);
 		} catch (SQLException e) {
 			handleSQLException(e, sqlLogId, sql);
 		}
@@ -485,16 +452,9 @@ abstract class TedDaoAbstract implements TedDao {
 	protected Long selectSingleLong(String sqlLogId, String sql, List<SqlParam> params) {
 		logger.trace("Before[{}]", sqlLogId);
 		long startTm = System.currentTimeMillis();
-		Connection connection;
-		try {
-			connection = dataSource.getConnection();
-		} catch (SQLException e) {
-			logger.error("Failed to get DB connection: " + e.getMessage());
-			throw new TedSqlException("Cannot get DB connection", e);
-		}
 		Long result = null;
 		try {
-			result = JdbcSelectTed.selectSingleLong(connection, sql, params);
+			result = JdbcSelectTed.selectSingleLong(dataSource, sql, params);
 		} catch (SQLException e) {
 			handleSQLException(e, sqlLogId, sql);
 		}

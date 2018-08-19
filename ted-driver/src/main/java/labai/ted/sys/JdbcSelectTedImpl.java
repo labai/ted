@@ -211,7 +211,7 @@ class JdbcSelectTedImpl {
 					if (trySetOracleTIMESTAMP(fld, bean, colData)) {
 						// done..
 					} else if (colData instanceof Date) {
-						fld.set(bean, (Date) colData);
+						fld.set(bean, new Date(((Date)colData).getTime())); // will lose nanos, tmz?
 					} else {
 						throw new SQLDataException("Cannot assign Date");
 					}
@@ -283,7 +283,7 @@ class JdbcSelectTedImpl {
 			//	connection.setAutoCommit(autoCommitOrig);
 			try { if (stmt != null) stmt.close(); } catch (Exception e) {logger.error("Cannot close statement", e);};
 			// if the connection has come from a pool, closing it actually sends it back to the pool for reuse.
-			try { if (connection != null) connection.close(); } catch (Exception e) {logger.error("Cannot close connection", e);};
+			//try { if (connection != null) connection.close(); } catch (Exception e) {logger.error("Cannot close connection", e);};
 		}
 		return list;
 	}
@@ -301,7 +301,7 @@ class JdbcSelectTedImpl {
 			try { if (resultSet != null) resultSet.close(); } catch (Exception e) {logger.error("Cannot close resultSet", e);};
 			try { if (stmt != null) stmt.close(); } catch (Exception e) {logger.error("Cannot close statement", e);};
 			// if the connection has come from a pool, closing it actually sends it back to the pool for reuse.
-			try { if (connection != null) connection.close(); } catch (Exception e) {logger.error("Cannot close connection", e);};
+			//try { if (connection != null) connection.close(); } catch (Exception e) {logger.error("Cannot close connection", e);};
 		}
 		return list;
 	}

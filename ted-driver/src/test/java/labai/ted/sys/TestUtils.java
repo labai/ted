@@ -120,4 +120,7 @@ class TestUtils {
 //		System.out.println(gson.toJson(object));
 //	}
 
+	public static String shortTime(Date date) {
+		return dateFormat.format(date);
+	}
 }

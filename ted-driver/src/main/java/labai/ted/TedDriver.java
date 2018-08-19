@@ -18,15 +18,28 @@ import java.util.Properties;
  *
  */
 public class TedDriver {
-	private TedDriverImpl tedDriverImpl;
+	final TedDriverImpl tedDriverImpl; // for Ted ext, do not use in app
+	private final TedDbType dbType;
+	private final DataSource dataSource;
+
+	/* some info about driver configuration */
+//	public final TedDriverConfig config = new TedDriverConfig();
 
 	/**
 	 *  dataSource - provides oracle db (with tedtask table) connection dataSource;
 	 *  properties - ted configuration
 	 */
 	public TedDriver(TedDbType dbType, DataSource dataSource, Properties properties) {
-		tedDriverImpl = new TedDriverImpl(dbType, dataSource, properties);
+		this.tedDriverImpl = new TedDriverImpl(dbType, dataSource, properties);
+		this.dataSource = dataSource;
+		this.dbType = dbType;
 	}
+
+
+//	public class TedDriverConfig {
+//		public TedDbType dbType() { return dbType; }
+//		public DataSource dataSource() { return dataSource; }
+//	}
 
 	/**
 	 * start TED task manager
@@ -106,6 +119,13 @@ public class TedDriver {
 	 */
 	public void registerTaskConfig(String taskName, TedProcessorFactory tedProcessorFactory, TedRetryScheduler retryScheduler) {
 		tedDriverImpl.registerTaskConfig(taskName, tedProcessorFactory, null, retryScheduler, null);
+	}
+
+	/** get task by taskId (for current system only). Returns null if not found */
+	public TedTask getTask(Long taskId) {
+		if (taskId == null)
+			return null;
+		return tedDriverImpl.getTask(taskId);
 	}
 
 	//

@@ -2,7 +2,7 @@ package ted.driver.sys;
 
 
 import ted.driver.TedDriver;
-import ted.driver.TedSchdHck1;
+import ted.driver._TedSchdHck;
 
 import javax.sql.DataSource;
 
@@ -15,13 +15,13 @@ import javax.sql.DataSource;
  *  For ted-scheduler only!
  *
  */
-public class TedSchdDriverExt {
+public class _TedSchdDriverExt {
 	private final TedDriver tedDriver;
 	private final TedDriverImpl tedDriverImpl;
 
-	public TedSchdDriverExt(TedDriver tedDriver) {
+	public _TedSchdDriverExt(TedDriver tedDriver) {
 		this.tedDriver = tedDriver;
-		this.tedDriverImpl = TedSchdHck1.getTedDriverImpl(tedDriver);
+		this.tedDriverImpl = _TedSchdHck.getTedDriverImpl(tedDriver);
 	}
 
 	public String systemId() {

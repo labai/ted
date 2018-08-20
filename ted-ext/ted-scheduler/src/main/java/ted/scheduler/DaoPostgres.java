@@ -1,10 +1,11 @@
 package ted.scheduler;
 
-import ted.scheduler.JdbcSelectTed.JetJdbcParamType;
-import ted.scheduler.JdbcSelectTed.SqlParam;
-import ted.scheduler.JdbcSelectTed.TedSqlException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ted.driver.sys._TedSchdJdbcSelect;
+import ted.driver.sys._TedSchdJdbcSelect.JetJdbcParamType;
+import ted.driver.sys._TedSchdJdbcSelect.SqlParam;
+import ted.driver.sys._TedSchdJdbcSelect.TedSqlException;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -15,7 +16,7 @@ import java.util.List;
 import java.util.function.Function;
 
 import static java.util.Arrays.asList;
-import static ted.scheduler.JdbcSelectTed.sqlParam;
+
 
 /**
  * @author Augustus
@@ -26,19 +27,17 @@ import static ted.scheduler.JdbcSelectTed.sqlParam;
  *  Dao functions for ted-scheduler (PostgreSql)
  *
  */
-public class DaoPostgres {
+class DaoPostgres {
 	private static final Logger logger = LoggerFactory.getLogger(DaoPostgres.class);
 	private final DataSource dataSource;
 	private final String thisSystem;
 
-	private Long primeTaskId = null;
-
-	public DaoPostgres(DataSource dataSource, String systemId) {
+	DaoPostgres(DataSource dataSource, String systemId) {
 		this.dataSource = dataSource;
 		this.thisSystem = systemId;
 	}
 
-	public static class TxContext {
+	static class TxContext {
 		private boolean rollbacked = false;
 		public final Connection connection;
 		public TxContext(Connection connection) {
@@ -48,11 +47,12 @@ public class DaoPostgres {
 			try {
 				connection.rollback();
 			} catch (SQLException e) {
-				throw new RuntimeException("Cannot rollback", e);
+				throw new TedSqlException("Cannot rollback", e);
 			}
 			rollbacked = true;
 		};
 	}
+
 	<T> T execWithLockedPrimeTaskId(DataSource dataSource, Long primeTaskId, Function<TxContext, T> function) {
 		if (primeTaskId == null) throw new IllegalStateException("primeTaskId is null");
 		Connection connection;
@@ -79,7 +79,6 @@ public class DaoPostgres {
 	<T> T txRun(Connection connection, Function<TxContext, T> function) {
 		Savepoint savepoint = null;
 		Boolean autocommit = null;
-		// TODO autocommit?
 		try {
 			autocommit = connection.getAutoCommit();
 			connection.setAutoCommit(false);
@@ -137,7 +136,7 @@ public class DaoPostgres {
 		String sql = "select case when pg_try_advisory_xact_lock(" + 1977110801 + ", " + primeTaskId + ") then 1 else 0 end as longVal";
 		List<LongVal> res;
 		try {
-			res = JdbcSelectTed.selectData(connection, sql, LongVal.class, Collections.emptyList());
+			res = _TedSchdJdbcSelect.selectData(connection, sql, LongVal.class, Collections.emptyList());
 		} catch (SQLException e) {
 			return false;
 		}
@@ -153,7 +152,7 @@ public class DaoPostgres {
 				+ " limit 1";
 		sql = sql.replace("$sys", thisSystem);
 		List<LongVal> results = selectData(sqlLogId, sql, LongVal.class, asList(
-				sqlParam(taskName, JetJdbcParamType.STRING)
+				_TedSchdJdbcSelect.sqlParam(taskName, JetJdbcParamType.STRING)
 		));
 		return results.size() > 0;
 	}
@@ -163,10 +162,10 @@ public class DaoPostgres {
 		long startTm = System.currentTimeMillis();
 		List<T> list = Collections.emptyList();
 		try {
-			list = JdbcSelectTed.selectData(dataSource, sql, clazz, params);
+			list = _TedSchdJdbcSelect.selectData(dataSource, sql, clazz, params);
 		} catch (SQLException sqle) {
 			logger.error("SQLException while execute '{}': {}. SQL={}", sqlLogId, sqle.getMessage(), sql);
-			throw new JdbcSelectTed.TedSqlException("SQL exception while calling sqlId '" + sqlLogId + "'", sqle);
+			throw new TedSqlException("SQL exception while calling sqlId '" + sqlLogId + "'", sqle);
 		}
 		long durationMs = System.currentTimeMillis() - startTm;
 		if (durationMs >= 50)
@@ -180,7 +179,7 @@ public class DaoPostgres {
 		if (logger.isTraceEnabled()) {
 			String sparams = "";
 			for (SqlParam p : params)
-				sparams += String.format(" %s=%s", p.code, p.value);
+				sparams += String.format(" %s=%s", p.code(), p.value());
 			logger.trace("Before[{}] with params:{}", sqlLogId, sparams);
 			if (logger.isTraceEnabled()) {
 				logger.trace("sql:" + sql);

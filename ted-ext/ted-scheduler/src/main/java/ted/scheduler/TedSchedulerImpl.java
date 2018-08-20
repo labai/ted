@@ -1,5 +1,7 @@
 package ted.scheduler;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedProcessor;
 import ted.driver.Ted.TedProcessorFactory;
 import ted.driver.Ted.TedRetryScheduler;
@@ -7,11 +9,9 @@ import ted.driver.Ted.TedStatus;
 import ted.driver.TedDriver;
 import ted.driver.TedResult;
 import ted.driver.TedTask;
+import ted.driver.sys._TedSchdDriverExt;
 import ted.scheduler.TedScheduler.TedSchedulerNextTime;
 import ted.scheduler.utils.CronExpression;
-import ted.driver.sys.TedSchdDriverExt;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
 import java.time.ZoneId;
@@ -26,23 +26,28 @@ import java.util.concurrent.TimeUnit;
  *  for TED internal usage only!!!
  *
  *
- *
  */
 class TedSchedulerImpl {
 	private static final Logger logger = LoggerFactory.getLogger(TedScheduler.class);
 	private final TedDriver tedDriver;
-	private final TedSchdDriverExt tedSchdDriverExt;
+	private final _TedSchdDriverExt tedSchdDriverExt;
 	private final DataSource dataSource;
 	private final DaoPostgres dao;
 
 	TedSchedulerImpl(TedDriver tedDriver) {
 		this.tedDriver = tedDriver;
-		this.tedSchdDriverExt = new TedSchdDriverExt(tedDriver);
+		this.tedSchdDriverExt = new _TedSchdDriverExt(tedDriver);
 		this.dataSource = tedSchdDriverExt.dataSource();
 		this.dao = new DaoPostgres(dataSource, tedSchdDriverExt.systemId());
 	}
 
 	void registerScheduler(String taskName, String data, TedProcessorFactory processorFactory, TedRetryScheduler retryScheduler) {
+		if (taskName == null || taskName.isEmpty())
+			throw new IllegalStateException("task name is required!");
+		if (processorFactory == null)
+			throw new IllegalStateException("TedProcessorFactory is required!");
+		if (retryScheduler == null)
+			throw new IllegalStateException("TedRetryScheduler is required!");
 		if (! tedSchdDriverExt.isPrimeEnabled())
 			throw new IllegalStateException("Prime-instance functionality must be enabled!");
 		tedDriver.registerTaskConfig(taskName, processorFactory, retryScheduler);
@@ -59,7 +64,6 @@ class TedSchedulerImpl {
 
 	/* creates task only if does not exists (task + activeStatus).
 	   While there are not 100% guarantee, but will try to ensure, that 2 processes will not create same task twice (using this method).
-	   Key1 can be "" if task must be unique.
 	*/
 	Long createUniqueTask(String name, String data, String key1, String key2, int postponeSec){
 		return dao.execWithLockedPrimeTaskId(dataSource, tedSchdDriverExt.primeTaskId(), tx -> {
@@ -67,7 +71,6 @@ class TedSchedulerImpl {
 				logger.debug("Exists task {} with key1='{}' and active status (NEW, RETRY or WORK), skipping", name, key1);
 				return null;
 			}
-
 			return tedDriver.createTaskPostponed(name, data, key1, key2, postponeSec);
 		});
 

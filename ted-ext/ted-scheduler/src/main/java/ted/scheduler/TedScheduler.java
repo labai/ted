@@ -41,15 +41,6 @@ public class TedScheduler {
 		tedSchedulerImpl.registerScheduler(name, data, new SchedulerProcessorFactory(processorFactory), new CronRetry(cron));
 	}
 
-	// will call same runnable each time
-//	public void registerCronScheduler(String name, Runnable runnable, String cron) {
-//		tedSchedulerImpl.registerScheduler(name, Factory.single(runnable), new CronRetry(cron));
-//	}
-//
-//	public void registerCronScheduler(String name, TedProcessor tedProcessor, String cron) {
-//		tedSchedulerImpl.registerScheduler(name, Factory.single(tedProcessor), new CronRetry(cron));
-//	}
-
 	//
 	// custom
 	//
@@ -57,28 +48,12 @@ public class TedScheduler {
 		tedSchedulerImpl.registerScheduler(name, data, new SchedulerProcessorFactory(processorFactory), new CustomRetry(nextTimeFn));
 	}
 
-//	public void registerCustomScheduler(String name, Runnable runnable, TedSchedulerNextTime nextTimeFn) {
-//		tedSchedulerImpl.registerScheduler(name, Factory.single(runnable), new CustomRetry(nextTimeFn));
-//	}
-//
-//	public void registerCustomScheduler(String name, TedProcessor tedProcessor, TedSchedulerNextTime nextTimeFn) {
-//		tedSchedulerImpl.registerScheduler(name, Factory.single(tedProcessor), new CustomRetry(nextTimeFn));
-//	}
-
 	//
 	// periodic
 	//
 	public void registerPeriodicScheduler(String name, String data, TedProcessorFactory processorFactory, int period, TimeUnit timeUnit) {
 		tedSchedulerImpl.registerScheduler(name, data, new SchedulerProcessorFactory(processorFactory), new PeriodicRetry(period, timeUnit));
 	}
-
-//	public void registerPeriodicScheduler(String name, Runnable runnable, int period, TimeUnit timeUnit) {
-//		tedSchedulerImpl.registerScheduler(name, Factory.single(runnable), new PeriodicRetry(period, timeUnit));
-//	}
-//
-//	public void registerPeriodicScheduler(String name, TedProcessor tedProcessor, int period, TimeUnit timeUnit) {
-//		tedSchedulerImpl.registerScheduler(name, Factory.single(tedProcessor), new PeriodicRetry(period, timeUnit));
-//	}
 
 	public class SchedulerBuilder {
 		String taskName;

@@ -7,7 +7,7 @@
         </encoder>
     </appender>
 
-<!--    <logger name="labai.ted" level="debug">
+<!--    <logger name="ted" level="debug">
         <appender-ref ref="STDOUT" />
     </logger>-->
 

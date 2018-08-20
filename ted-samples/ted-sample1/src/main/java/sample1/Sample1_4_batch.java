@@ -1,11 +1,11 @@
 package sample1;
 
 import com.mchange.v2.c3p0.ComboPooledDataSource;
-import labai.ted.Ted.TedDbType;
-import labai.ted.Ted.TedProcessor;
-import labai.ted.TedDriver;
-import labai.ted.TedResult;
-import labai.ted.TedTask;
+import ted.driver.Ted.TedDbType;
+import ted.driver.Ted.TedProcessor;
+import ted.driver.TedDriver;
+import ted.driver.TedResult;
+import ted.driver.TedTask;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.RandomUtils;
 import org.slf4j.Logger;

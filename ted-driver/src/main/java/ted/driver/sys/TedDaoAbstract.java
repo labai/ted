@@ -144,25 +144,6 @@ abstract class TedDaoAbstract implements TedDao {
 		return result;
 	}
 
-	// TODO now it requires minimum 3 calls to db
-	@Override
-	public List<TaskRec> reserveTaskPortion(Map<String, Integer> channelSizes){
-		if (channelSizes.isEmpty())
-			return Collections.emptyList();
-		long bno = getSequenceNextValue("SEQ_TEDTASK_BNO");
-
-		for (String channel : channelSizes.keySet()) {
-			int cnt = channelSizes.get(channel);
-			if (cnt == 0) continue;
-			reserveTaskPortionForChannel(bno, channel, cnt);
-		}
-		String sql = "select * from tedtask where bno = ?";
-		List<TaskRec> tasks = selectData("get_tasks_by_bno", sql, TaskRec.class, asList(
-				sqlParam(bno, JetJdbcParamType.LONG)
-		));
-		return tasks;
-	}
-
 	@Override
 	public void setStatus(long taskId, TedStatus status, String msg) {
 //		Date nextTs = null;
@@ -364,50 +345,6 @@ abstract class TedDaoAbstract implements TedDao {
 		}
 		return resMap;
 	}
-
-/*
-	@Override
-	public boolean existsActiveTaskByKey1(String taskName, String key1) {
-		String sqlLogId = "chk_uniq_key1";
-		String sql = "select taskid from tedtask where system = '$sys' and name = ? and key1 = ?"
-				+ " and status in ('NEW', 'RETRY', 'WORK')"
-				+ dbType.sql.rownum("1");
-		sql = sql.replace("$sys", thisSystem);
-		List<TaskIdRes> results = selectData(sqlLogId, sql, TaskIdRes.class, asList(
-				sqlParam(taskName, JetJdbcParamType.STRING),
-				sqlParam(key1, JetJdbcParamType.STRING)
-		));
-		return results.size() > 0;
-	}
-*/
-
-
-	//
-	// private
-	//
-
-	private void reserveTaskPortionForChannel(long bno, String channel, int rowLimit) {
-		String sqlLogId = "reserve_channel";
-		String sql = "update tedtask set status = 'WORK', bno = ?, startTs = $now, nextTs = null"
-				+ " where status in ('NEW','RETRY') and system = '$sys'"
-				+ " and taskid in ("
-					+ " select taskid from tedtask "
-					+ " where status in ('NEW','RETRY') and system = '$sys' and channel = ? "
-					+ " and nextTs < $now"
-					+ (dbType == DbType.POSTGRES ? " for update skip locked" : "") // "for update skip locked" works for Postgres. For Oracle implemented in TedDaoOracle
-					+ dbType.sql.rownum("" + rowLimit) // todo use rowLimit as parameter
-					//+ " for update"
-				+ ")"
-				;
-		sql = sql.replace("$now", dbType.sql.now());
-		sql = sql.replace("$sys", thisSystem);
-		execute(sqlLogId, sql, asList(
-				sqlParam(bno, JetJdbcParamType.LONG),
-				sqlParam(channel, JetJdbcParamType.STRING)
-				//,sqlParam(rowLimit, JetJdbcParamType.INTEGER)
-		));
-	}
-
 
 	protected Long getSequenceNextValue(String seqName) {
 		return selectSingleLong("get_sequence", dbType.sql.sequenceSelect(seqName));

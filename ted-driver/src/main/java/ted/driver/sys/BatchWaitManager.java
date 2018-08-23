@@ -75,7 +75,7 @@ class BatchWaitManager {
 		// retry batch
 		long batchTimeMn = (System.currentTimeMillis() - batch.createTs.getTime()) / 1000 / 60;
 		if (batchTimeMn >= tc.batchTimeoutMinutes) {
-			logger.warn("Batch timeout for task_id=" + batch.taskId + " name=" + batch.name + " createTs=" + batch.createTs+ " now=" + MiscUtils.dateToStrTs(System.currentTimeMillis()) + " ttl-minutes=" + tc.batchTimeoutMinutes);
+			logger.warn("Batch timeout for taskId=" + batch.taskId + " name=" + batch.name + " createTs=" + batch.createTs+ " now=" + MiscUtils.dateToStrTs(System.currentTimeMillis()) + " ttl-minutes=" + tc.batchTimeoutMinutes);
 			tedDao.setStatus(batch.taskId, TedStatus.ERROR, "Batch processing too long");
 			return;
 		}

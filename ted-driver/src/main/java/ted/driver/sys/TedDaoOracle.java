@@ -141,12 +141,22 @@ class TedDaoOracle extends TedDaoAbstract {
 	}
 
 	@Override
+	public TaskRec eventQueueReserveTask(long taskId) {
+		throw new IllegalStateException("TODO for oracle");
+	}
+
+	@Override
 	public List<TaskRec> getLastNotifications(Date fromTs) {
 		throw new IllegalStateException("TODO for oracle");
 	}
 
 	@Override
 	public void cleanupNotifications(Date tillTs) {
+		throw new IllegalStateException("TODO for oracle");
+	}
+
+	@Override
+	public void runInTx(Runnable runnable) {
 		throw new IllegalStateException("TODO for oracle");
 	}
 

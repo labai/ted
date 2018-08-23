@@ -1,15 +1,15 @@
 package ted.driver.sys;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedProcessor;
 import ted.driver.Ted.TedStatus;
 import ted.driver.TedResult;
 import ted.driver.sys.Model.TaskRec;
-import ted.driver.sys.TedDriverImpl.TedContext;
 import ted.driver.sys.Registry.Channel;
 import ted.driver.sys.Registry.TaskConfig;
 import ted.driver.sys.TaskManager.TedRunnable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import ted.driver.sys.TedDriverImpl.TedContext;
 
 import java.util.Date;
 import java.util.HashMap;
@@ -76,8 +76,8 @@ class EventQueueManager {
 	}
 
 	// process events from queue each after other, until ERROR or RETRY will happen
-	private void processEventQueue(TaskRec head) {
-		TedResult headResult = processEvent(head);
+	private void processEventQueue(final TaskRec head) {
+		final TedResult headResult = processEvent(head);
 		TaskConfig tc = context.registry.getTaskConfig(head.name);
 		if (tc == null) {
 			context.taskManager.handleUnknownTasks(asList(head));
@@ -92,7 +92,7 @@ class EventQueueManager {
 			for (int i = 0; i < 10; i++) {
 				List<TaskRec> events = tedDao.eventQueueGetTail(head.key1);
 				if (events.isEmpty())
-					break;
+					break outer;
 				for (TaskRec event : events) {
 					TaskConfig tc2 = context.registry.getTaskConfig(event.name);
 					if (tc2 == null)
@@ -111,12 +111,25 @@ class EventQueueManager {
 				}
 			}
 		}
-		// TODO in transaction
-		saveResult(head, headResult);
-		if (lastUnsavedResult != null) {
-			saveResult(lastUnsavedEvent, lastUnsavedResult);
-		}
+
+		// first save head, otherwise unique index will fail
+		final TedResult finalLastUnsavedResult = lastUnsavedResult;
+		final TaskRec finalLastUnsavedEvent = lastUnsavedEvent;
+		tedDao.runInTx(new Runnable() {
+			@Override
+			public void run() {
+				try {
+					saveResult(head, headResult);
+					if (finalLastUnsavedResult != null) {
+						saveResult(finalLastUnsavedEvent, finalLastUnsavedResult);
+					}
+				} catch (Exception e) {
+					logger.error("Error while finishing events queue execution", e);
+				}
+			}
+		});
 	}
+
 
 	Long createEvent(String taskName, String queueId, String data, String key2) {
 		Long taskId = tedDao.createEvent(taskName, queueId, data, key2);
@@ -124,11 +137,14 @@ class EventQueueManager {
 		return taskId;
 	}
 
-	Long createAndTryExecuteEvent(String taskName, String queueId, String data, String key2) {
-		Long taskId = tedDao.createEvent(taskName, queueId, data, key2);
+	Long createEventAndTryExecute(String taskName, String queueId, String data, String key2) {
+		long taskId = tedDao.createEvent(taskName, queueId, data, key2);
 		TaskRec task = tedDao.eventQueueMakeFirst(queueId);
-		if (task != null && task.taskId == (long) taskId) {
-			processEventQueue(task);
+		if (task != null && task.taskId == taskId) {
+			TaskRec taskRec = tedDao.eventQueueReserveTask(task.taskId);
+			if (taskRec != null && taskRec.taskId == taskId) {
+				processEventQueue(task);
+			}
 		}
 		return taskId;
 	}
@@ -136,6 +152,7 @@ class EventQueueManager {
 
 	private TedResult processEvent(TaskRec taskRec1) {
 		String threadName = Thread.currentThread().getName();
+		logger.debug("Start to process event {}", taskRec1);
 		TedResult result;
 		try {
 			TaskConfig taskConfig = context.registry.getTaskConfig(taskRec1.name);

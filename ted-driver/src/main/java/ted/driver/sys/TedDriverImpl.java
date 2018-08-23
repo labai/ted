@@ -1,12 +1,13 @@
 package ted.driver.sys;
 
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedDbType;
 import ted.driver.Ted.TedProcessorFactory;
 import ted.driver.Ted.TedRetryScheduler;
 import ted.driver.Ted.TedStatus;
 import ted.driver.TedTask;
-import ted.driver.sys.Trash.TedPackProcessorFactory;
 import ted.driver.sys.ConfigUtils.TedConfig;
 import ted.driver.sys.ConfigUtils.TedProperty;
 import ted.driver.sys.Model.FieldValidator;
@@ -15,8 +16,6 @@ import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.Registry.Channel;
 import ted.driver.sys.Registry.TaskConfig;
 import ted.driver.sys.TaskManager.TedRunnable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
 import java.util.ArrayList;
@@ -352,8 +351,8 @@ public final class TedDriverImpl {
 		return context.eventQueueManager.createEvent(taskName, queueId, data, key2);
 	}
 
-	public Long createAndTryExecuteEvent(String taskName, String queueId, String data, String key2) {
-		return context.eventQueueManager.createAndTryExecuteEvent(taskName, queueId, data, key2);
+	public Long createEventAndTryExecute(String taskName, String queueId, String data, String key2) {
+		return context.eventQueueManager.createEventAndTryExecute(taskName, queueId, data, key2);
 	}
 
 	public Long sendNotification(String taskName, String data) {
@@ -365,10 +364,10 @@ public final class TedDriverImpl {
 		context.registry.registerTaskConfig(taskName, tedProcessorFactory);
 	}
 
-	public void registerTaskConfig(String taskName, TedPackProcessorFactory tedPackProcessorFactory) {
-		FieldValidator.validateTaskName(taskName);
-		context.registry.registerTaskConfig(taskName, tedPackProcessorFactory);
-	}
+//	public void registerTaskConfig(String taskName, TedPackProcessorFactory tedPackProcessorFactory) {
+//		FieldValidator.validateTaskName(taskName);
+//		context.registry.registerTaskConfig(taskName, tedPackProcessorFactory);
+//	}
 
 	public void registerTaskConfig(String taskName, TedProcessorFactory tedProcessorFactory, Integer workTimeoutInMinutes, TedRetryScheduler retryScheduler, String channel) {
 		FieldValidator.validateTaskName(taskName);

@@ -54,6 +54,20 @@ public class TestTedProcessors {
 		}
 	}
 
+	public static class TestProcessorOkSleep implements TedProcessor {
+		private final int sleepMs;
+		public TestProcessorOkSleep(int sleepMs) {
+			this.sleepMs = sleepMs;
+		}
+		@Override
+		public TedResult process(TedTask task)  {
+			logger.info(this.getClass().getSimpleName() + " process");
+			TestUtils.sleepMs(sleepMs);
+			return TedResult.done();
+		}
+	}
+
+
 	public static class TestProcessorException implements TedProcessor {
 		@Override
 		public TedResult process(TedTask task)  {
@@ -74,6 +88,10 @@ public class TestTedProcessors {
 		public TedProcessor getProcessor(String taskName) {
 			return tedProcessor;
 		}
+	}
+
+	public static TedProcessorFactory forProcessor(TedProcessor processor) {
+		return new SingeInstanceFactory(processor);
 	}
 
 

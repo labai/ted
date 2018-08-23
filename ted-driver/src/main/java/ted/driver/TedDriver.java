@@ -91,8 +91,8 @@ public class TedDriver {
 	}
 
 	/** create event in queue. If possible, try to execute */
-	public Long createAndTryExecuteEvent(String taskName, String queueId, String data, String key2) {
-		return tedDriverImpl.createAndTryExecuteEvent(taskName, queueId, data, key2);
+	public Long createEventAndTryExecute(String taskName, String queueId, String data, String key2) {
+		return tedDriverImpl.createEventAndTryExecute(taskName, queueId, data, key2);
 	}
 
 	/** send notification to instances */

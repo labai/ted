@@ -123,11 +123,11 @@ class TaskManager {
 			}
 			if (tc.workTimeoutMinutes <= workingTimeMn) {
 				if (logger.isDebugEnabled())
-					logger.debug("Work timeout for task_id=" + task.taskId + " name=" + task.name + " startTs=" + task.startTs+ " now=" + MiscUtils.dateToStrTs(nowTime) + " ttl-minutes=" + tc.workTimeoutMinutes);
+					logger.debug("Work timeout for taskId=" + task.taskId + " name=" + task.name + " startTs=" + task.startTs+ " now=" + MiscUtils.dateToStrTs(nowTime) + " ttl-minutes=" + tc.workTimeoutMinutes);
 				changeTaskStatusPostponed(task.taskId, TedStatus.RETRY, Model.TIMEOUT_MSG + "(3)", new Date());
 			} else {
 				if (logger.isDebugEnabled())
-					logger.debug("Set finishTs for task_id=" + task.taskId + " name=" + task.name + " startTs=" + task.startTs+ " now=" + MiscUtils.dateToStrTs(nowTime) + " ttl-minutes=" + tc.workTimeoutMinutes);
+					logger.debug("Set finishTs for taskId=" + task.taskId + " name=" + task.name + " startTs=" + task.startTs+ " now=" + MiscUtils.dateToStrTs(nowTime) + " ttl-minutes=" + tc.workTimeoutMinutes);
 				context.tedDao.setTaskPlannedWorkTimeout(task.taskId, new Date(task.startTs.getTime() + tc.workTimeoutMinutes * 60 * 1000));
 			}
 		}

@@ -1,5 +1,9 @@
 package ted.driver.sys;
 
+import org.postgresql.copy.CopyManager;
+import org.postgresql.core.BaseConnection;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedStatus;
 import ted.driver.sys.JdbcSelectTed.JetJdbcParamType;
 import ted.driver.sys.JdbcSelectTed.SqlParam;
@@ -9,20 +13,18 @@ import ted.driver.sys.Model.TaskParam;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.PrimeInstance.CheckPrimeParams;
 import ted.driver.sys.QuickCheck.CheckResult;
-import org.postgresql.copy.CopyManager;
-import org.postgresql.core.BaseConnection;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.sql.DataSource;
 import java.io.IOException;
 import java.io.StringReader;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 import static java.util.Arrays.asList;
 import static ted.driver.sys.JdbcSelectTed.sqlParam;
@@ -45,6 +47,67 @@ class TedDaoPostgres extends TedDaoAbstract {
 		Long taskid;
 	}
 
+	// TODO now it requires minimum 3 calls to db
+	@Override
+	public List<TaskRec> reserveTaskPortion(Map<String, Integer> channelSizes){
+		if (channelSizes.isEmpty())
+			return Collections.emptyList();
+		long bno = getSequenceNextValue("SEQ_TEDTASK_BNO");
+
+		for (String channel : channelSizes.keySet()) {
+			int cnt = channelSizes.get(channel);
+			if (cnt == 0) continue;
+			reserveTaskPortionForChannel(bno, channel, cnt);
+		}
+		String sql = "select * from tedtask where bno = ?";
+		List<TaskRec> tasks = selectData("get_tasks_by_bno", sql, TaskRec.class, asList(
+				sqlParam(bno, JetJdbcParamType.LONG)
+		));
+		return tasks;
+	}
+
+	private void reserveTaskPortionForChannel(long bno, String channel, int rowLimit) {
+		String sqlLogId = "reserve_channel";
+		String sql = "update tedtask set status = 'WORK', bno = ?, startTs = $now, nextTs = null"
+				+ " where status in ('NEW','RETRY') and system = '$sys'"
+				+ " and taskid in ("
+					+ " select taskid from tedtask "
+					+ " where status in ('NEW','RETRY') and system = '$sys' and channel = ? "
+					+ " and nextTs < $now"
+					+ " for update skip locked"
+					+ " limit ?"
+					// + dbType.sql.rownum("" + rowLimit)
+				+ ")"
+				;
+		sql = sql.replace("$now", dbType.sql.now());
+		sql = sql.replace("$sys", thisSystem);
+		execute(sqlLogId, sql, asList(
+				sqlParam(bno, JetJdbcParamType.LONG),
+				sqlParam(channel, JetJdbcParamType.STRING),
+				sqlParam(rowLimit, JetJdbcParamType.INTEGER)
+		));
+	}
+
+	// reserve concrete task. if can't - return null, else taskRec
+	// used in eventQueue
+	public TaskRec eventQueueReserveTask(long taskId) {
+		String sqlLogId = "reserve_task";
+		String sql = "update tedtask set status = 'WORK', startTs = $now, nextTs = null"
+				+ " where status in ('NEW','RETRY') and system = '$sys'"
+				+ " and taskid in ("
+				+ " select taskid from tedtask "
+					+ " where status in ('NEW','RETRY') and system = '$sys'"
+					+ " and taskid = ?"
+					+ " for update skip locked"
+				+ ") returning tedtask.*"
+				;
+		sql = sql.replace("$now", dbType.sql.now());
+		sql = sql.replace("$sys", thisSystem);
+		List<TaskRec> tasks = selectData(sqlLogId, sql, TaskRec.class, asList(
+				sqlParam(taskId, JetJdbcParamType.LONG)
+		));
+		return tasks.isEmpty() ? null : tasks.get(0);
+	}
 
 	@Override
 	public List<Long> createTasksBulk(List<TaskParam> taskParams) {
@@ -179,7 +242,7 @@ class TedDaoPostgres extends TedDaoAbstract {
 
 	@Override
 	public TaskRec eventQueueMakeFirst(String queueId) {
-		String sql = "update tedtask set status = 'NEW' where system = '$sys'" +
+		String sql = "update tedtask set status = 'NEW', nextts = now() where system = '$sys'" +
 				" and key1 = ? and status = 'SLEEP' and channel = 'TedEQ'" +
 				" and taskid = (select min(taskid) from tedtask t2 " +
 				"   where system = '$sys' and channel = 'TedEQ' and t2.key1 = ?" +
@@ -261,6 +324,55 @@ class TedDaoPostgres extends TedDaoAbstract {
 		));
 	}
 
+	@Override
+	public void runInTx(Runnable runnable) {
+		Connection connection;
+		try {
+			connection = dataSource.getConnection();
+		} catch (SQLException e) {
+			logger.error("Failed to get DB connection: " + e.getMessage());
+			throw new TedSqlException("Cannot get DB connection", e);
+		}
+
+		Savepoint savepoint = null;
+		Boolean autocommit = null;
+		String txLogId = "x";
+		try {
+			autocommit = connection.getAutoCommit();
+			connection.setAutoCommit(false);
+			savepoint = connection.setSavepoint("runInTx");
+			txLogId = Integer.toHexString(savepoint.hashCode());
+			logger.debug("[B] before start transaction {}", txLogId);
+
+			runnable.run();
+
+			return ;
+		} catch (Throwable e) {
+			try {
+				if (savepoint != null)
+					connection.rollback(savepoint);
+				else
+					connection.rollback();
+			} catch (Exception rollbackException) {
+				logger.warn("Exception while rollbacking", rollbackException);
+			}
+			throw new RuntimeException(e);
+		}
+		finally {
+			try {
+				if (autocommit != null && autocommit != connection.getAutoCommit()) {
+					connection.setAutoCommit(autocommit);
+				}
+			} catch (SQLException e) {
+				logger.warn("Exception while setting back autoCommit mode", e);
+			}
+			try { if (connection != null) connection.close(); } catch (Exception e) {logger.error("Cannot close connection", e);};
+			logger.debug("[E] before start transaction {}", txLogId);
+		}
+	}
+
+
+
 	//
 	// private
 	//
@@ -318,14 +430,18 @@ class TedDaoPostgres extends TedDaoAbstract {
 	// use 1 call for postgres, instead of 2 (sequence and insert)
 	protected long createTaskInternal(String name, String channel, String data, String key1, String key2, Long batchId, int postponeSec, TedStatus status) {
 		String sqlLogId = "create_task";
+		if (status == null)
+			status = TedStatus.NEW;
+		String nextts = (status == TedStatus.NEW ? dbType.sql.now() + " + " + dbType.sql.intervalSeconds(postponeSec) : "null");
+
 		String sql = " insert into tedtask (taskId, system, name, channel, bno, status, createTs, nextTs, retries, data, key1, key2, batchId)" +
-				" values($nextTaskId, '$sys', ?, ?, null, '$status', $now, $now + $postpone, 0, ?, ?, ?, ?)" +
+				" values($nextTaskId, '$sys', ?, ?, null, '$status', $now, $nextts, 0, ?, ?, ?, ?)" +
 				" returning taskId";
 		sql = sql.replace("$nextTaskId", dbType.sql.sequenceSql("SEQ_TEDTASK_ID"));
 		sql = sql.replace("$now", dbType.sql.now());
 		sql = sql.replace("$sys", thisSystem);
-		sql = sql.replace("$postpone", dbType.sql.intervalSeconds(postponeSec));
-		sql = sql.replace("$status", (status == null ? TedStatus.NEW : status).toString());
+		sql = sql.replace("$nextts", nextts);
+		sql = sql.replace("$status", status.toString());
 
 		List<TaskIdRes> resList = selectData(sqlLogId, sql, TaskIdRes.class, asList(
 				sqlParam(name, JetJdbcParamType.STRING),
@@ -340,6 +456,5 @@ class TedDaoPostgres extends TedDaoAbstract {
 		return taskId;
 
 	}
-
 
 }

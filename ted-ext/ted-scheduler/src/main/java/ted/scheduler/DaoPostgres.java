@@ -11,11 +11,14 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Savepoint;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static java.util.Arrays.asList;
+import static ted.driver.sys._TedSchdJdbcSelect.sqlParam;
 
 
 /**
@@ -145,17 +148,53 @@ class DaoPostgres {
 		return true;
 	}
 
-	boolean existsActiveTask(String taskName) {
+
+	// returned count: 0 - not exists, 1 - exists 1, 2 - exists more than 1
+	// includingError - do include with status ERROR?
+	// todo SLEEP?
+	List<Long> get2ActiveTasks(String taskName, boolean includingError) {
 		String sqlLogId = "chk_uniq_task";
 		String sql = "select taskid as longVal from tedtask where system = '$sys' and name = ?"
-				+ " and status in ('NEW', 'RETRY', 'WORK')"
-				+ " limit 1";
+				+ " and status in ('NEW', 'RETRY', 'WORK'"+ (includingError?",'ERROR'":"") +")"
+				+ " limit 2";
 		sql = sql.replace("$sys", thisSystem);
 		List<LongVal> results = selectData(sqlLogId, sql, LongVal.class, asList(
-				_TedSchdJdbcSelect.sqlParam(taskName, JetJdbcParamType.STRING)
+				sqlParam(taskName, JetJdbcParamType.STRING)
 		));
-		return results.size() > 0;
+		return results.stream().map(longVal -> longVal.longVal).collect(Collectors.toList());
 	}
+
+	void restoreFromError(Long taskId, String taskName, int postponeSec) {
+		String sqlLogId = "restore_from_error";
+		String sql = "update tedtask set status = 'RETRY', retries = retries + 1, "
+				+ " nextts = now() + interval '$postponeSec seconds' "
+				+ " where system = '$sys' and taskid = ? and name = ?"
+				+ " and status = 'ERROR'"
+				+ " returning tedtask.taskid";
+		sql = sql.replace("$sys", thisSystem);
+		sql = sql.replace("$postponeSec", String.valueOf(postponeSec));
+
+		selectData(sqlLogId, sql, LongVal.class, asList(
+				sqlParam(taskId, JetJdbcParamType.LONG),
+				sqlParam(taskName, JetJdbcParamType.STRING)
+		));
+	}
+
+	List<Long> checkForErrorStatus(Collection<Long> taskIds) {
+		String sqlLogId = "check_for_errors";
+		if (taskIds.isEmpty())
+			return Collections.emptyList();
+		String inIds = taskIds.stream().map(String::valueOf).collect(Collectors.joining(","));
+		String sql = "select taskid as longVal from tedtask"
+				+ " where system = '$sys'"
+				+ " and status = 'ERROR'"
+				+ " and taskid in (" + inIds + ")";
+		sql = sql.replace("$sys", thisSystem);
+
+		List<LongVal> results = selectData(sqlLogId, sql, LongVal.class, Collections.emptyList());
+		return results.stream().map(longVal -> longVal.longVal).collect(Collectors.toList());
+	}
+
 
 	protected <T> List<T> selectData(String sqlLogId, String sql, Class<T> clazz, List<SqlParam> params) {
 		logSqlParams(sqlLogId, sql, params);

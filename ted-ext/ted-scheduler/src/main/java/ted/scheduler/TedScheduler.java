@@ -34,6 +34,10 @@ public class TedScheduler {
 		this.tedSchedulerImpl = new TedSchedulerImpl(tedDriver);
 	}
 
+	public void shutdown() {
+		tedSchedulerImpl.shutdown();
+	}
+
 	//
 	// cron
 	//
@@ -95,8 +99,8 @@ public class TedScheduler {
 			return this;
 		}
 
-		public void register(){
-			tedSchedulerImpl.registerScheduler(taskName, data, tedProcessorFactory, tedRetryScheduler);
+		public Long register(){
+			return tedSchedulerImpl.registerScheduler(taskName, data, tedProcessorFactory, tedRetryScheduler);
 		}
 	}
 

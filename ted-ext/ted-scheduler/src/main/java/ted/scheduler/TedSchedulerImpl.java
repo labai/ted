@@ -17,7 +17,14 @@ import javax.sql.DataSource;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * @author Augustus
@@ -33,15 +40,52 @@ class TedSchedulerImpl {
 	private final _TedSchdDriverExt tedSchdDriverExt;
 	private final DataSource dataSource;
 	private final DaoPostgres dao;
+	private ScheduledExecutorService maintenanceExecutor;
+
+	private final Map<String, SchedulerInfo> schedulerTasks = new HashMap<>();
+
+
+	private static class SchedulerInfo {
+		final String name;
+		final long taskId;
+		final TedRetryScheduler retryScheduler;
+		public SchedulerInfo(String name, Long taskId, TedRetryScheduler retryScheduler) {
+			this.name = name;
+			this.taskId = taskId;
+			this.retryScheduler = retryScheduler;
+		}
+	}
 
 	TedSchedulerImpl(TedDriver tedDriver) {
 		this.tedDriver = tedDriver;
 		this.tedSchdDriverExt = new _TedSchdDriverExt(tedDriver);
 		this.dataSource = tedSchdDriverExt.dataSource();
 		this.dao = new DaoPostgres(dataSource, tedSchdDriverExt.systemId());
+
+		maintenanceExecutor = createSchedulerExecutor("TedSchd-");
+		maintenanceExecutor.scheduleAtFixedRate(() -> {
+			try {
+				checkForErrorStatus();
+			} catch (Throwable e) {
+				logger.error("Error while executing scheduler maintenance tasks", e);
+			}
+		}, 30, 180, TimeUnit.SECONDS);
 	}
 
-	void registerScheduler(String taskName, String data, TedProcessorFactory processorFactory, TedRetryScheduler retryScheduler) {
+	public void shutdown() {
+		maintenanceExecutor.shutdown();
+	}
+
+	private static int getPostponeSec(TedRetryScheduler retryScheduler) {
+		Date startFrom = retryScheduler.getNextRetryTime(null, 1, new Date());
+		int postponeSec = 0;
+		if (startFrom != null) {
+			postponeSec = (int)Math.min(0L, startFrom.getTime() - System.currentTimeMillis() / 1000);
+		}
+		return postponeSec;
+	}
+
+	Long registerScheduler(String taskName, String data, TedProcessorFactory processorFactory, TedRetryScheduler retryScheduler) {
 		if (taskName == null || taskName.isEmpty())
 			throw new IllegalStateException("task name is required!");
 		if (processorFactory == null)
@@ -53,24 +97,53 @@ class TedSchedulerImpl {
 		tedDriver.registerTaskConfig(taskName, processorFactory, retryScheduler);
 
 		// create task is not exists
-		Date startFrom = retryScheduler.getNextRetryTime(null, 1, new Date());
-		int postponeSec = 0;
-		if (startFrom != null) {
-			postponeSec = (int)Math.min(0L, startFrom.getTime() - System.currentTimeMillis() / 1000);
-		}
-		createUniqueTask(taskName, data, "", null, postponeSec);
+		int postponeSec = getPostponeSec(retryScheduler);
+		Long taskId = createUniqueTask(taskName, data, "", null, postponeSec);
+		if (taskId == null)
+			throw new IllegalStateException("taskId == null for task " + taskName);
+
+		SchedulerInfo sch = new SchedulerInfo(taskName, taskId, retryScheduler);
+		schedulerTasks.put(taskName, sch);
+		return taskId;
 	}
 
+	void checkForErrorStatus() {
+        List<Long> schdTaskIds = schedulerTasks.values().stream().map(sch -> sch.taskId).collect(Collectors.toList());
+		List<Long> badTaskIds = dao.checkForErrorStatus(schdTaskIds);
+		for (long taskId : badTaskIds) {
+			SchedulerInfo schInfo = schedulerTasks.values().stream()
+					.filter(sch -> sch.taskId == taskId)
+					.findFirst()
+					.orElse(null);
+			logger.warn("Restore schedule task {} {} from ERROR to RETRY", taskId, schInfo == null ? "null" : schInfo.name);
+			TedTask task = tedDriver.getTask(taskId);
+			int postponeSec = schInfo == null ? 0 : getPostponeSec(schInfo.retryScheduler);
+			dao.restoreFromError(taskId, task.getName(), postponeSec);
+		}
+
+	}
 
 	/* creates task only if does not exists (task + activeStatus).
 	   While there are not 100% guarantee, but will try to ensure, that 2 processes will not create same task twice (using this method).
+	   If task with ERROR status will be found, then it will be converted to RETRY
 	*/
 	Long createUniqueTask(String name, String data, String key1, String key2, int postponeSec){
 		return dao.execWithLockedPrimeTaskId(dataSource, tedSchdDriverExt.primeTaskId(), tx -> {
-			if (dao.existsActiveTask(name)) {
-				logger.debug("Exists task {} with key1='{}' and active status (NEW, RETRY or WORK), skipping", name, key1);
-				return null;
+			List<Long> taskIds = dao.get2ActiveTasks(name, true);
+			if (taskIds.size() > 1)
+				throw new IllegalStateException("Exists more than one "+ name +" active scheduler task (statuses NEW, RETRY, WORK or ERROR) " + taskIds.toString() + ", skipping");
+			if (taskIds.size() == 1) { // exists exactly one task
+				Long taskId = taskIds.get(0);
+				TedTask tedTask = tedDriver.getTask(taskId);
+				if (tedTask.getStatus() == TedStatus.ERROR) {
+					logger.info("Restore scheduler task {} {} from error", name, taskId);
+					dao.restoreFromError(taskId, name, postponeSec);
+					return taskId;
+				}
+				logger.debug("Exists scheduler task {} with active status (NEW, RETRY or WORK)", name);
+				return taskIds.get(0);
 			}
+			logger.debug("No active scheduler tasks {} exists, will create new", name);
 			return tedDriver.createTaskPostponed(name, data, key1, key2, postponeSec);
 		});
 
@@ -183,5 +256,18 @@ class TedSchedulerImpl {
 		}
 
 	}
+
+	private ScheduledExecutorService createSchedulerExecutor(final String prefix) {
+		ThreadFactory threadFactory = new ThreadFactory() {
+			private int counter = 0;
+			@Override
+			public Thread newThread(Runnable runnable) {
+				return new Thread(runnable, prefix + ++counter);
+			}
+		};
+		ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(threadFactory);
+		return executor;
+	}
+
 
 }

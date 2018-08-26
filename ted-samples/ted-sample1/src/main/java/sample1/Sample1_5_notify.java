@@ -1,13 +1,13 @@
 package sample1;
 
 import com.mchange.v2.c3p0.ComboPooledDataSource;
-import ted.driver.Ted.TedDbType;
-import ted.driver.Ted.TedProcessor;
-import ted.driver.TedDriver;
-import ted.driver.TedResult;
 import org.apache.commons.lang3.RandomUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ted.driver.Ted.TedDbType;
+import ted.driver.TedDriver;
+import ted.driver.TedResult;
+import ted.driver.TedTask;
 
 import javax.sql.DataSource;
 import java.beans.PropertyVetoException;
@@ -15,6 +15,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
+/**
+ * @author Augustus
+ *         created on 2018.08.01
+ */
 public class Sample1_5_notify {
 	private static final Logger logger = LoggerFactory.getLogger(Sample1_5_notify.class);
 
@@ -62,20 +66,15 @@ public class Sample1_5_notify {
 		// init ted, register tasks
 		//
 		TedDriver tedDriver = tedDriver();
-		tedDriver.registerTaskConfig(TASK_NAME, taskName -> notificationProcessor()) ;
+		tedDriver.registerTaskConfig(TASK_NAME, s -> Sample1_5_notify::processNotification) ;
 		tedDriver.start();
 
 		TedDriver tedDriver2 = tedDriver();
-		tedDriver2.registerTaskConfig(TASK_NAME, taskName -> notificationProcessor()) ;
+		tedDriver2.registerTaskConfig(TASK_NAME, s -> Sample1_5_notify::processNotification) ;
 		tedDriver2.start();
-
-//		for (int j = 0; j < 200; j++) {
-//			tedDriver.createNotification(TASK_NAME, "notify:x" + j);
-//		}
-//		sleep(1000);
-
 		// send notifications to all active instances
-		for (int i = 0; i < 10; i++) {
+		for (int i = 0; i < 5; i++) {
+			tedDriver.sendNotification(TASK_NAME, "notify:x" + i);
 			sleep(1000);
 		}
 		sleep(500);
@@ -86,13 +85,12 @@ public class Sample1_5_notify {
 
 	// file line processor
 	//
-	private static TedProcessor notificationProcessor() {
-		return task -> {
-			int sleepMs = RandomUtils.nextInt(5, 100);
-			logger.info("notify {}, {}ms", task.getData(), sleepMs);
-			sleep(sleepMs);
-			return TedResult.done();
-		};
+	private static TedResult processNotification(TedTask task) {
+		int sleepMs = RandomUtils.nextInt(5, 100);
+		System.out.println("NOTIFY " + task.getData() + " - " + Thread.currentThread().getName());
+		logger.info("notify {}, {}ms", task.getData(), sleepMs);
+		sleep(sleepMs);
+		return TedResult.done();
 	}
 
 	private static void sleep(long milis) {

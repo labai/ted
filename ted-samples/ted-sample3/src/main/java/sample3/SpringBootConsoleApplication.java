@@ -1,5 +1,6 @@
 package sample3;
 
+import com.google.gson.Gson;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,6 +9,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import sample3.configuration.TedConfig;
+import sample3.job.ProcessLineTask.TaskParam;
 import ted.driver.TedDriver;
 
 import java.io.File;
@@ -26,6 +28,9 @@ public class SpringBootConsoleApplication implements CommandLineRunner {
 
 	@Autowired
 	private TedDriver tedDriver;
+
+	@Autowired
+	private Gson gson;
 
 	public static void main(String[] args) {
 		logger.info("Starting TedSample3");
@@ -49,10 +54,13 @@ public class SpringBootConsoleApplication implements CommandLineRunner {
 
 		// create tasks for each line
 		//
+		int inum = 0;
 		for (String line : lines) {
-			tedDriver.createTask(TedConfig.SAMPLE_TASK_NAME, line);
+			TaskParam param = new TaskParam();
+			param.lineNumber = inum++;
+			param.line = line;
+			tedDriver.createTask(TedConfig.TASK_PROCESS_LINE, gson.toJson(param));
 		}
-
 
 	}
 }

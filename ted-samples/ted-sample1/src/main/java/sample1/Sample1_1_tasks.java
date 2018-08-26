@@ -1,14 +1,14 @@
 package sample1;
 
-import ted.driver.Ted.TedDbType;
-import ted.driver.Ted.TedProcessor;
-import ted.driver.TedResult;
-import ted.driver.TedDriver;
 import com.mchange.v2.c3p0.ComboPooledDataSource;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.RandomUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ted.driver.Ted.TedDbType;
+import ted.driver.Ted.TedProcessor;
+import ted.driver.TedDriver;
+import ted.driver.TedResult;
 
 import javax.sql.DataSource;
 import java.beans.PropertyVetoException;
@@ -20,6 +20,10 @@ import java.util.Properties;
 
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 
+/**
+ * @author Augustus
+ *         created on 2018.08.
+*/
 public class Sample1_1_tasks {
 	private static final Logger logger = LoggerFactory.getLogger(Sample1_1_tasks.class);
 
@@ -83,7 +87,7 @@ public class Sample1_1_tasks {
 
 		// wait a while, while ted will process tasks. see processing info in logs
 		//
-		sleep(10000);
+		sleep(6000);
 
 		tedDriver.shutdown();
 		System.out.println("finish sample1_1_tasks");
@@ -96,6 +100,7 @@ public class Sample1_1_tasks {
 			if (isEmpty(task.getData()))
 				return TedResult.error("task.data is empty");
 			int sleepMs = RandomUtils.nextInt(200, 900);
+			System.out.println("PROCESS LINE " + task.getData());
 			logger.info("do something smart with line: '{}' for {}ms", task.getData(), sleepMs);
 			sleep(sleepMs);
 			return TedResult.done();

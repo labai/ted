@@ -1,14 +1,14 @@
 package sample1;
 
-import ted.driver.Ted.TedDbType;
-import ted.driver.Ted.TedProcessor;
-import ted.driver.TedResult;
-import ted.driver.TedDriver;
 import com.mchange.v2.c3p0.ComboPooledDataSource;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.RandomUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ted.driver.Ted.TedDbType;
+import ted.driver.TedDriver;
+import ted.driver.TedResult;
+import ted.driver.TedTask;
 
 import javax.sql.DataSource;
 import java.beans.PropertyVetoException;
@@ -20,6 +20,10 @@ import java.util.Properties;
 
 import static org.apache.commons.lang3.StringUtils.isEmpty;
 
+/**
+ * @author Augustus
+ *         created on 2018.08.01
+ */
 public class Sample1_2_prime {
 	private static final Logger logger = LoggerFactory.getLogger(Sample1_2_prime.class);
 
@@ -67,18 +71,18 @@ public class Sample1_2_prime {
 		// init ted, register tasks
 		//
 		TedDriver tedDriver1 = tedDriver();
-		tedDriver1.registerTaskConfig(TASK_NAME, taskName -> lineTaskProcessor()) ;
+		tedDriver1.registerTaskConfig(TASK_NAME, s -> Sample1_2_prime::processLine) ;
 		tedDriver1.enablePrime();
-		tedDriver1.setOnBecomePrimeHandler(() -> logger.info("tedDriver1 become prime"));
-		tedDriver1.setOnLostPrimeHandler(() -> logger.info("tedDriver1 lost prime"));
+		tedDriver1.setOnBecomePrimeHandler(() -> logger.info("tedDriver1 BECOME PRIME"));
+		tedDriver1.setOnLostPrimeHandler(() -> logger.info("tedDriver1 LOST PRIME"));
 		tedDriver1.start();
 
 
 		TedDriver tedDriver2 = tedDriver();
-		tedDriver2.registerTaskConfig(TASK_NAME, taskName -> lineTaskProcessor()) ;
+		tedDriver2.registerTaskConfig(TASK_NAME, s -> Sample1_2_prime::processLine) ;
 		tedDriver2.enablePrime();
-		tedDriver2.setOnBecomePrimeHandler(() -> logger.info("tedDriver2 become prime"));
-		tedDriver2.setOnLostPrimeHandler(() -> logger.info("tedDriver2 lost prime"));
+		tedDriver2.setOnBecomePrimeHandler(() -> logger.info("tedDriver2 BECOME PRIME"));
+		tedDriver2.setOnLostPrimeHandler(() -> logger.info("tedDriver2 LOST PRIME"));
 		tedDriver2.start();
 
 		// read some big file for processing
@@ -96,7 +100,7 @@ public class Sample1_2_prime {
 		tedDriver1.shutdown();
 		// wait a while, while ted will process tasks. see processing info in logs
 		//
-		sleep(10000);
+		sleep(7000);
 
 		//tedDriver1.shutdown();
 		tedDriver2.shutdown();
@@ -105,15 +109,14 @@ public class Sample1_2_prime {
 
 	// file line processor
 	//
-	private static TedProcessor lineTaskProcessor() {
-		return task -> {
-			if (isEmpty(task.getData()))
-				return TedResult.error("task.data is empty");
-			int sleepMs = RandomUtils.nextInt(200, 900);
-			logger.info("do something smart with line: '{}' for {}ms", task.getData(), sleepMs);
-			sleep(sleepMs);
-			return TedResult.done();
-		};
+	private static TedResult processLine(TedTask task) {
+		if (isEmpty(task.getData()))
+			return TedResult.error("task.data is empty");
+		int sleepMs = RandomUtils.nextInt(200, 900);
+		System.out.println("PROCESS LINE " + task.getData());
+		logger.info("do something smart with line: '{}' for {}ms", task.getData(), sleepMs);
+		sleep(sleepMs);
+		return TedResult.done();
 	}
 
 	private static void sleep(long milis) {

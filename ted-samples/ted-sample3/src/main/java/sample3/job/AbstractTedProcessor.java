@@ -1,14 +1,15 @@
 package sample3.job;
 
+import com.google.gson.Gson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import ted.driver.Ted.TedProcessor;
 import ted.driver.TedDriver;
 import ted.driver.TedResult;
 import ted.driver.TedTask;
 
 import javax.annotation.PostConstruct;
+import java.lang.reflect.ParameterizedType;
 
 /**
  * @author Augustus
@@ -19,17 +20,26 @@ import javax.annotation.PostConstruct;
  * This TedProcessor is single component, thus do not hold state here.
  *
 */
-abstract class AbstractTedProcessor implements TedProcessor {
+abstract class AbstractTedProcessor<T> {
 	private static final Logger logger = LoggerFactory.getLogger(AbstractTedProcessor.class);
 
 	@Autowired
 	private TedDriver tedDriver;
 
-	private final String taskName;
+	@Autowired
+	private Gson gson;
 
-	/**
-	 * can handle onAfterTimeout.
-	 * It will be called before main task processing.
+	private final String taskName;
+	private final Class<T> clazz;
+
+	/** task processor.
+	 * data - data object parsed from json
+	 */
+	abstract protected TedResult processTask(TedTask task, T data);
+
+
+	/** can handle timeouts.
+	 * This method will be called before main task processing.
 	 * If returns null - then will continue and processTask will be called,
 	 * otherwise, if some TedResult will be returned, it will be set to task in db.
 	 */
@@ -39,11 +49,12 @@ abstract class AbstractTedProcessor implements TedProcessor {
 
 	AbstractTedProcessor(String taskName) {
 		this.taskName = taskName;
+		this.clazz = (Class<T>) ((ParameterizedType) getClass().getGenericSuperclass()).getActualTypeArguments()[0];
 	}
 
 	@PostConstruct
-	public final void registerTask() {
-		tedDriver.registerTaskConfig(taskName, taskName -> this::processInternal);
+	private void registerTask() {
+		tedDriver.registerTaskConfig(taskName, s -> this::processInternal);
 	}
 
 	private TedResult processInternal(TedTask task) {
@@ -52,7 +63,12 @@ abstract class AbstractTedProcessor implements TedProcessor {
 			if (res != null)
 				return res;
 		}
-		return process(task);
+		T data = jsonToData(task.getData());
+		return processTask(task, data);
+	}
+
+	private T jsonToData(String json) {
+		return gson.fromJson(json, this.clazz);
 	}
 
 }

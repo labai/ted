@@ -17,7 +17,8 @@ import java.util.Properties;
  */
 @Configuration
 public class TedConfig {
-	public static final String SAMPLE_TASK_NAME = "PROCESS_LINE";
+	public static final String TASK_PROCESS_LINE = "PROCESS_LINE";
+	public static final String SCHEDULER_TASK_SAMPLE3 = "SCH_SAMPLE3";
 
 	@Autowired
 	private DataSource dataSource;
@@ -37,6 +38,7 @@ public class TedConfig {
 		if (dataSource == null)
 			throw new IllegalStateException("dataSource is null");
 		TedDriver tedDriver = new TedDriver(TedDbType.POSTGRES, dataSource, properties);
+		tedDriver.enablePrime();
 		tedDriver.start();
 		return tedDriver;
 	}

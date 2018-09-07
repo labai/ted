@@ -218,7 +218,7 @@ public class I09EventQueueTest extends TestBase {
 			}
 		}
 		Long taskId = driver.createEvent(taskName, "abra", "abra-data", null);
-		List<CheckResult> res = tedDao.quickCheck(null);
+		List<CheckResult> res = tedDao.quickCheck(null, false);
 		print(gson.toJson(res));
 
 

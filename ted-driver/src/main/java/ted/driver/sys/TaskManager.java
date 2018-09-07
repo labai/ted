@@ -141,12 +141,13 @@ class TaskManager {
 	}
 
 	// process TED tasks
+	// return flag, was any channel fully loaded
 	//
-	void processChannelTasks(List<String> waitChannelsList) {
+	boolean processChannelTasks(List<String> waitChannelsList) {
 		int totalProcessing = calcWaitingTaskCountInAllChannels();
 		if (totalProcessing >= LIMIT_TOTAL_WAIT_TASKS) {
 			logger.warn("Total size of waiting tasks ({}) already exceeded limit ({}), skip this iteration", totalProcessing, LIMIT_TOTAL_WAIT_TASKS);
-			return;
+			return false;
 		}
 
 		// List<String> waitChannelsList = context.tedDao.getWaitChannels();
@@ -154,7 +155,7 @@ class TaskManager {
 			logger.trace("no wait tasks");
 			for (ChannelWorkContext wc : channelContextMap.values())
 				wc.dropNextSlowLimit();
-			return;
+			return false;
 		}
 
 		// check and log for unknown channels, remove special channels
@@ -193,33 +194,22 @@ class TaskManager {
 
 		// calc stats
 		//
-		for (ChannelWorkContext wc : channelContextMap.values()) {
-			wc.lastGotCount = 0;
-		}
-		for (TaskRec taskRec : tasks) {
-			ChannelWorkContext wc = channelContextMap.get(taskRec.channel);
-			if (wc == null) {
-				wc = new ChannelWorkContext(taskRec.channel);
-				channelContextMap.put(taskRec.channel, wc);
-			}
-			wc.lastGotCount++;
-		}
-		// update next portion - double if found something, clear to minimum if not
-		for (ChannelWorkContext wc : channelContextMap.values()) {
-			if (wc.foundTask) {
-				wc.nextSlowLimit = Math.min(wc.nextSlowLimit * 2, MAX_TASK_COUNT);
-				logger.debug("Channel " + wc.channelName + " nextSlowLimit=" + wc.nextSlowLimit);
-			} else {
-				wc.dropNextSlowLimit();
-			}
-		}
+		calcChannelsStats(tasks);
 
 		if (tasks.isEmpty()) {
 			logger.debug("no tasks (full check)");
-			return;
+			return false;
 		}
 
 		sendTaskListToChannels(tasks);
+
+		boolean wasAnyFullLoaded = false;
+		for (ChannelWorkContext wc : channelContextMap.values()) {
+			if (wc.lastGotCount > 0 && wc.lastGotCount == wc.nextPortion) {
+				wasAnyFullLoaded = true;
+			}
+		}
+		return wasAnyFullLoaded;
 	}
 
 
@@ -374,6 +364,31 @@ class TaskManager {
 		return maxTask;
 	}
 
+	// refresh channels work info. is not thread safe
+	private void calcChannelsStats(List<TaskRec> tasks) {
+		for (ChannelWorkContext wc : channelContextMap.values()) {
+			wc.lastGotCount = 0;
+		}
+		for (TaskRec taskRec : tasks) {
+			ChannelWorkContext wc = channelContextMap.get(taskRec.channel);
+			if (wc == null) {
+				wc = new ChannelWorkContext(taskRec.channel);
+				channelContextMap.put(taskRec.channel, wc);
+			}
+			wc.lastGotCount++;
+		}
+		// update next portion - double if found something, clear to minimum if not
+		for (ChannelWorkContext wc : channelContextMap.values()) {
+			if (wc.lastGotCount > 0) {
+				wc.nextSlowLimit = Math.min(wc.nextSlowLimit * 2, MAX_TASK_COUNT);
+				logger.debug("Channel " + wc.channelName + " nextSlowLimit=" + wc.nextSlowLimit);
+			} else {
+				wc.dropNextSlowLimit();
+			}
+		}
+
+
+	}
 
 	int calcWaitingTaskCountInAllChannels() {
 		int sum = 0;

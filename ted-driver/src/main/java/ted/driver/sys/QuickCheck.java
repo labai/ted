@@ -25,11 +25,13 @@ import java.util.List;
  */
 class QuickCheck {
 	private final static Logger logger = LoggerFactory.getLogger(QuickCheck.class);
+	private final static int SKIP_CHANNEL_THRESHOLD_MS = 100;
 
 	private final TedContext context;
 
 	private long nextPrimeCheckTimeMs = 0;
 	private long checkIteration = 0;
+	private boolean skipNextChannelCheck = false;
 
 	QuickCheck(TedContext context) {
 		this.context = context;
@@ -50,6 +52,7 @@ class QuickCheck {
 	}
 
 	public void quickCheck() {
+		// prime
 		CheckPrimeParams checkPrimeParams = null;
 		if (context.prime.isEnabled()) {
 			boolean needCheckPrime = false;
@@ -63,9 +66,22 @@ class QuickCheck {
 				checkPrimeParams = context.prime.checkPrimeParams;
 			}
 		}
+
+		// channels
 		List<CheckResult> checkResList;
+		long checkDurationMs = 0;
 		try {
-			checkResList = context.tedDao.quickCheck(checkPrimeParams);
+			long startTs = System.currentTimeMillis();
+			if (skipNextChannelCheck)
+				logger.debug("skip channels quick check");
+			checkResList = context.tedDao.quickCheck(checkPrimeParams, skipNextChannelCheck);
+			checkDurationMs = System.currentTimeMillis() - startTs;
+			if (skipNextChannelCheck) { // add all channels
+				checkResList = new ArrayList<CheckResult>(checkResList);
+				for (Channel chan : context.registry.getChannels()) {
+					checkResList.add(new CheckResult("CHAN", chan.name));
+				}
+			}
 		} catch (RuntimeException e) {
 			if (context.prime.isEnabled()) {
 				context.prime.lostPrime();
@@ -101,7 +117,9 @@ class QuickCheck {
 			}
 		}
 		if (! taskChannels.isEmpty()) {
-			context.taskManager.processChannelTasks(taskChannels);
+			boolean wasAnyChannelFull = context.taskManager.processChannelTasks(taskChannels);
+			// in some cases there may be created a lot of new tasks, and simple quick check may take time. Then just skip this quick check and process all channels. 100ms is threshold.
+			this.skipNextChannelCheck = wasAnyChannelFull && (checkDurationMs > SKIP_CHANNEL_THRESHOLD_MS || skipNextChannelCheck);
 		}
 		if (needProcessTedQueue) {
 			context.eventQueueManager.processTedQueue();
@@ -139,6 +157,5 @@ class QuickCheck {
 			}
 		}
 	}
-
 
 }

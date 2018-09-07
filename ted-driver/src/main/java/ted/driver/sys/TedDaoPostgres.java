@@ -134,9 +134,9 @@ class TedDaoPostgres extends TedDaoAbstract {
 	}
 
 	@Override
-	public List<CheckResult> quickCheck(CheckPrimeParams checkPrimeParams) {
+	public List<CheckResult> quickCheck(CheckPrimeParams checkPrimeParams, boolean skipChannelCheck) {
 		String sql = "";
-		String logId = "a";
+		String logId = "";
 		if (checkPrimeParams != null) {
 			String sqlPrime;
 			if (checkPrimeParams.isPrime()) {
@@ -162,11 +162,17 @@ class TedDaoPostgres extends TedDaoAbstract {
 			sql += sqlPrime + " union all ";
 		}
 		// check for new tasks
-		sql += "select distinct channel as name, 'CHAN' as type, null::timestamp as tillts "
-				+ " from tedtask"
-				+ " where system = '$sys' and nextTs <= $now";
+		if (! skipChannelCheck) {
+			sql += "select distinct channel as name, 'CHAN' as type, null::timestamp as tillts "
+					+ " from tedtask"
+					+ " where system = '$sys' and nextTs <= $now";
+			logId = "a" + logId;
+		}
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$now", dbType.sql.now());
+
+		if (sql.isEmpty())
+			return Collections.emptyList();
 
 		return selectData("qckchk_" + logId, sql, CheckResult.class, Collections.<SqlParam>emptyList());
 	}

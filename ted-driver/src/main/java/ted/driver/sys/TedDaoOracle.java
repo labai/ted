@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import javax.sql.DataSource;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -92,10 +93,11 @@ class TedDaoOracle extends TedDaoAbstract {
 	}
 
 	@Override
-	public List<CheckResult> quickCheck(CheckPrimeParams checkPrimeParams) {
+	public List<CheckResult> quickCheck(CheckPrimeParams checkPrimeParams, boolean skipChannelCheck) {
 		if (checkPrimeParams != null)
 			throw new IllegalStateException("TODO for oracle");
-
+		if (skipChannelCheck)
+			return Collections.emptyList();
 		List<String> chans = getWaitChannels();
 		List<CheckResult> res = new ArrayList<CheckResult>();
 		for (String chan : chans) {

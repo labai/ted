@@ -110,7 +110,7 @@ public class I08PrimeInstanceTest extends TestBase {
 			public int postponeSec() { return 1; };
 
 		};
-		List<CheckResult> res = tedDao.quickCheck(checkPrimeParams);
+		List<CheckResult> res = tedDao.quickCheck(checkPrimeParams, false);
 		TestUtils.print(gson.toJson(res));
 
 		TestUtils.sleepMs(20);

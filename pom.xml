@@ -10,6 +10,9 @@
 
 	<modules>
 		<module>ted-driver</module>
+		<module>ted-ext/ted-scheduler</module>
+		<module>ted-samples/ted-sample1</module>
+		<module>ted-samples/ted-sample3</module>
 	</modules>
 
 </project>

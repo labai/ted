@@ -54,7 +54,7 @@ interface TedDao {
 
 	Map<TedStatus, Integer> getBatchStatusStats(long batchId);
 
-	List<CheckResult> quickCheck(CheckPrimeParams checkPrimeParams);
+	List<CheckResult> quickCheck(CheckPrimeParams checkPrimeParams, boolean skipChannelCheck);
 
 	boolean becomePrime(Long primeTaskId, String instanceId);
 

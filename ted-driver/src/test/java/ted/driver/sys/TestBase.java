@@ -2,6 +2,7 @@ package ted.driver.sys;
 
 import ted.driver.sys.JdbcSelectTed.JetJdbcParamType;
 import ted.driver.sys.JdbcSelectTed.SqlParam;
+import ted.driver.sys.TedDaoAbstract.DbType;
 import ted.driver.sys.TedDriverImpl.TedContext;
 import org.junit.Assume;
 import org.junit.Before;
@@ -21,6 +22,7 @@ public abstract class TestBase {
 	@Before
 	public void initCheck() {
 		Assume.assumeTrue("Are tests enabled?", TestConfig.INT_TESTS_ENABLED);
+
 	}
 
 	protected TedContext getContext() {
@@ -28,15 +30,17 @@ public abstract class TestBase {
 	}
 
 	protected void dao_cleanupAllTasks() {
+		DbType dbType = getDriver().getContext().tedDao.getDbType();
 		((TedDaoAbstract)getContext().tedDao).execute("dao_cleanupTasks",
-				" update tedtask set status = 'ERROR', nextTs = null, msg = 'cleanup from status '|| status " +
-						" where system = '" + TestConfig.SYSTEM_ID + "' and status in ('NEW', 'WORK', 'RETRY')", Collections.<SqlParam>emptyList());
+				" update tedtask set status = 'ERROR', nextTs = null, msg = concat('cleanup from status ', status) " +
+						" where "+ dbType.sql.systemColumn() +" = '" + TestConfig.SYSTEM_ID + "' and status in ('NEW', 'WORK', 'RETRY')", Collections.<SqlParam>emptyList());
 	}
 
 	protected void dao_cleanupTasks(String taskName) {
+		DbType dbType = getDriver().getContext().tedDao.getDbType();
 		((TedDaoAbstract)getContext().tedDao).execute("dao_cleanupTasks",
-				" update tedtask set status = 'ERROR', nextTs = null, msg = 'cleanup from status '|| status " +
-						" where system = '" + TestConfig.SYSTEM_ID + "' and status in ('NEW', 'WORK', 'RETRY') and name = ?", asList(
+				" update tedtask set status = 'ERROR', nextTs = null, msg = concat('cleanup from status ', status) " +
+						" where "+ dbType.sql.systemColumn() +" = '" + TestConfig.SYSTEM_ID + "' and status in ('NEW', 'WORK', 'RETRY') and name = ?", asList(
 						JdbcSelectTed.sqlParam(taskName, JetJdbcParamType.STRING)
 				));
 	}

@@ -314,9 +314,12 @@ public class I01SimpleTest extends TestBase {
 						" end loop;" +
 					" end;",
 					Void.class, Collections.<SqlParam>emptyList());
-		} else {
+		} else if (context.tedDao instanceof TedDaoPostgres){
 			((TedDaoAbstract) context.tedDao).execute("dao_lockAndSleep",
 					" update tedtask set status = status where taskid = " + taskId + "; SELECT pg_sleep(" + sec + ");", Collections.<SqlParam>emptyList());
+		} else if (context.tedDao instanceof TedDaoMysql){
+			((TedDaoAbstract) context.tedDao).execute("dao_lockAndSleep",
+					" update tedtask set status = status where taskid = " + taskId + " and sleep(" + sec + ") = 0;", Collections.<SqlParam>emptyList());
 		}
 	}
 

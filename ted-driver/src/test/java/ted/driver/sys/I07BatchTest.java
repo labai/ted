@@ -1,24 +1,22 @@
 package ted.driver.sys;
 
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedProcessor;
-import ted.driver.Ted.TedStatus;
 import ted.driver.TedDriver;
 import ted.driver.TedResult;
 import ted.driver.TedTask;
 import ted.driver.sys.JdbcSelectTed.SqlParam;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.TestTedProcessors.TestProcessorOk;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 
 import static org.junit.Assert.assertEquals;
@@ -111,8 +109,8 @@ public class I07BatchTest extends TestBase {
 		driver.getContext().taskManager.processChannelTasks();
 		driver.getContext().batchWaitManager.processBatchWaitTasks();
 		TestUtils.sleepMs(300);
-		Map<TedStatus, Integer> stats = tedDao.getBatchStatusStats(batchId);
-		TestUtils.print(stats.toString());
+		//Map<TedStatus, Integer> stats = tedDao.getBatchStatusStats(batchId);
+		//TestUtils.print(stats.toString());
 		TaskRec batchRec = tedDao.getTask(batchId);
 		TestUtils.print(batchRec.toString());
 		TestUtils.print(batchRec.getTedTask().toString());
@@ -123,7 +121,7 @@ public class I07BatchTest extends TestBase {
 		TestUtils.sleepMs(1100 + 1500); // wait 1s (retry)
 		driver.getContext().taskManager.processChannelTasks(); // here all subtask should be finished
 		TestUtils.sleepMs(50);
-		TestUtils.print(tedDao.getBatchStatusStats(batchId).toString());
+		//TestUtils.print(tedDao.getBatchStatusStats(batchId).toString());
 
 		driver.getContext().batchWaitManager.processBatchWaitTasks();
 		TestUtils.sleepMs(120);
@@ -143,10 +141,10 @@ public class I07BatchTest extends TestBase {
 		assertEquals("batch should be finished", "DONE", batchRec.status);
 		assertEquals("retries should be cleanup after batch subtasks finished", 1L, batchRec.retries.longValue());
 
-		stats = tedDao.getBatchStatusStats(batchId);
+		//stats = tedDao.getBatchStatusStats(batchId);
 
 		TestUtils.print("batchTaskRec: " + batchRec.toString());
-		TestUtils.print("statusStats: " + stats.toString());
+		//TestUtils.print("statusStats: " + stats.toString());
 	}
 
 	// set second task to retry

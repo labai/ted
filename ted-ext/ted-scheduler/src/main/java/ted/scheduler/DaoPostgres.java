@@ -197,15 +197,8 @@ class DaoPostgres {
 
 
 	protected <T> List<T> selectData(String sqlLogId, String sql, Class<T> clazz, List<SqlParam> params) {
-		logSqlParams(sqlLogId, sql, params);
 		long startTm = System.currentTimeMillis();
-		List<T> list = Collections.emptyList();
-		try {
-			list = _TedSchdJdbcSelect.selectData(dataSource, sql, clazz, params);
-		} catch (SQLException sqle) {
-			logger.error("SQLException while execute '{}': {}. SQL={}", sqlLogId, sqle.getMessage(), sql);
-			throw new TedSqlException("SQL exception while calling sqlId '" + sqlLogId + "'", sqle);
-		}
+		List<T> list = _TedSchdJdbcSelect.selectData(dataSource, sql, clazz, params);
 		long durationMs = System.currentTimeMillis() - startTm;
 		if (durationMs >= 50)
 			logger.info("After [{}] time={}ms items={}", sqlLogId, durationMs, list.size());
@@ -214,15 +207,4 @@ class DaoPostgres {
 		return list;
 	}
 
-	private void logSqlParams(String sqlLogId, String sql, List<SqlParam> params) {
-		if (logger.isTraceEnabled()) {
-			String sparams = "";
-			for (SqlParam p : params)
-				sparams += String.format(" %s=%s", p.code(), p.value());
-			logger.trace("Before[{}] with params:{}", sqlLogId, sparams);
-			if (logger.isTraceEnabled()) {
-				logger.trace("sql:" + sql);
-			}
-		}
-	}
 }

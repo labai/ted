@@ -6,7 +6,6 @@ import org.slf4j.LoggerFactory;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.List;
 
 /**
  * @author Augustus
@@ -43,6 +42,9 @@ class JdbcSelectTed {
 	}
 
 	static class TedSqlException extends RuntimeException {
+		public TedSqlException(Throwable cause) {
+			super(cause);
+		}
 		public TedSqlException(String message, SQLException cause) {
 			super(message, cause);
 		}
@@ -51,6 +53,10 @@ class JdbcSelectTed {
 		public TedSqlDuplicateException(String message, SQLException cause) {
 			super(message, cause);
 		}
+	}
+
+	interface ExecInConn<T> {
+		T execute(Connection connection) throws SQLException;
 	}
 
 	static class SqlParam {
@@ -71,10 +77,10 @@ class JdbcSelectTed {
 		return new SqlParam(null, value, type);
 	}
 
-	/* one of parameters (preferable first, as hibernate standard) can be output cursor */
-    /* e.g.: call pkg_fcc_pmdata.get_payments_end(?, ?) */
-    /* TODO WARNING sequence, not names, of parameters is important */
-	public static <T> List<T> executeBlock(DataSource dataSource, String sql, Class<T> clazz, List<SqlParam> sqlParams) throws SQLException {
+	// ensure to close connection (yeah, we are still in Java6)
+	//
+	static <T> T runInConn(DataSource dataSource, ExecInConn<T> executor) {
+		T result = null;
 		Connection connection;
 		try {
 			connection = dataSource.getConnection();
@@ -83,60 +89,14 @@ class JdbcSelectTed {
 			throw new TedSqlException("Cannot get DB connection", e);
 		}
 		try {
-			return JdbcSelectTedImpl.executeOraBlock(connection, sql, clazz, sqlParams);
+			try {
+				result = executor.execute(connection);
+				return result;
+			} catch (SQLException e) {
+				throw new TedSqlException(e);
+			}
 		} finally {
-			try { if (connection != null) connection.close(); } catch (Exception e) {logger.error("Cannot close connection", e);};
-		}
-	}
-
-	public static <T> List<T> selectData(DataSource dataSource, String sql, Class<T> clazz, List<SqlParam> sqlParams) throws SQLException {
-		Connection connection;
-		try {
-			connection = dataSource.getConnection();
-		} catch (SQLException e) {
-			logger.error("Failed to get DB connection: " + e.getMessage());
-			throw new TedSqlException("Cannot get DB connection", e);
-		}
-		try {
-			return JdbcSelectTedImpl.selectData(connection, sql, clazz, sqlParams);
-		} finally {
-			try { if (connection != null) connection.close(); } catch (Exception e) {logger.error("Cannot close connection", e);};
-		}
-	}
-
-	// do not forget to close connection
-	public static <T> List<T> selectData(Connection connection, String sql, Class<T> clazz, List<SqlParam> sqlParams) throws SQLException {
-		return JdbcSelectTedImpl.selectData(connection, sql, clazz, sqlParams);
-	}
-
-
-	public static void execute(DataSource dataSource, String sql, List<SqlParam> sqlParams) throws SQLException {
-		Connection connection;
-		try {
-			connection = dataSource.getConnection();
-		} catch (SQLException e) {
-			logger.error("Failed to get DB connection: " + e.getMessage());
-			throw new TedSqlException("Cannot get DB connection", e);
-		}
-		try {
-			JdbcSelectTedImpl.execute(connection, sql, sqlParams);
-		} finally {
-			try { if (connection != null) connection.close(); } catch (Exception e) {logger.error("Cannot close connection", e);};
-		}
-	}
-
-	public static Long selectSingleLong(DataSource dataSource, String sql, List<SqlParam> sqlParams) throws SQLException {
-		Connection connection;
-		try {
-			connection = dataSource.getConnection();
-		} catch (SQLException e) {
-			logger.error("Failed to get DB connection: " + e.getMessage());
-			throw new TedSqlException("Cannot get DB connection", e);
-		}
-		try {
-			return JdbcSelectTedImpl.selectSingleLong(connection, sql, sqlParams);
-		} finally {
-			try { if (connection != null) connection.close(); } catch (Exception e) {logger.error("Cannot close connection", e);};
+			try { if (connection != null) connection.close(); } catch (Exception e) { logger.error("Cannot close connection", e); };
 		}
 	}
 

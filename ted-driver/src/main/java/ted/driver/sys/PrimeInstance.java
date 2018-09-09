@@ -65,7 +65,7 @@ public final class PrimeInstance {
 			loggerConfig.info("Ted prime instance check is disabled");
 			return;
 		}
-		this.primeTaskId = context.tedDao.findPrimeTaskId();
+		this.primeTaskId = context.tedDaoExt.findPrimeTaskId();
 
 		int periodMs = context.config.intervalDriverMs();
 		this.postponeSec = (int)Math.round((1.0 * periodMs * TICK_SKIP_COUNT + 500 + 500) / 1000); // 500ms reserve, 500 for rounding up
@@ -79,7 +79,7 @@ public final class PrimeInstance {
 	void becomePrime() {
 		if (isPrime)
 			return;
-		this.isPrime = context.tedDao.becomePrime(primeTaskId, context.config.instanceId());
+		this.isPrime = context.tedDaoExt.becomePrime(primeTaskId, context.config.instanceId());
 		if (isPrime) {
 			logger.info("TED become prime. instanceId={}", context.config.instanceId());
 			if (onBecomePrime != null) {

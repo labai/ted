@@ -56,6 +56,7 @@ public final class TedDriverImpl {
 		TedConfig config;
 		Registry registry;
 		TedDao tedDao;
+		TedDaoExt tedDaoExt;
 		TaskManager taskManager;
 		RetryConfig retryConfig;
 		QuickCheck quickCheck;
@@ -87,9 +88,22 @@ public final class TedDriverImpl {
 		this.context = new TedContext();
 		context.tedDriver = this;
 		context.config = new TedConfig(system);
-		context.tedDao = dbType == TedDbType.ORACLE
-				? new TedDaoOracle(system, dataSource)
-				: new TedDaoPostgres(system, dataSource);
+		switch (dbType) {
+			case POSTGRES:
+				TedDaoPostgres pg = new TedDaoPostgres(system, dataSource);
+				context.tedDao = pg;
+				context.tedDaoExt = pg;
+				break;
+			case ORACLE:
+				context.tedDao = new TedDaoOracle(system, dataSource);
+				context.tedDaoExt = new TedDaoExtNA("Oracle");
+				break;
+			case MYSQL:
+				context.tedDao = new TedDaoMysql(system, dataSource);
+				context.tedDaoExt = new TedDaoExtNA("MySql");
+				break;
+			default: throw new IllegalStateException("Invalid case " + dbType);
+		}
 		context.registry = new Registry(context);
 		context.taskManager = new TaskManager(context);
 		context.retryConfig = new RetryConfig(context);

@@ -63,7 +63,7 @@ class NotificationManager {
 		if (context.prime.isEnabled() == false || context.prime.isPrime()) {
 			logger.debug("cleaning notifications");
 			long keepInDbMs = context.config.intervalDriverMs() + 1000; // 1000 - reserve
-			tedDao.cleanupNotifications(new Date(nowMs - keepInDbMs));
+			context.tedDaoExt.cleanupNotifications(new Date(nowMs - keepInDbMs));
 		}
 	}
 
@@ -94,7 +94,7 @@ class NotificationManager {
 		List<TaskRec> newrecs = new ArrayList<TaskRec>();
 		synchronized (this) {
 			long currTs = System.currentTimeMillis();
-			List<TaskRec> recs = tedDao.getLastNotifications(new Date(lastCheckMs - CHECK_IN_DB_LAG_MS));
+			List<TaskRec> recs = context.tedDaoExt.getLastNotifications(new Date(lastCheckMs - CHECK_IN_DB_LAG_MS));
 			lastCheckMs = currTs;
 			// remove from result those, what already have in history
 			for (TaskRec rec : recs) {

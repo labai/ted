@@ -45,10 +45,10 @@ public class _TedSchdJdbcSelect {
 		return new SqlParam(null, value, type);
 	}
 
-	public static <T> List<T> selectData(DataSource dataSource, String sql, Class<T> clazz, List<? extends JdbcSelectTed.SqlParam> sqlParams) throws SQLException {
-		return JdbcSelectTed.selectData(dataSource, sql, clazz, (List<JdbcSelectTed.SqlParam>) sqlParams);
+	public static <T> List<T> selectData(DataSource dataSource, String sql, Class<T> clazz, List<? extends JdbcSelectTed.SqlParam> sqlParams) {
+		return JdbcSelectTed.runInConn(dataSource, connection -> JdbcSelectTedImpl.selectData(connection, sql, clazz, (List<JdbcSelectTed.SqlParam>) sqlParams));
 	}
 	public static <T> List<T> selectData(Connection connection, String sql, Class<T> clazz, List<? extends JdbcSelectTed.SqlParam> sqlParams) throws SQLException {
-		return JdbcSelectTed.selectData(connection, sql, clazz, (List<JdbcSelectTed.SqlParam>) sqlParams);
+		return JdbcSelectTedImpl.selectData(connection, sql, clazz, (List<JdbcSelectTed.SqlParam>) sqlParams);
 	}
 }

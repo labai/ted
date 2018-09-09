@@ -24,7 +24,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 
 import static java.util.Arrays.asList;
 import static ted.driver.sys.JdbcSelectTed.sqlParam;
@@ -36,7 +35,7 @@ import static ted.driver.sys.MiscUtils.nvle;
  * <p>
  * for TED internal usage only!!!
  */
-class TedDaoPostgres extends TedDaoAbstract {
+class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 	private static final Logger logger = LoggerFactory.getLogger(TedDaoPostgres.class);
 
 	public TedDaoPostgres(String system, DataSource dataSource) {
@@ -45,92 +44,6 @@ class TedDaoPostgres extends TedDaoAbstract {
 
 	private static class TaskIdRes {
 		Long taskid;
-	}
-
-	// TODO now it requires minimum 3 calls to db
-	@Override
-	public List<TaskRec> reserveTaskPortion(Map<String, Integer> channelSizes){
-		if (channelSizes.isEmpty())
-			return Collections.emptyList();
-		long bno = getSequenceNextValue("SEQ_TEDTASK_BNO");
-
-		for (String channel : channelSizes.keySet()) {
-			int cnt = channelSizes.get(channel);
-			if (cnt == 0) continue;
-			reserveTaskPortionForChannel(bno, channel, cnt);
-		}
-		String sql = "select * from tedtask where bno = ?";
-		List<TaskRec> tasks = selectData("get_tasks_by_bno", sql, TaskRec.class, asList(
-				sqlParam(bno, JetJdbcParamType.LONG)
-		));
-		return tasks;
-	}
-
-	private void reserveTaskPortionForChannel(long bno, String channel, int rowLimit) {
-		String sqlLogId = "reserve_channel";
-		String sql = "update tedtask set status = 'WORK', bno = ?, startTs = $now, nextTs = null"
-				+ " where status in ('NEW','RETRY') and system = '$sys'"
-				+ " and taskid in ("
-					+ " select taskid from tedtask "
-					+ " where status in ('NEW','RETRY') and system = '$sys' and channel = ? "
-					+ " and nextTs < $now"
-					+ " for update skip locked"
-					+ " limit ?"
-					// + dbType.sql.rownum("" + rowLimit)
-				+ ")"
-				;
-		sql = sql.replace("$now", dbType.sql.now());
-		sql = sql.replace("$sys", thisSystem);
-		execute(sqlLogId, sql, asList(
-				sqlParam(bno, JetJdbcParamType.LONG),
-				sqlParam(channel, JetJdbcParamType.STRING),
-				sqlParam(rowLimit, JetJdbcParamType.INTEGER)
-		));
-	}
-
-	// reserve concrete task. if can't - return null, else taskRec
-	// used in eventQueue
-	public TaskRec eventQueueReserveTask(long taskId) {
-		String sqlLogId = "reserve_task";
-		String sql = "update tedtask set status = 'WORK', startTs = $now, nextTs = null"
-				+ " where status in ('NEW','RETRY') and system = '$sys'"
-				+ " and taskid in ("
-				+ " select taskid from tedtask "
-					+ " where status in ('NEW','RETRY') and system = '$sys'"
-					+ " and taskid = ?"
-					+ " for update skip locked"
-				+ ") returning tedtask.*"
-				;
-		sql = sql.replace("$now", dbType.sql.now());
-		sql = sql.replace("$sys", thisSystem);
-		List<TaskRec> tasks = selectData(sqlLogId, sql, TaskRec.class, asList(
-				sqlParam(taskId, JetJdbcParamType.LONG)
-		));
-		return tasks.isEmpty() ? null : tasks.get(0);
-	}
-
-	@Override
-	public List<Long> createTasksBulk(List<TaskParam> taskParams) {
-		ArrayList<Long> taskIds = getSequencePortion("SEQ_TEDTASK_ID", taskParams.size());
-		int iNum = 0;
-		for (TaskParam param : taskParams) {
-			param.taskId = taskIds.get(iNum++);
-		}
-		Connection connection;
-		try {
-			connection = dataSource.getConnection();
-		} catch (SQLException e) {
-			logger.error("Failed to get DB connection: " + e.getMessage());
-			throw new TedSqlException("Cannot get DB connection", e);
-		}
-		try {
-			executePgCopy(connection, taskParams);
-		} catch (SQLException e) {
-			throw new TedSqlException("can't execute pgCopy", e);
-		} finally {
-			try { if (connection != null) connection.close(); } catch (Exception e) {logger.error("Cannot close connection", e);};
-		}
-		return taskIds;
 	}
 
 	@Override
@@ -175,6 +88,55 @@ class TedDaoPostgres extends TedDaoAbstract {
 			return Collections.emptyList();
 
 		return selectData("qckchk_" + logId, sql, CheckResult.class, Collections.<SqlParam>emptyList());
+	}
+
+	//
+	// ext
+	//
+
+	// reserve concrete task. if can't - return null, else taskRec
+	// used in eventQueue
+	public TaskRec eventQueueReserveTask(long taskId) {
+		String sqlLogId = "reserve_task";
+		String sql = "update tedtask set status = 'WORK', startTs = $now, nextTs = null"
+				+ " where status in ('NEW','RETRY') and system = '$sys'"
+				+ " and taskid in ("
+				+ " select taskid from tedtask "
+					+ " where status in ('NEW','RETRY') and system = '$sys'"
+					+ " and taskid = ?"
+					+ " for update skip locked"
+				+ ") returning tedtask.*"
+				;
+		sql = sql.replace("$now", dbType.sql.now());
+		sql = sql.replace("$sys", thisSystem);
+		List<TaskRec> tasks = selectData(sqlLogId, sql, TaskRec.class, asList(
+				sqlParam(taskId, JetJdbcParamType.LONG)
+		));
+		return tasks.isEmpty() ? null : tasks.get(0);
+	}
+
+	@Override
+	public List<Long> createTasksBulk(List<TaskParam> taskParams) {
+		ArrayList<Long> taskIds = getSequencePortion("SEQ_TEDTASK_ID", taskParams.size());
+		int iNum = 0;
+		for (TaskParam param : taskParams) {
+			param.taskId = taskIds.get(iNum++);
+		}
+		Connection connection;
+		try {
+			connection = dataSource.getConnection();
+		} catch (SQLException e) {
+			logger.error("Failed to get DB connection: " + e.getMessage());
+			throw new TedSqlException("Cannot get DB connection", e);
+		}
+		try {
+			executePgCopy(connection, taskParams);
+		} catch (SQLException e) {
+			throw new TedSqlException("can't execute pgCopy", e);
+		} finally {
+			try { if (connection != null) connection.close(); } catch (Exception e) {logger.error("Cannot close connection", e);};
+		}
+		return taskIds;
 	}
 
 	//

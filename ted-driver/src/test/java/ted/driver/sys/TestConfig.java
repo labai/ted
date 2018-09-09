@@ -13,6 +13,7 @@ class TestConfig {
 	static final String SYSTEM_ID = "ted.test";
 	static final TedDbType testDbType = TedDbType.POSTGRES; // which one we are testing
 	//static final TedDbType testDbType = TedDbType.ORACLE; // which one we are testing
+	//static final TedDbType testDbType = TedDbType.MYSQL; // which one we are testing
 
 	static class TedConnOracle {
 		public final String URL;
@@ -36,11 +37,24 @@ class TestConfig {
 		}
 	}
 
+	static class TedConnMysql {
+		public final String URL;
+		public final String USER;
+		public final String PASSWORD;
+		public TedConnMysql() {
+			URL = "jdbc:mysql://localhost:3308/ted";
+			USER = "ted";
+			PASSWORD = "ted";
+		}
+	}
+
 	static DataSource getDataSource() {
 		if (testDbType == TedDbType.ORACLE)
 			return TestUtils.dbConnectionProviderOracle();
 		if (testDbType == TedDbType.POSTGRES)
 			return TestUtils.dbConnectionProviderPostgres();
+		if (testDbType == TedDbType.MYSQL)
+			return TestUtils.dbConnectionProviderMysql();
 		throw new IllegalStateException("Invalid dbType:" + testDbType);
 	}
 

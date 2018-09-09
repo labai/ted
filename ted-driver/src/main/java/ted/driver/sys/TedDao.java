@@ -52,26 +52,6 @@ interface TedDao {
 
 	void cleanupBatchTask(Long taskId, String msg, String chanel);
 
-	Map<TedStatus, Integer> getBatchStatusStats(long batchId);
-
 	List<CheckResult> quickCheck(CheckPrimeParams checkPrimeParams, boolean skipChannelCheck);
-
-	boolean becomePrime(Long primeTaskId, String instanceId);
-
-	Long findPrimeTaskId();
-
-	Long createEvent(String taskName, String queueId, String data, String key2);
-
-	TaskRec eventQueueMakeFirst(String queueId);
-
-	List<TaskRec> eventQueueGetTail(String queueId);
-
-	TaskRec eventQueueReserveTask(long taskId);
-
-	List<TaskRec> getLastNotifications(Date fromTs);
-
-	void cleanupNotifications(Date tillTs);
-
-	void runInTx(Runnable runnable);
 
 }

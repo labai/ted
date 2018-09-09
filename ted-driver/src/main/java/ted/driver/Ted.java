@@ -13,7 +13,8 @@ public final class Ted {
 
 	public enum TedDbType {
 		ORACLE,
-		POSTGRES;
+		POSTGRES,
+		MYSQL;
 	}
 
 	public enum TedStatus {

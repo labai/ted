@@ -1,6 +1,7 @@
 package ted.driver.sys;
 
 import com.mchange.v2.c3p0.ComboPooledDataSource;
+import ted.driver.sys.TestConfig.TedConnMysql;
 import ted.driver.sys.TestConfig.TedConnOracle;
 import ted.driver.sys.TestConfig.TedConnPostgres;
 
@@ -22,12 +23,14 @@ class TestUtils {
 
 	private final static TedConnOracle tedConnOracle = new TedConnOracle();
 	private final static TedConnPostgres tedConnPostgres = new TedConnPostgres();
+	private final static TedConnMysql tedConnMysql = new TedConnMysql();
 
 	private static SimpleDateFormat dateFormat = new SimpleDateFormat("mm:ss.SSS");
 	//private static Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
 	private static ComboPooledDataSource comboPooledDataSourceOracle = new ComboPooledDataSource();
 	private static ComboPooledDataSource comboPooledDataSourcePostgres = new ComboPooledDataSource();
+	private static ComboPooledDataSource comboPooledDataSourceMysql = new ComboPooledDataSource();
 	static {
 		try {
 			comboPooledDataSourceOracle.setDriverClass("oracle.jdbc.OracleDriver"); //loads the jdbc driver
@@ -59,6 +62,22 @@ class TestUtils {
 		comboPooledDataSourcePostgres.setAcquireIncrement(5);
 		comboPooledDataSourcePostgres.setMaxPoolSize(50);
 
+		try {
+			comboPooledDataSourceMysql.setDriverClass("com.mysql.cj.jdbc.Driver"); //loads the jdbc driver
+		} catch (PropertyVetoException e) {
+			System.out.println("Error: unable to load Postgres jdbc driver class!");
+			System.exit(1);
+		}
+		comboPooledDataSourceMysql.setJdbcUrl(tedConnMysql.URL);
+		comboPooledDataSourceMysql.setUser(tedConnMysql.USER);
+		comboPooledDataSourceMysql.setPassword(tedConnMysql.PASSWORD);
+
+		// the settings below are optional -- c3p0 can work with defaults
+		comboPooledDataSourceMysql.setMinPoolSize(5);
+		comboPooledDataSourceMysql.setAcquireIncrement(5);
+		comboPooledDataSourceMysql.setMaxPoolSize(50);
+
+
 	};
 
 	//
@@ -82,6 +101,16 @@ class TestUtils {
 			System.exit(1);
 		}
 		return comboPooledDataSourcePostgres;
+	}
+
+	static DataSource dbConnectionProviderMysql() {
+		try {
+			Class.forName("com.mysql.cj.jdbc.Driver");
+		} catch (ClassNotFoundException ex) {
+			System.out.println("Error: unable to load Postgres jdbc driver class!");
+			System.exit(1);
+		}
+		return comboPooledDataSourceMysql;
 	}
 
 	static Properties readPropertiesFile(String propFileName) throws IOException {

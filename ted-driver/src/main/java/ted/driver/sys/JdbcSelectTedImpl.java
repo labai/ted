@@ -109,10 +109,6 @@ class JdbcSelectTedImpl {
 					entityFields = new ArrayList<Field>(asList(new Field[aliases.length]));
 
 					for (Field field : clazz.getDeclaredFields()) {
-						// todo uncomment
-						//Transient transFlag = field.getAnnotation(Transient.class);
-						//if (transFlag != null) continue; // skip marked as transient
-
 						field.setAccessible(true);
 						String name = field.getName();
 						for (int i = 0; i < aliases.length; i++) {
@@ -282,8 +278,6 @@ class JdbcSelectTedImpl {
 			//if (autoCommitOrig == true)
 			//	connection.setAutoCommit(autoCommitOrig);
 			try { if (stmt != null) stmt.close(); } catch (Exception e) {logger.error("Cannot close statement", e);};
-			// if the connection has come from a pool, closing it actually sends it back to the pool for reuse.
-			//try { if (connection != null) connection.close(); } catch (Exception e) {logger.error("Cannot close connection", e);};
 		}
 		return list;
 	}
@@ -300,28 +294,38 @@ class JdbcSelectTedImpl {
 		} finally {
 			try { if (resultSet != null) resultSet.close(); } catch (Exception e) {logger.error("Cannot close resultSet", e);};
 			try { if (stmt != null) stmt.close(); } catch (Exception e) {logger.error("Cannot close statement", e);};
-			// if the connection has come from a pool, closing it actually sends it back to the pool for reuse.
-			//try { if (connection != null) connection.close(); } catch (Exception e) {logger.error("Cannot close connection", e);};
 		}
 		return list;
+	}
+
+
+	static int executeUpdate(Connection connection, String sql, List<SqlParam> sqlParams) throws SQLException {
+		CallableStatement stmt = null;
+		int res = 0;
+		try {
+			stmt = connection.prepareCall(sql);
+			stmtAssignSqlParams(stmt, sqlParams);
+			res = stmt.executeUpdate();
+		} finally {
+			try { if (stmt != null) stmt.close(); } catch (Exception e) {logger.error("Cannot close statement", e);};
+		}
+		return res;
 	}
 
 	/**
 	 * 	Execute sql.
 	 */
-	static void execute(Connection connection, String sql, List<SqlParam> sqlParams) throws SQLException {
-		CallableStatement stmt = null;
-		try {
-			stmt = connection.prepareCall(sql);
-			stmtAssignSqlParams(stmt, sqlParams);
-			boolean hasRs = stmt.execute();
-		} finally {
-			try { if (stmt != null) stmt.close(); } catch (Exception e) {logger.error("Cannot close statement", e);};
-			// if the connection has come from a pool, closing it actually sends it back to the pool for reuse.
-			// try { if (connection != null) connection.close(); } catch (Exception e) {logger.error("Cannot close connection", e);};
-		}
-		return;
-	}
+//	static void execute(Connection connection, String sql, List<SqlParam> sqlParams) throws SQLException {
+//		CallableStatement stmt = null;
+//		try {
+//			stmt = connection.prepareCall(sql);
+//			stmtAssignSqlParams(stmt, sqlParams);
+//			boolean hasRs = stmt.execute();
+//		} finally {
+//			try { if (stmt != null) stmt.close(); } catch (Exception e) {logger.error("Cannot close statement", e);};
+//		}
+//		return;
+//	}
 
 	private static BigDecimal findDecimalSingleValue(Connection connection, String sql, List<SqlParam> sqlParams) throws SQLException {
 		CallableStatement stmt = null;
@@ -349,8 +353,6 @@ class JdbcSelectTedImpl {
 		} finally {
 			try { if (resultSet != null) resultSet.close(); } catch (Exception e) {logger.error("Cannot close resultSet", e);};
 			try { if (stmt != null) stmt.close(); } catch (Exception e) {logger.error("Cannot close statement", e);};
-			// if the connection has come from a pool, closing it actually sends it back to the pool for reuse.
-			// try { if (connection != null) connection.close(); } catch (Exception e) {logger.error("Cannot close connection", e);};
 		}
 	}
 

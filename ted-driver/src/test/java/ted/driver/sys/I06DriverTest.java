@@ -73,7 +73,7 @@ public class I06DriverTest extends TestBase {
 		Long taskId2 = driver.createTask(taskName, null, null, null);
 
 		driver.start();
-		TestUtils.sleepMs(100);
+		TestUtils.sleepMs(200);
 		// 1 task is processing and other is waiting in queue. last one should be returned to status 'NEW'
 		TestUtils.print("Start to shutdown");
 		driver.shutdown(100);

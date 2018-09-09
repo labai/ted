@@ -30,10 +30,12 @@ class EventQueueManager {
 
 	private final TedContext context;
 	private final TedDao tedDao;
+	private final TedDaoExt tedDaoExt;
 
 	public EventQueueManager(TedContext context) {
 		this.context = context;
 		this.tedDao = context.tedDao;
+		this.tedDaoExt = context.tedDaoExt;
 	}
 
 	// channels - always TedEQ.
@@ -90,7 +92,7 @@ class EventQueueManager {
 		if (headResult.status == TedStatus.DONE) {
 			outer:
 			for (int i = 0; i < 10; i++) {
-				List<TaskRec> events = tedDao.eventQueueGetTail(head.key1);
+				List<TaskRec> events = tedDaoExt.eventQueueGetTail(head.key1);
 				if (events.isEmpty())
 					break outer;
 				for (TaskRec event : events) {
@@ -115,7 +117,7 @@ class EventQueueManager {
 		// first save head, otherwise unique index will fail
 		final TedResult finalLastUnsavedResult = lastUnsavedResult;
 		final TaskRec finalLastUnsavedEvent = lastUnsavedEvent;
-		tedDao.runInTx(new Runnable() {
+		tedDaoExt.runInTx(new Runnable() {
 			@Override
 			public void run() {
 				try {
@@ -132,16 +134,16 @@ class EventQueueManager {
 
 
 	Long createEvent(String taskName, String queueId, String data, String key2) {
-		Long taskId = tedDao.createEvent(taskName, queueId, data, key2);
-		tedDao.eventQueueMakeFirst(queueId);
+		Long taskId = tedDaoExt.createEvent(taskName, queueId, data, key2);
+		tedDaoExt.eventQueueMakeFirst(queueId);
 		return taskId;
 	}
 
 	Long createEventAndTryExecute(String taskName, String queueId, String data, String key2) {
-		long taskId = tedDao.createEvent(taskName, queueId, data, key2);
-		TaskRec task = tedDao.eventQueueMakeFirst(queueId);
+		long taskId = tedDaoExt.createEvent(taskName, queueId, data, key2);
+		TaskRec task = tedDaoExt.eventQueueMakeFirst(queueId);
 		if (task != null && task.taskId == taskId) {
-			TaskRec taskRec = tedDao.eventQueueReserveTask(task.taskId);
+			TaskRec taskRec = tedDaoExt.eventQueueReserveTask(task.taskId);
 			if (taskRec != null && taskRec.taskId == taskId) {
 				processEventQueue(task);
 			}

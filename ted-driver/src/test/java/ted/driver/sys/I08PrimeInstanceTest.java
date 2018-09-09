@@ -28,6 +28,7 @@ public class I08PrimeInstanceTest extends TestBase {
 
 	private TedDriverImpl driver;
 	private TedDao tedDao;
+	private TedDaoExt tedDaoExt;
 
 	private Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
@@ -41,6 +42,7 @@ public class I08PrimeInstanceTest extends TestBase {
 		Properties properties = TestUtils.readPropertiesFile("ted-I08.properties");
 		this.driver = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), TestConfig.SYSTEM_ID, properties);
 		this.tedDao = driver.getContext().tedDao;
+		this.tedDaoExt = driver.getContext().tedDaoExt;
 		//this.context = driver.getContext();
 	}
 
@@ -55,11 +57,11 @@ public class I08PrimeInstanceTest extends TestBase {
 
 		Long primeTaskId = null;
 		try {
-			primeTaskId = tedDao.findPrimeTaskId();
-			if (tedDao.getDbType() == DbType.ORACLE)
+			primeTaskId = tedDaoExt.findPrimeTaskId();
+			if (tedDao.getDbType() != DbType.POSTGRES)
 				fail("prime instance is not for Oracle");
 		} catch (IllegalStateException e) {
-			if (tedDao.getDbType() == DbType.ORACLE)
+			if (tedDao.getDbType() != DbType.POSTGRES)
 				return;
 			throw e;
 		}
@@ -67,7 +69,7 @@ public class I08PrimeInstanceTest extends TestBase {
 		Assert.assertNotNull(primeTaskId);
 		//Assert.assertEquals(11L, (long)primeTaskId);
 
-		Long primeTaskId2 = tedDao.findPrimeTaskId();
+		Long primeTaskId2 = tedDaoExt.findPrimeTaskId();
 		TestUtils.print("tried again primeTaskId=" + primeTaskId2);
 		Assert.assertNotNull(primeTaskId2);
 		Assert.assertEquals((long)primeTaskId, (long)primeTaskId);
@@ -78,7 +80,7 @@ public class I08PrimeInstanceTest extends TestBase {
 		dao_execSql(sql);
 
 		try {
-			primeTaskId2 = tedDao.findPrimeTaskId();
+			primeTaskId2 = tedDaoExt.findPrimeTaskId();
 			fail("should rise exception");
 		} catch (IllegalStateException e) {
 			// ok
@@ -93,7 +95,7 @@ public class I08PrimeInstanceTest extends TestBase {
 	public void testPrime() {
 		Long tmpId;
 		try {
-			tmpId = tedDao.findPrimeTaskId();
+			tmpId = tedDaoExt.findPrimeTaskId();
 			if (tedDao.getDbType() == DbType.ORACLE)
 				fail("prime instance is not for Oracle");
 		} catch (IllegalStateException e) {
@@ -115,11 +117,11 @@ public class I08PrimeInstanceTest extends TestBase {
 
 		TestUtils.sleepMs(20);
 
-		boolean isPrime = tedDao.becomePrime(primeTaskId, "abra1");
+		boolean isPrime = tedDaoExt.becomePrime(primeTaskId, "abra1");
 		TestUtils.print("isPrime=" + isPrime);
 		assertTrue("take 1st", isPrime);
 		TestUtils.sleepMs(20);
-		boolean isPrime2 = tedDao.becomePrime(primeTaskId, "abra2");
+		boolean isPrime2 = tedDaoExt.becomePrime(primeTaskId, "abra2");
 		TestUtils.print("isPrime=" + isPrime2);
 		assertFalse("cannot take 2nd", isPrime2);
 

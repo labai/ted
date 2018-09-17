@@ -21,6 +21,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Queue;
 
 /**
@@ -85,11 +86,11 @@ class TaskManager {
 		this.context = context;
 	}
 
-	public void changeTaskStatusPostponed(long taskId, TedStatus status, String msg, Date nextTs){
+	void changeTaskStatusPostponed(long taskId, TedStatus status, String msg, Date nextTs){
 		context.tedDao.setStatusPostponed(taskId, status, msg, nextTs);
 
 	}
-	public void changeTaskStatus(long taskId, TedStatus status, String msg){
+	void changeTaskStatus(long taskId, TedStatus status, String msg){
 		changeTaskStatusPostponed(taskId, status, msg, null);
 	}
 
@@ -253,6 +254,7 @@ class TaskManager {
 			} else {
 				for (final TaskRec taskRec : taskList) {
 					logger.debug("got task: " + taskRec);
+					context.stats.metrics.loadTask(taskRec.taskId, taskRec.name, taskRec.channel);
 					channel.workers.execute(new TedRunnable(taskRec) {
 						@Override
 						public void run() {
@@ -286,8 +288,15 @@ class TaskManager {
 			throw new IllegalStateException("taskRecList is empty");
 		TaskRec taskRec1 = taskRecList.get(0);
 
+		long startMs = System.currentTimeMillis();
+
+		for (TaskRec trec : taskRecList) { // fixme for pack's will use other method?
+			context.stats.metrics.startTask(trec.taskId, trec.name, trec.channel);
+		}
+
 		TedDao tedDao = context.tedDao;
 		String threadName = Thread.currentThread().getName();
+
 		Map<Long, TedResult> results = new HashMap<Long, TedResult>();
 		try {
 
@@ -332,8 +341,6 @@ class TaskManager {
 					changeTaskStatus(trec.taskId, TedStatus.ERROR, "invalid result status: " + result.status);
 				}
 			}
-
-
 		} catch (Exception e) {
 			logger.info("Unhandled exception while calling processor for task '{}': {}", taskRec1.name, e.getMessage());
 			taskExceptionLogger.error("Unhandled exception while calling processor for task '" + taskRec1.name + "'", e);
@@ -348,6 +355,10 @@ class TaskManager {
 			}
 		} finally {
 			Thread.currentThread().setName(threadName);
+		}
+
+		for (Entry<Long, TedResult> entry : results.entrySet()) { // fixme for pack's will use other method?
+			context.stats.metrics.finishTask(entry.getKey(), taskRec1.name, taskRec1.channel, entry.getValue().status, (int)(System.currentTimeMillis() - startMs));
 		}
 		return results;
 	}

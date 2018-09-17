@@ -8,6 +8,7 @@ import ted.driver.Ted.TedProcessorFactory;
 import ted.driver.Ted.TedRetryScheduler;
 import ted.driver.Ted.TedStatus;
 import ted.driver.TedTask;
+import ted.driver.stats.TedMetricsEvents;
 import ted.driver.sys.ConfigUtils.TedConfig;
 import ted.driver.sys.ConfigUtils.TedProperty;
 import ted.driver.sys.Model.FieldValidator;
@@ -64,6 +65,7 @@ public final class TedDriverImpl {
 		EventQueueManager eventQueueManager;
 		BatchWaitManager batchWaitManager;
 		NotificationManager notificationManager;
+		Stats stats;
 	}
 
 	final DataSource dataSource;
@@ -71,6 +73,7 @@ public final class TedDriverImpl {
 	private AtomicBoolean isStartedFlag = new AtomicBoolean(false);
 	private ScheduledExecutorService driverExecutor;
 	private ScheduledExecutorService maintenanceExecutor;
+	private final ExecutorService statsEventExecutor;
 
 	public TedDriverImpl(TedDbType dbType, DataSource dataSource, String system) {
 		this(dbType, dataSource, system, null);
@@ -88,18 +91,22 @@ public final class TedDriverImpl {
 		this.context = new TedContext();
 		context.tedDriver = this;
 		context.config = new TedConfig(system);
+
+		statsEventExecutor = createWorkersExecutor(tedNamePrefix + "Stats" , 1, 500);
+		context.stats = new Stats(statsEventExecutor);
+
 		switch (dbType) {
 			case POSTGRES:
-				TedDaoPostgres pg = new TedDaoPostgres(system, dataSource);
+				TedDaoPostgres pg = new TedDaoPostgres(system, dataSource, context.stats);
 				context.tedDao = pg;
 				context.tedDaoExt = pg;
 				break;
 			case ORACLE:
-				context.tedDao = new TedDaoOracle(system, dataSource);
+				context.tedDao = new TedDaoOracle(system, dataSource, context.stats);
 				context.tedDaoExt = new TedDaoExtNA("Oracle");
 				break;
 			case MYSQL:
-				context.tedDao = new TedDaoMysql(system, dataSource);
+				context.tedDao = new TedDaoMysql(system, dataSource, context.stats);
 				context.tedDaoExt = new TedDaoExtNA("MySql");
 				break;
 			default: throw new IllegalStateException("Invalid case " + dbType);
@@ -130,7 +137,6 @@ public final class TedDriverImpl {
 		for (String channel : context.config.channelMap().keySet()) {
 			context.registry.registerChannel(channel, context.config.channelMap().get(channel));
 		}
-
 	}
 
 	public void start() {
@@ -183,6 +189,7 @@ public final class TedDriverImpl {
 		// shutdown (stop accept new tasks)
 		driverExecutor.shutdown();
 		maintenanceExecutor.shutdown();
+		statsEventExecutor.shutdown();
 		for (Channel channel : context.registry.getChannels()) {
 			channel.workers.shutdown();
 		}
@@ -206,6 +213,7 @@ public final class TedDriverImpl {
 		Map<String, ExecutorService> pools = new LinkedHashMap<String, ExecutorService>();
 		pools.put("(driver)", driverExecutor);
 		pools.put("(maintenance)", maintenanceExecutor);
+		pools.put("(stats)", statsEventExecutor);
 		for (Channel channel : context.registry.getChannels()) {
 			pools.put(channel.name, channel.workers);
 		}
@@ -400,6 +408,11 @@ public final class TedDriverImpl {
 	public PrimeInstance prime() {
 		return context.prime;
 	}
+
+	public void setMetricsRegistry(TedMetricsEvents metricsRegistry){
+		context.stats.setMetricsRegistry(metricsRegistry);
+	}
+
 
 	//
 	// package scoped - for tests and ted-ext only

@@ -4,6 +4,7 @@ import ted.driver.Ted.PrimeChangeEvent;
 import ted.driver.Ted.TedDbType;
 import ted.driver.Ted.TedProcessorFactory;
 import ted.driver.Ted.TedRetryScheduler;
+import ted.driver.stats.TedMetricsEvents;
 import ted.driver.sys.TedDriverImpl;
 
 import javax.sql.DataSource;
@@ -146,5 +147,10 @@ public class TedDriver {
 
 	public void setOnLostPrimeHandler(PrimeChangeEvent onLostPrime) {
 		tedDriverImpl.prime().setOnLostPrime(onLostPrime);
+	}
+
+	/** experimental! */
+	public void setMetricsRegistry(TedMetricsEvents metricsRegistry){
+		tedDriverImpl.setMetricsRegistry(metricsRegistry);
 	}
 }

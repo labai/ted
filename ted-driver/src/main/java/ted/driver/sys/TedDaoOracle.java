@@ -29,8 +29,8 @@ import static ted.driver.sys.JdbcSelectTed.sqlParam;
 class TedDaoOracle extends TedDaoAbstract {
 	private static final Logger logger = LoggerFactory.getLogger(TedDaoAbstract.class);
 
-	public TedDaoOracle(String system, DataSource dataSource) {
-		super(system, dataSource, DbType.ORACLE);
+	public TedDaoOracle(String system, DataSource dataSource, Stats stats) {
+		super(system, dataSource, DbType.ORACLE, stats);
 	}
 
 

@@ -38,8 +38,8 @@ import static ted.driver.sys.MiscUtils.nvle;
 class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 	private static final Logger logger = LoggerFactory.getLogger(TedDaoPostgres.class);
 
-	public TedDaoPostgres(String system, DataSource dataSource) {
-		super(system, dataSource, DbType.POSTGRES);
+	public TedDaoPostgres(String system, DataSource dataSource, Stats stats) {
+		super(system, dataSource, DbType.POSTGRES, stats);
 	}
 
 	private static class TaskIdRes {
@@ -90,6 +90,30 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 		return selectData("qckchk_" + logId, sql, CheckResult.class, Collections.<SqlParam>emptyList());
 	}
 
+	@Override
+	public List<Long> createTasksBulk(List<TaskParam> taskParams) {
+		ArrayList<Long> taskIds = getSequencePortion("SEQ_TEDTASK_ID", taskParams.size());
+		int iNum = 0;
+		for (TaskParam param : taskParams) {
+			param.taskId = taskIds.get(iNum++);
+		}
+		Connection connection;
+		try {
+			connection = dataSource.getConnection();
+		} catch (SQLException e) {
+			logger.error("Failed to get DB connection: " + e.getMessage());
+			throw new TedSqlException("Cannot get DB connection", e);
+		}
+		try {
+			executePgCopy(connection, taskParams);
+		} catch (SQLException e) {
+			throw new TedSqlException("can't execute pgCopy", e);
+		} finally {
+			try { if (connection != null) connection.close(); } catch (Exception e) {logger.error("Cannot close connection", e);};
+		}
+		return taskIds;
+	}
+
 	//
 	// ext
 	//
@@ -115,29 +139,6 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 		return tasks.isEmpty() ? null : tasks.get(0);
 	}
 
-	@Override
-	public List<Long> createTasksBulk(List<TaskParam> taskParams) {
-		ArrayList<Long> taskIds = getSequencePortion("SEQ_TEDTASK_ID", taskParams.size());
-		int iNum = 0;
-		for (TaskParam param : taskParams) {
-			param.taskId = taskIds.get(iNum++);
-		}
-		Connection connection;
-		try {
-			connection = dataSource.getConnection();
-		} catch (SQLException e) {
-			logger.error("Failed to get DB connection: " + e.getMessage());
-			throw new TedSqlException("Cannot get DB connection", e);
-		}
-		try {
-			executePgCopy(connection, taskParams);
-		} catch (SQLException e) {
-			throw new TedSqlException("can't execute pgCopy", e);
-		} finally {
-			try { if (connection != null) connection.close(); } catch (Exception e) {logger.error("Cannot close connection", e);};
-		}
-		return taskIds;
-	}
 
 	//
 	// prime

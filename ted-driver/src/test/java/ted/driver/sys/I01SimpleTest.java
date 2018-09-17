@@ -1,5 +1,10 @@
 package ted.driver.sys;
 
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedProcessor;
 import ted.driver.Ted.TedStatus;
 import ted.driver.TedResult;
@@ -10,11 +15,6 @@ import ted.driver.sys.TedDaoAbstract.DbType;
 import ted.driver.sys.TedDriverImpl.TedContext;
 import ted.driver.sys.TestTedProcessors.TestProcessorException;
 import ted.driver.sys.TestTedProcessors.TestProcessorOk;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -24,8 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-import static ted.driver.sys.TestTedProcessors.forClass;
 import static org.junit.Assert.*;
+import static ted.driver.sys.TestTedProcessors.forClass;
 
 /**
  * @author Augustus
@@ -285,7 +285,6 @@ public class I01SimpleTest extends TestBase {
 		assertEquals(1, list.size());
 		assertEquals(taskName, list.get(0).name);
 		logger.info("Done");
-
 	}
 
 

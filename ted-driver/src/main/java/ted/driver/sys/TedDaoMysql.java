@@ -11,7 +11,6 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Collections;
-import java.util.Random;
 
 import static java.util.Arrays.asList;
 import static ted.driver.sys.JdbcSelectTed.sqlParam;
@@ -25,10 +24,8 @@ import static ted.driver.sys.JdbcSelectTed.sqlParam;
 class TedDaoMysql extends TedDaoAbstract {
 	private static final Logger logger = LoggerFactory.getLogger(TedDaoMysql.class);
 
-	private Random random = new Random();
-
-	public TedDaoMysql(String system, DataSource dataSource) {
-		super(system, dataSource, DbType.MYSQL);
+	public TedDaoMysql(String system, DataSource dataSource, Stats stats) {
+		super(system, dataSource, DbType.MYSQL, stats);
 	}
 
 	//

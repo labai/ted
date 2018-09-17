@@ -87,13 +87,15 @@ abstract class TedDaoAbstract implements TedDao {
 
 	protected final String thisSystem;
 	protected final DataSource dataSource;
+	protected final Stats stats;
 	protected final DbType dbType;
 	protected final String systemCheck;
 
-	public TedDaoAbstract(String system, DataSource dataSource, DbType dbType) {
+	public TedDaoAbstract(String system, DataSource dataSource, DbType dbType, Stats stats) {
 		this.thisSystem = system;
 		this.dataSource = dataSource;
 		this.dbType = dbType;
+		this.stats = stats;
 		this.systemCheck = dbType.sql.systemColumn() + " = '" + thisSystem + "'"; // add to queries [system = 'thisSystem']
 	}
 
@@ -215,29 +217,6 @@ abstract class TedDaoAbstract implements TedDao {
 		return tasks;
 	}
 
-/*
-	private void reserveTaskPortionForChannel(long bno, String channel, int rowLimit) {
-		String sqlLogId = "reserve_channel";
-		String sql = "update tedtask set status = 'WORK', bno = ?, startTs = $now, nextTs = null"
-				+ " where status in ('NEW','RETRY') and system = '$sys'"
-				+ " and taskid in ("
-				+ " select taskid from tedtask "
-				+ " where status in ('NEW','RETRY') and system = '$sys' and channel = ? "
-				+ " and nextTs < $now"
-				+ " limit ?"
-				+ " for update skip locked"
-				// + dbType.sql.rownum("" + rowLimit)
-				+ ")"
-				;
-		sql = sql.replace("$now", dbType.sql.now());
-		sql = sql.replace("$sys", thisSystem);
-		execute(sqlLogId, sql, asList(
-				sqlParam(bno, JetJdbcParamType.LONG),
-				sqlParam(channel, JetJdbcParamType.STRING),
-				sqlParam(rowLimit, JetJdbcParamType.INTEGER)
-		));
-	}
-*/
 
 	private void reserveTaskPortionForChannel(long bno, String channel, int rowLimit) {
 		String sqlLogId = "reserve_channel";
@@ -449,7 +428,6 @@ abstract class TedDaoAbstract implements TedDao {
 	//
 
 	protected void execute(String sqlLogId, final String sql, final List<SqlParam> params) {
-		logger.debug("SQL:" + sql);
 		runInConnWithLog(sqlLogId, new ExecInConn<Boolean>() {
 			@Override
 			public Boolean execute(Connection connection) throws SQLException {
@@ -468,15 +446,6 @@ abstract class TedDaoAbstract implements TedDao {
 		});
 	}
 
-	protected int executeUpdate (String sqlLogId, final String sql, final List<SqlParam> params) {
-		return runInConnWithLog(sqlLogId, new ExecInConn<Integer>() {
-			@Override
-			public Integer execute(Connection connection) throws SQLException {
-				return JdbcSelectTedImpl.executeUpdate(connection, sql, params);
-			}
-		});
-	}
-
 	protected Long selectSingleLong(String sqlLogId, String sql) {
 		return selectSingleLong(sqlLogId, sql, null);
 	}
@@ -490,18 +459,6 @@ abstract class TedDaoAbstract implements TedDao {
 		});
 	}
 
-//	private void logSqlParams(String sqlLogId, String sql, List<SqlParam> params) {
-//		if (logger.isTraceEnabled()) {
-//			String sparams = "";
-//			for (SqlParam p : params)
-//				sparams += String.format(" %s=%s", p.code, p.value);
-//			logger.trace("Before[{}] with params:{}", sqlLogId, sparams);
-//			if (logger.isTraceEnabled()) {
-//				logger.trace("sql:" + sql);
-//			}
-//		}
-//	}
-
 	private void handleSQLException(SQLException sqle, String sqlLogId) {
 		if ("23505".equals(sqle.getSQLState())) { // 23505 in postgres: duplicate key value violates unique constraint. TODO for oracle - don't care(?)
 			logger.info("duplicate was found for unique index. sqlId={} message={}", sqlLogId, sqle.getMessage());
@@ -512,7 +469,6 @@ abstract class TedDaoAbstract implements TedDao {
 	}
 
 	protected <T> T runInConnWithLog(String sqlLogId, ExecInConn<T> executor) {
-		//logSqlParams(sqlLogId, sql, params);
 		long startTm = System.currentTimeMillis();
 		T result = null;
 
@@ -526,17 +482,15 @@ abstract class TedDaoAbstract implements TedDao {
 			throw e;
 		} finally {
 			long durationMs = System.currentTimeMillis() - startTm;
-			Long resnum = null;
+			int resCnt;
 			if (result == null)
-				resnum = null;
+				resCnt = 0;
 			else if (result instanceof Collection)
-				resnum = (long)((Collection) result).size();
-			else if (result instanceof Number)
-				resnum = ((Number) result).longValue();
-			if (durationMs >= 50)
-				logger.info("After [{}] time={}ms items={}", sqlLogId, durationMs, resnum);
-			else
-				logger.debug("After [{}] time={}ms items={}", sqlLogId, durationMs, resnum);
+				resCnt = ((Collection) result).size();
+			else {
+				resCnt = 1;
+			}
+			stats.metrics.dbCall(sqlLogId, resCnt, (int)durationMs);
 		}
 	}
 }

@@ -38,6 +38,8 @@ public class Sample1_1_tasks {
 			dataSource.setJdbcUrl("jdbc:postgresql://localhost:5433/ted");
 //			dataSource.setDriverClass("oracle.jdbc.OracleDriver");
 //			dataSource.setJdbcUrl("jdbc:oracle:thin:@localhost:1521:XE");
+//			dataSource.setDriverClass("com.mysql.cj.jdbc.Driver");
+//			dataSource.setJdbcUrl("jdbc:mysql://localhost:3308/ted");
 			dataSource.setUser("ted");
 			dataSource.setPassword("ted");
 		} catch (PropertyVetoException e) {
@@ -87,7 +89,7 @@ public class Sample1_1_tasks {
 
 		// wait a while, while ted will process tasks. see processing info in logs
 		//
-		sleep(6000);
+		sleep(60000);
 
 		tedDriver.shutdown();
 		System.out.println("finish sample1_1_tasks");

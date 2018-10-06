@@ -1,17 +1,18 @@
 package ted.driver.sys;
 
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedProcessor;
 import ted.driver.Ted.TedStatus;
 import ted.driver.TedResult;
 import ted.driver.TedTask;
+import ted.driver.sys.Executors.TedRunnable;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.Registry.Channel;
 import ted.driver.sys.Registry.TaskConfig;
 import ted.driver.sys.TedDriverImpl.TedContext;
 import ted.driver.sys.Trash.TedPackProcessor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -37,7 +38,7 @@ class TaskManager {
 	static final int SLOW_START_COUNT = 3;
 	static final int MAX_TASK_COUNT = 1000;
 	static final int LIMIT_TOTAL_WAIT_TASKS = 20000; // max waiting tasks (aim to don't consume all memory)
-	private static final long RARE_MAINT_INTERVAL_MILIS = 3 * 3600 * 1000; // every 3 hour
+	private static final long RARE_MAINT_INTERVAL_MS = 3 * 3600 * 1000; // every 3 hour
 	private static final long UNKNOWN_TASK_POSTPONE_MS = 120 * 1000; // 2 min
 	private static final long UNKNOWN_TASK_CANCEL_AFTER_MS = 24 * 3600 * 1000;
 
@@ -60,27 +61,6 @@ class TaskManager {
 	private Map<String, ChannelWorkContext> channelContextMap = new HashMap<String, ChannelWorkContext>();
 
 	private long lastRareMaintExecTimeMilis = System.currentTimeMillis();
-
-	abstract static class TedRunnable implements Runnable {
-		private final TaskRec task;
-		private final List<TaskRec> tasks;
-		public TedRunnable(TaskRec task) {
-			this.task = task;
-			this.tasks = null;
-		}
-		public TedRunnable(List<TaskRec> tasks) {
-			this.task = null;
-			this.tasks = new ArrayList<TaskRec>(tasks);
-		}
-		public List<TaskRec> getTasks() {
-			if (tasks != null)
-				return tasks;
-			return Collections.singletonList(task);
-		}
-		public int getTaskCount() {
-			return (tasks != null ? tasks.size() : 1);
-		}
-	}
 
 	TaskManager(TedContext context) {
 		this.context = context;
@@ -105,7 +85,7 @@ class TaskManager {
 		}
 		context.tedDao.processMaintenanceFrequent();
 		processTimeouts();
-		if (System.currentTimeMillis() - lastRareMaintExecTimeMilis > RARE_MAINT_INTERVAL_MILIS) {
+		if (System.currentTimeMillis() - lastRareMaintExecTimeMilis > RARE_MAINT_INTERVAL_MS) {
 			logger.debug("Start process rare maintenance tasks");
 			context.tedDao.processMaintenanceRare(context.config.oldTaskArchiveDays());
 			lastRareMaintExecTimeMilis = System.currentTimeMillis();

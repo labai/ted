@@ -35,7 +35,7 @@ class Registry {
 	private Map<String, TaskConfig> tasks = new ConcurrentHashMap<String, TaskConfig>();
 	private Map<String, Channel> channels = new ConcurrentHashMap<String, Channel>();
 
-	static class Channel {
+	class Channel {
 		final String name;
 		private final int workerCount;
 		final int taskBufferSize;
@@ -48,7 +48,7 @@ class Registry {
 			this.workerCount = workerCount;
 			this.taskBufferSize = taskBufferSize;
 			this.primeOnly = primeOnly;
-			this.workers = TedDriverImpl.createWorkersExecutor(tedNamePrefix + "-" + name, workerCount, taskBufferSize + workerCount + CHANNEL_EXTRA_SIZE);
+			this.workers = context.executors.createChannelExecutor(tedNamePrefix + "-" + name, workerCount, taskBufferSize + workerCount + CHANNEL_EXTRA_SIZE);
 		}
 
 		void setHasPackProcessingTask() {

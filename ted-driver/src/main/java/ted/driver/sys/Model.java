@@ -26,6 +26,7 @@ class Model {
 	static final String CHANNEL_NOTIFY = "TedIN"; // Instance Notification
 	static final String TIMEOUT_MSG = "Too long in status [work]";
 	static final String BATCH_MSG = "Batch task is waiting for finish of subtasks";
+	static final String REJECTED_MSG = "Rejected by taskExecutor";
 
 	static final Set<String> nonTaskChannels = new HashSet<String>(asList(Model.CHANNEL_QUEUE, CHANNEL_PRIME, CHANNEL_BATCH, CHANNEL_NOTIFY, CHANNEL_SYSTEM));
 

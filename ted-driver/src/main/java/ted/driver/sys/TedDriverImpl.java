@@ -8,15 +8,16 @@ import ted.driver.Ted.TedProcessorFactory;
 import ted.driver.Ted.TedRetryScheduler;
 import ted.driver.Ted.TedStatus;
 import ted.driver.TedTask;
-import ted.driver.stats.TedMetricsEvents;
+import ted.driver.sys.Trash.TedMetricsEvents;
 import ted.driver.sys.ConfigUtils.TedConfig;
 import ted.driver.sys.ConfigUtils.TedProperty;
+import ted.driver.sys.Executors.ChannelThreadPoolExecutor;
+import ted.driver.sys.Executors.TedRunnable;
 import ted.driver.sys.Model.FieldValidator;
 import ted.driver.sys.Model.TaskParam;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.Registry.Channel;
 import ted.driver.sys.Registry.TaskConfig;
-import ted.driver.sys.TaskManager.TedRunnable;
 
 import javax.sql.DataSource;
 import java.util.ArrayList;
@@ -27,11 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -59,6 +56,7 @@ public final class TedDriverImpl {
 		TedDao tedDao;
 		TedDaoExt tedDaoExt;
 		TaskManager taskManager;
+		Executors executors;
 		RetryConfig retryConfig;
 		QuickCheck quickCheck;
 		PrimeInstance prime;
@@ -91,8 +89,10 @@ public final class TedDriverImpl {
 		this.context = new TedContext();
 		context.tedDriver = this;
 		context.config = new TedConfig(system);
+		context.executors = new Executors(context);
 
-		statsEventExecutor = createWorkersExecutor(tedNamePrefix + "Stats" , 1, 500);
+		this.statsEventExecutor = context.executors.createExecutor(
+				tedNamePrefix + "Stats" , 1, 2000);
 		context.stats = new Stats(statsEventExecutor);
 
 		switch (dbType) {
@@ -151,7 +151,7 @@ public final class TedDriverImpl {
 		context.prime.init();
 
 		// driver
-		driverExecutor = createSchedulerExecutor(tedNamePrefix + "Driver-");;
+		driverExecutor = context.executors.createSchedulerExecutor(tedNamePrefix + "Driver-");;
 		driverExecutor.scheduleAtFixedRate(new Runnable() {
 			@Override
 			public void run() {
@@ -164,7 +164,7 @@ public final class TedDriverImpl {
 		}, context.config.initDelayMs(), context.config.intervalDriverMs(), TimeUnit.MILLISECONDS);
 
 		// maintenance tasks processor
-		maintenanceExecutor = createSchedulerExecutor(tedNamePrefix + "Maint-");
+		maintenanceExecutor = context.executors.createSchedulerExecutor(tedNamePrefix + "Maint-");
 		maintenanceExecutor.scheduleAtFixedRate(new Runnable() {
 			@Override
 			public void run() {
@@ -178,8 +178,9 @@ public final class TedDriverImpl {
 	}
 
 	public void shutdown(long timeoutMs) {
+
 		long startMs = System.currentTimeMillis();
-		long tillMs = startMs + (timeoutMs > 0 ? timeoutMs : 20 * 1000);
+		long tillMs = startMs + (timeoutMs > 0 ? timeoutMs : 20 * 1000) - 100; // 100ms for finishing rest tasks
 		if (isStartedFlag.get() == false) {
 			logger.info("TED driver is not started, leaving shutdown procedure");
 			return;
@@ -189,7 +190,6 @@ public final class TedDriverImpl {
 		// shutdown (stop accept new tasks)
 		driverExecutor.shutdown();
 		maintenanceExecutor.shutdown();
-		statsEventExecutor.shutdown();
 		for (Channel channel : context.registry.getChannels()) {
 			channel.workers.shutdown();
 		}
@@ -213,7 +213,7 @@ public final class TedDriverImpl {
 		Map<String, ExecutorService> pools = new LinkedHashMap<String, ExecutorService>();
 		pools.put("(driver)", driverExecutor);
 		pools.put("(maintenance)", maintenanceExecutor);
-		pools.put("(stats)", statsEventExecutor);
+		//pools.put("(stats)", statsEventExecutor);
 		for (Channel channel : context.registry.getChannels()) {
 			pools.put(channel.name, channel.workers);
 		}
@@ -222,43 +222,20 @@ public final class TedDriverImpl {
 			ExecutorService pool = pools.get(poolId);
 			try {
 				if (!pool.awaitTermination(Math.max(tillMs - System.currentTimeMillis(), 0L), TimeUnit.MILLISECONDS)) {
+					if (pool instanceof ChannelThreadPoolExecutor) {
+						((ChannelThreadPoolExecutor)pool).handleWorkingTasksOnShutdown();
+					}
 					logger.warn("WorkerPool {} did not terminated successfully", poolId);
 				}
 			} catch (InterruptedException e) {
 				interrupt = true;
 			}
 		}
+		statsEventExecutor.shutdown();
 		if (interrupt)
 			Thread.currentThread().interrupt(); // Preserve interrupt status (??? see ThreadPoolExecutor javadoc)
 		isStartedFlag.set(false);
 		logger.info("TED driver shutdown in {}ms", System.currentTimeMillis() - startMs);
-	}
-
-	private ScheduledExecutorService createSchedulerExecutor(final String prefix) {
-		ThreadFactory threadFactory = new ThreadFactory() {
-			private int counter = 0;
-			@Override
-			public Thread newThread(Runnable runnable) {
-				return new Thread(runnable, prefix + ++counter);
-			}
-		};
-		ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(threadFactory);
-		return executor;
-	}
-
-	static ThreadPoolExecutor createWorkersExecutor(final String threadPrefix, int workerCount, int queueSize) {
-		ThreadFactory threadFactory = new ThreadFactory() {
-			private int counter = 0;
-			@Override
-			public Thread newThread(Runnable runnable) {
-				return new Thread(runnable, threadPrefix + "-" + ++counter);
-			}
-		};
-		ThreadPoolExecutor executor = new ThreadPoolExecutor(workerCount, workerCount,
-				0, TimeUnit.SECONDS,
-				new LinkedBlockingQueue<Runnable>(queueSize), threadFactory);
-
-		return executor;
 	}
 
 	/*

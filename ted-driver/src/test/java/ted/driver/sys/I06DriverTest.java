@@ -1,6 +1,8 @@
 package ted.driver.sys;
 
+import org.junit.Ignore;
 import ted.driver.Ted.TedProcessor;
+import ted.driver.Ted.TedStatus;
 import ted.driver.TedResult;
 import ted.driver.TedTask;
 import ted.driver.sys.Model.TaskRec;
@@ -11,6 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 import static org.junit.Assert.assertTrue;
@@ -51,6 +55,19 @@ public class I06DriverTest extends TestBase {
 		}
 	}
 
+	public static class Test06ProcessorLongIgnoreInterrupt implements TedProcessor {
+		@Override
+		public TedResult process(TedTask task)  {
+			logger.info(this.getClass().getSimpleName() + " process. sleep for 1000ms");
+			try {
+				TestUtils.sleepMs(1000);
+			} catch (Exception e) {
+				TestUtils.sleepMs(1000); // ignore..
+			}
+			return TedResult.done();
+		}
+	}
+
 	public static class Test06ProcessorFastOk implements TedProcessor {
 		@Override
 		public TedResult process(TedTask task)  {
@@ -60,8 +77,53 @@ public class I06DriverTest extends TestBase {
 		}
 	}
 
+	private static class ChkTaskStatus {
+		boolean isAnyNew = false;
+		boolean isAnyInterrupted = false;
+		boolean isAnyReturnedUnfinished = false;
+		void checkTask(TaskRec taskRec) {
+			if (taskRec.status.equals("NEW"))
+				isAnyNew = true;
+			else if (taskRec.status.equals("ERROR") && taskRec.msg.equals("Interrupted"))
+				isAnyInterrupted = true;
+			else if (taskRec.status.equals("RETRY") && taskRec.msg.equals("Too long in status [work] (stopped on shutdown)"))
+				isAnyReturnedUnfinished = true;
+		}
+	}
+
 	@Test
-	public void test01Shutdown1() throws Exception {
+	public void test01ShutdownWOInterrupt() throws Exception {
+		String taskName = "TEST06-01";
+		dao_cleanupAllTasks();
+
+		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test06ProcessorLongIgnoreInterrupt.class), 1, null, Model.CHANNEL_MAIN);
+		Long taskId;
+		TaskRec taskRec;
+
+		Long taskId1 = driver.createTask(taskName, null, null, null);
+		Long taskId2 = driver.createTask(taskName, null, null, null);
+
+		driver.start();
+		TestUtils.sleepMs(300);
+		// 1 task is processing and other is waiting in queue. last one should be returned to status 'NEW'
+		TestUtils.print("Start to shutdown");
+		driver.shutdown(200);
+		TestUtils.print("Shutdown finished");
+
+		ChkTaskStatus chk = new ChkTaskStatus();
+		chk.checkTask(driver.getContext().tedDao.getTask(taskId1));
+		chk.checkTask(driver.getContext().tedDao.getTask(taskId2));
+
+		assertTrue("One of task is in status NEW?", chk.isAnyNew);
+		//assertTrue("One of task is in status ERROR (interrupted)?", isInterrupted);
+		assertTrue("One task is in RETRY afterTimeout?", chk.isAnyReturnedUnfinished);
+
+		TestUtils.sleepMs(100);
+		TestUtils.print("finish");
+	}
+
+	@Test
+	public void test01ShutdownWithInterrupt() throws Exception {
 		String taskName = "TEST06-01";
 		dao_cleanupAllTasks();
 
@@ -73,38 +135,27 @@ public class I06DriverTest extends TestBase {
 		Long taskId2 = driver.createTask(taskName, null, null, null);
 
 		driver.start();
-		TestUtils.sleepMs(200);
+		TestUtils.sleepMs(300);
 		// 1 task is processing and other is waiting in queue. last one should be returned to status 'NEW'
 		TestUtils.print("Start to shutdown");
-		driver.shutdown(100);
+		driver.shutdown(200);
 		TestUtils.print("Shutdown finished");
 
-		boolean isNew = false;
-		boolean isInterrupted = false;
+		ChkTaskStatus chk = new ChkTaskStatus();
+		chk.checkTask(driver.getContext().tedDao.getTask(taskId1));
+		chk.checkTask(driver.getContext().tedDao.getTask(taskId2));
 
-		taskRec = driver.getContext().tedDao.getTask(taskId1);
-		if (taskRec.status.equals("NEW"))
-			isNew = true;
-		else if (taskRec.status.equals("ERROR") && taskRec.msg.equals("Interrupted"))
-			isInterrupted = true;
-
-		taskRec = driver.getContext().tedDao.getTask(taskId2);
-		if (taskRec.status.equals("NEW"))
-			isNew = true;
-		else if (taskRec.status.equals("ERROR") && taskRec.msg.equals("Interrupted"))
-			isInterrupted = true;
-
-		assertTrue("One of task is in status NEW?", isNew);
-		assertTrue("One of task is in status ERROR (interrupted)?", isInterrupted);
-		//print(taskRec.toString());
+		assertTrue("One of task is in status NEW?", chk.isAnyNew);
+		assertTrue("One of task is in status ERROR (interrupted)?", chk.isAnyInterrupted);
+		//assertTrue("One task is in RETRY afterTimeout?", chk.isAnyReturnedUnfinished);
 
 		TestUtils.sleepMs(100);
 		TestUtils.print("finish");
-
 	}
 
+
 	@Test
-	public void test01Shutdown2() throws Exception {
+	public void test01Shutdown3() throws Exception {
 		String taskName = "TEST06-01";
 		dao_cleanupAllTasks();
 
@@ -117,6 +168,31 @@ public class I06DriverTest extends TestBase {
 
 		driver.start();
 		TestUtils.sleepMs(50);
+		driver.shutdown(10); // no working tasks left after 50ms
+		TestUtils.print("finish test");
+
+	}
+
+	@Ignore
+	@Test
+	public void test05Reject() throws Exception {
+		String taskName = "TEST06-01";
+		dao_cleanupAllTasks();
+
+		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test06ProcessorLongOk.class), 1, null, Model.CHANNEL_MAIN);
+		// create more tasks, than allowed in queue
+		List<TaskRec> dummyTasks = new ArrayList<TaskRec>();
+		for (int i = 0; i < 600; i++) {
+			TaskRec taskRec = new TaskRec();
+			taskRec.taskId = -1000L - i;
+			taskRec.name = taskName;
+			taskRec.channel = "MAIN";
+			taskRec.system = TestConfig.SYSTEM_ID;
+			taskRec.status = TedStatus.WORK.toString();
+			dummyTasks.add(taskRec);
+		}
+		driver.getContext().taskManager.sendTaskListToChannels(dummyTasks);
+		TestUtils.sleepMs(1000);
 		driver.shutdown(10); // no working tasks left after 50ms
 		TestUtils.print("finish test");
 

@@ -3,7 +3,7 @@ package ted.driver.sys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedStatus;
-import ted.driver.stats.TedMetricsEvents;
+import ted.driver.sys.Trash.TedMetricsEvents;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;

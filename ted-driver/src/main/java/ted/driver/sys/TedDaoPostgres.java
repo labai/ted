@@ -72,10 +72,12 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 			sqlPrime = sqlPrime.replace("$intervalSec", dbType.sql.intervalSeconds(checkPrimeParams.postponeSec()));
 			sqlPrime = sqlPrime.replace("$instanceId", checkPrimeParams.instanceId());
 			sqlPrime = sqlPrime.replace("$primeTaskId", Long.toString(checkPrimeParams.primeTaskId()));
-			sql += sqlPrime + " union all ";
+			sql += sqlPrime;
 		}
 		// check for new tasks
 		if (! skipChannelCheck) {
+			if (! sql.isEmpty())
+				sql += " union all ";
 			sql += "select distinct channel as name, 'CHAN' as type, null::timestamp as tillts "
 					+ " from tedtask"
 					+ " where system = '$sys' and nextTs <= $now";

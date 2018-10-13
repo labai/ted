@@ -66,11 +66,13 @@ class Executors {
 	 */
 	class ChannelThreadPoolExecutor extends ThreadPoolExecutor {
 		private final WeakHashMap<Thread, Runnable> threads;
+		private final String channel;
 
-		ChannelThreadPoolExecutor(int corePoolSize, int maximumPoolSize, long keepAliveTime, TimeUnit unit,
-								  BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory) {
-			super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory);
-			threads = new WeakHashMap<Thread, Runnable>(maximumPoolSize);
+		ChannelThreadPoolExecutor(String channel, int workerCount, BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory) {
+			super(workerCount, workerCount, 0, TimeUnit.SECONDS, workQueue, threadFactory);
+
+			this.channel = channel;
+			this.threads = new WeakHashMap<Thread, Runnable>(workerCount);
 
 			setRejectedExecutionHandler(new TaskRejectedExecutionHandler());
 		}
@@ -142,7 +144,7 @@ class Executors {
 	/**
 	 * create ThreadPoolExecutor for channel
 	 */
-	ThreadPoolExecutor createChannelExecutor(final String threadPrefix, final int workerCount, int queueSize) {
+	ThreadPoolExecutor createChannelExecutor(String channel, final String threadPrefix, final int workerCount, int queueSize) {
 		ThreadFactory threadFactory = new ThreadFactory() {
 			private int counter = 0;
 			@Override
@@ -150,8 +152,7 @@ class Executors {
 				return new Thread(runnable, threadPrefix + "-" + ++counter);
 			}
 		};
-		ThreadPoolExecutor executor = new ChannelThreadPoolExecutor(workerCount, workerCount,
-				0, TimeUnit.SECONDS,
+		ThreadPoolExecutor executor = new ChannelThreadPoolExecutor(channel, workerCount,
 				new LinkedBlockingQueue<Runnable>(queueSize), threadFactory);
 		return executor;
 	}

@@ -12,7 +12,6 @@ import ted.driver.TedTask;
 import javax.sql.DataSource;
 import java.beans.PropertyVetoException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Properties;
 
 /**
@@ -31,8 +30,6 @@ public class Sample1_5_notify {
 		try {
 			dataSource.setDriverClass("org.postgresql.Driver");
 			dataSource.setJdbcUrl("jdbc:postgresql://localhost:5433/ted");
-//			dataSource.setDriverClass("oracle.jdbc.OracleDriver");
-//			dataSource.setJdbcUrl("jdbc:oracle:thin:@localhost:1521:XE");
 			dataSource.setUser("ted");
 			dataSource.setPassword("ted");
 		} catch (PropertyVetoException e) {
@@ -43,15 +40,7 @@ public class Sample1_5_notify {
 
 	private static TedDriver tedDriver() {
 		Properties properties = new Properties();
-		String propFileName = "ted.properties";
-		InputStream inputStream = Sample1_5_notify.class.getClassLoader().getResourceAsStream(propFileName);
-		if (inputStream == null)
-			throw new RuntimeException("Property file '" + propFileName + "' not found in the classpath");
-		try {
-			properties.load(inputStream);
-		} catch (IOException e) {
-			throw new RuntimeException("Cannot read property file '" + propFileName + "'", e);
-		}
+		properties.put("ted.systemId", "smpl_1_5");
 		DataSource dataSource = dataSource();
 		TedDriver tedDriver = new TedDriver(TedDbType.POSTGRES, dataSource, properties);
 		return tedDriver;

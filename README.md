@@ -17,10 +17,10 @@ TED will check for new tasks in that table, retrieves them, call task processor 
 ##### Features
 Main features:
 - is a part of war (or other app), there are no needs for separate process;
-- tasks are in db, thus tasks remain after restart of tomcat, it is easy to browse history;  
+- tasks are in db, thus tasks remain after restart of app, it is easy to browse history ann manage using standard sql;  
 - there are _auto cleaning_ after 35 days;
 - task will be executed only by one application instance (any);
-- works with PostgreSQL (9.5+) or Oracle DB; from Java 1.6;
+- works with PostgreSQL (9.5+), Oracle DB or MySql (8+); from Java 1.6;
 - _task configuration_ is in separate ted.properties file;
 - it is possible to retry task by it's own _retry policy_;
 - _channels_ - allows to assign separate thread pools to different tasks; 
@@ -59,7 +59,7 @@ See [ted-scheduler](ted-ext/ted-scheduler/readme.md).
 <dependency>
    <groupId>com.github.labai</groupId>
    <artifactId>ted</artifactId>
-   <version>0.2.0</version>
+   <version>0.2.1</version>
 </dependency>
 ```
 
@@ -69,6 +69,8 @@ public class TedConfig {
   ...
   @Bean
   public TedDriver tedDriver(){
+  	...
+  	properties.load(getClass().getResourceAsStream("ted.properties"));
     ... 
     TedDriver tedDriver = new TedDriver(TedDbType.POSTGRES, dataSource, properties);
     // register factories, which returns TedProcessor object
@@ -97,14 +99,17 @@ public class TedJobs {
 tedDriver.createTask("DATA_SYN", "{\"customerId\" : \"1234\"}");
 ```
 
-Mode samples can be found in (ted)/ted-samples.
+See also [Start-to-use](docs/wiki/Start-to-use.md) in wiki. More samples can be found in [ted-samples](/labai/ted/tree/master/ted-samples).
+
 
 ## Structure
 
 #### tedtask table
 
 All tasks are stored into tedtask table, and ted-driver periodically check it for new tasks.
-_tedtask_ table structure:
+_tedtask_ table is important part of TED. As it is simple and open, 
+it is possible to use standard sql or some own tools to browse, monitor and manage tasks. 
+_tedtask_ structure:
 
 - `taskid  ` - Id - primary key
 - `system  ` - System id. E.g. myapp, or myapp.me for dev

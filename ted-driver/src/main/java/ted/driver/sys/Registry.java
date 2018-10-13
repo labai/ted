@@ -48,7 +48,7 @@ class Registry {
 			this.workerCount = workerCount;
 			this.taskBufferSize = taskBufferSize;
 			this.primeOnly = primeOnly;
-			this.workers = context.executors.createChannelExecutor(tedNamePrefix + "-" + name, workerCount, taskBufferSize + workerCount + CHANNEL_EXTRA_SIZE);
+			this.workers = context.executors.createChannelExecutor(name, tedNamePrefix + "-" + name, workerCount, taskBufferSize + workerCount + CHANNEL_EXTRA_SIZE);
 		}
 
 		void setHasPackProcessingTask() {

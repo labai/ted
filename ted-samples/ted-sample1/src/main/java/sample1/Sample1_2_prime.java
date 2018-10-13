@@ -29,15 +29,13 @@ public class Sample1_2_prime {
 
 	private static final String TASK_NAME = "PROCESS_LINE";
 
-	// connection to db co	nfiguration
+	// connection to db configuration
 	//d
 	private static DataSource dataSource() {
 		ComboPooledDataSource dataSource = new ComboPooledDataSource();
 		try {
 			dataSource.setDriverClass("org.postgresql.Driver");
 			dataSource.setJdbcUrl("jdbc:postgresql://localhost:5433/ted");
-//			dataSource.setDriverClass("oracle.jdbc.OracleDriver");
-//			dataSource.setJdbcUrl("jdbc:oracle:thin:@localhost:1521:XE");
 			dataSource.setUser("ted");
 			dataSource.setPassword("ted");
 		} catch (PropertyVetoException e) {
@@ -54,6 +52,7 @@ public class Sample1_2_prime {
 			throw new RuntimeException("Property file '" + propFileName + "' not found in the classpath");
 		try {
 			properties.load(inputStream);
+			inputStream.close();
 		} catch (IOException e) {
 			throw new RuntimeException("Cannot read property file '" + propFileName + "'", e);
 		}

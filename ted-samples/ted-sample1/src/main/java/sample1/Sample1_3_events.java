@@ -37,8 +37,6 @@ public class Sample1_3_events {
 		try {
 			dataSource.setDriverClass("org.postgresql.Driver");
 			dataSource.setJdbcUrl("jdbc:postgresql://localhost:5433/ted");
-//			dataSource.setDriverClass("oracle.jdbc.OracleDriver");
-//			dataSource.setJdbcUrl("jdbc:oracle:thin:@localhost:1521:XE");
 			dataSource.setUser("ted");
 			dataSource.setPassword("ted");
 		} catch (PropertyVetoException e) {
@@ -55,6 +53,7 @@ public class Sample1_3_events {
 			throw new RuntimeException("Property file '" + propFileName + "' not found in the classpath");
 		try {
 			properties.load(inputStream);
+			inputStream.close();
 		} catch (IOException e) {
 			throw new RuntimeException("Cannot read property file '" + propFileName + "'", e);
 		}

@@ -56,6 +56,7 @@ public class Sample1_4_batch {
 			throw new RuntimeException("Property file '" + propFileName + "' not found in the classpath");
 		try {
 			properties.load(inputStream);
+			inputStream.close();
 		} catch (IOException e) {
 			throw new RuntimeException("Cannot read property file '" + propFileName + "'", e);
 		}

@@ -56,6 +56,7 @@ public class Sample1_1_tasks {
 			throw new RuntimeException("Property file '" + propFileName + "' not found in the classpath");
 		try {
 			properties.load(inputStream);
+			inputStream.close();
 		} catch (IOException e) {
 			throw new RuntimeException("Cannot read property file '" + propFileName + "'", e);
 		}
@@ -89,7 +90,7 @@ public class Sample1_1_tasks {
 
 		// wait a while, while ted will process tasks. see processing info in logs
 		//
-		sleep(60000);
+		sleep(6000);
 
 		tedDriver.shutdown();
 		System.out.println("finish sample1_1_tasks");

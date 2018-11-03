@@ -17,8 +17,8 @@ import static ted.driver.sys.JdbcSelectTed.sqlParam;
 
 /**
  * @author Augustus
- * created on 2018.09.07
- * <p>
+ * 		   created on 2018.09.07
+ *
  * for TED internal usage only!!!
  */
 class TedDaoMysql extends TedDaoAbstract {

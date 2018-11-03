@@ -47,7 +47,7 @@ public class I09EventQueueTest extends TestBase {
 
 	@Before
 	public void init() throws IOException {
-		Assume.assumeTrue("Not for Oracle", TestConfig.testDbType == TedDbType.POSTGRES);
+		Assume.assumeTrue("For PostgreSQL only", TestConfig.testDbType == TedDbType.POSTGRES);
 
 		Properties properties = TestUtils.readPropertiesFile("ted-I09.properties");
 		this.driver = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), SYSTEM_ID, properties);

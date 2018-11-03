@@ -14,7 +14,8 @@ public final class Ted {
 	public enum TedDbType {
 		ORACLE,
 		POSTGRES,
-		MYSQL;
+		MYSQL,
+		HSQLDB; // for tests
 	}
 
 	public enum TedStatus {

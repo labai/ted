@@ -1,7 +1,10 @@
 package ted.driver.sys;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedDbType;
 import ted.driver.TedResult;
 import ted.driver.TedTask;
@@ -9,11 +12,6 @@ import ted.driver.sys.JdbcSelectTed.SqlParam;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.TestTedProcessors.SingeInstanceFactory;
 import ted.driver.sys.TestTedProcessors.TestProcessorOk;
-import org.junit.Assume;
-import org.junit.Before;
-import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -28,8 +26,6 @@ public class I10NotificationTest extends TestBase {
 
 	private TedDao tedDao;
 
-	private Gson gson = new GsonBuilder().setPrettyPrinting().create();
-
 	private static int counter = 0;
 
 	@Override
@@ -37,7 +33,7 @@ public class I10NotificationTest extends TestBase {
 
 	@Before
 	public void init() throws IOException {
-		Assume.assumeTrue("Not for Oracle", TestConfig.testDbType == TedDbType.POSTGRES);
+		Assume.assumeTrue("For PostgreSQL only", TestConfig.testDbType == TedDbType.POSTGRES);
 
 		driver1 = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), TestConfig.SYSTEM_ID);
 		driver2 = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), TestConfig.SYSTEM_ID);

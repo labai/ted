@@ -1,8 +1,18 @@
 package ted.driver.sys;
 
+import com.mchange.v2.c3p0.ComboPooledDataSource;
+import org.hsqldb.cmdline.SqlFile;
+import org.hsqldb.cmdline.SqlToolError;
 import ted.driver.Ted.TedDbType;
 
 import javax.sql.DataSource;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.Properties;
 
 /**
  * @author Augustus
@@ -11,51 +21,59 @@ import javax.sql.DataSource;
 class TestConfig {
 	static final boolean INT_TESTS_ENABLED = true;
 	static final String SYSTEM_ID = "ted.test";
-	static final TedDbType testDbType = TedDbType.POSTGRES; // which one we are testing
-	//static final TedDbType testDbType = TedDbType.ORACLE; // which one we are testing
-	//static final TedDbType testDbType = TedDbType.MYSQL; // which one we are testing
+	static final TedDbType testDbType = TedDbType.HSQLDB; // which one we are testing
 
-	static class TedConnOracle {
-		public final String URL;
-		public final String USER;
-		public final String PASSWORD;
-		public TedConnOracle() {
-			URL = "jdbc:oracle:thin:@localhost:1521:XE";
-			USER = "ted";
-			PASSWORD = "ted";
-		}
-	}
-
-	static class TedConnPostgres {
-		public final String URL;
-		public final String USER;
-		public final String PASSWORD;
-		public TedConnPostgres() {
-			URL = "jdbc:postgresql://localhost:5433/ted";
-			USER = "ted";
-			PASSWORD = "ted";
-		}
-	}
-
-	static class TedConnMysql {
-		public final String URL;
-		public final String USER;
-		public final String PASSWORD;
-		public TedConnMysql() {
-			URL = "jdbc:mysql://localhost:3308/ted";
-			USER = "ted";
-			PASSWORD = "ted";
-		}
-	}
+	private static final DataSource dataSource = initDataSource(testDbType);
 
 	static DataSource getDataSource() {
-		if (testDbType == TedDbType.ORACLE)
-			return TestUtils.dbConnectionProviderOracle();
-		if (testDbType == TedDbType.POSTGRES)
-			return TestUtils.dbConnectionProviderPostgres();
-		if (testDbType == TedDbType.MYSQL)
-			return TestUtils.dbConnectionProviderMysql();
-		throw new IllegalStateException("Invalid dbType:" + testDbType);
+		return dataSource;
+	}
+
+	private static DataSource initDataSource(TedDbType dbType) {
+		ComboPooledDataSource dataSource = null;
+		try {
+			Properties properties = TestUtils.readPropertiesFile("application-test.properties");
+			String prefix = "db." + dbType.toString().toLowerCase();
+			String driver = properties.getProperty(prefix + ".driver");
+			String url = properties.getProperty(prefix + ".url");
+			String user = properties.getProperty(prefix + ".user");
+			String password = properties.getProperty(prefix + ".password");
+			String initScript = properties.getProperty(prefix + ".initScript");
+			Class.forName(driver);
+			dataSource = new ComboPooledDataSource();
+			dataSource.setJdbcUrl(url);
+			dataSource.setUser(user);
+			dataSource.setPassword(password);
+			if (initScript != null && ! initScript.isEmpty()) {
+				executeInitScript(initScript, dataSource);
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+			System.exit(1);
+		} catch (ClassNotFoundException ex) {
+			System.out.println("Error: unable to load " + dbType + " jdbc driver class!");
+			System.exit(1);
+		}
+		return dataSource;
+	}
+
+	private static void executeInitScript(String scriptFile, DataSource dataSource) {
+		Connection connection = null;
+		try {
+			connection = dataSource.getConnection();
+			InputStream inputStream = TestConfig.class.getClassLoader().getResourceAsStream(scriptFile);
+			SqlFile sqlFile = new SqlFile(new InputStreamReader(inputStream), "init", System.out, "UTF-8", false, new File("."));
+			sqlFile.setConnection(connection);
+			sqlFile.execute();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		} catch (SqlToolError e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			try { if (connection != null) connection.close(); } catch (Exception e) { };
+		}
 	}
 
 }

@@ -255,6 +255,11 @@ public class I01SimpleTest extends TestBase {
 
 	@Test
 	public void test06GetPortionLocked() throws Exception {
+		if (driver.getContext().tedDao.getDbType() == DbType.HSQLDB) {
+			logger.warn("Skipped, as HSQLDB do not support locking");
+			return;
+		}
+
 		String taskName = "TEST01-05";
 		dao_cleanupAllTasks();
 

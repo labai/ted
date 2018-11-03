@@ -108,6 +108,10 @@ public final class TedDriverImpl {
 				context.tedDao = new TedDaoMysql(system, dataSource, context.stats);
 				context.tedDaoExt = new TedDaoExtNA("MySql");
 				break;
+			case HSQLDB:
+				context.tedDao = new TedDaoHsqldb(system, dataSource, context.stats);
+				context.tedDaoExt = new TedDaoExtNA("HSQLDB");
+				break;
 			default: throw new IllegalStateException("Invalid case " + dbType);
 		}
 		context.registry = new Registry(context);

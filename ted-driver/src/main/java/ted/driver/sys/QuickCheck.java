@@ -99,12 +99,6 @@ class QuickCheck {
 		for (CheckResult cres : checkResList) {
 			if ("CHAN".equals(cres.type) == false)
 				continue;
-			// filter prime tasks for non-prime instances
-			if (context.prime.isEnabled() && context.prime.isPrime() == false) {
-				Channel chan = context.registry.getChannel(cres.name);
-				if (chan == null || chan.primeOnly)
-					continue;
-			}
 			if (Model.CHANNEL_QUEUE.equals(cres.name)) {
 				needProcessTedQueue = true;
 			} else if (Model.CHANNEL_BATCH.equals(cres.name)) {
@@ -112,8 +106,16 @@ class QuickCheck {
 			} else if (Model.CHANNEL_NOTIFY.equals(cres.name)) {
 				needProcessTedNotify = true;
 			} else {
-				if (Model.nonTaskChannels.contains(cres.name) == false)
-					taskChannels.add(cres.name);
+				// filter prime tasks for non-prime instances
+				if (context.prime.isEnabled() && context.prime.isPrime() == false) {
+					Channel chan = context.registry.getChannel(cres.name);
+					if (chan == null || chan.primeOnly)
+						continue;
+				}
+				// filter other system (not task) channels
+				if (Model.nonTaskChannels.contains(cres.name))
+					continue;
+				taskChannels.add(cres.name);
 			}
 		}
 		if (! taskChannels.isEmpty()) {

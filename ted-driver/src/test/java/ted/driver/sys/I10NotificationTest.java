@@ -3,6 +3,7 @@ package ted.driver.sys;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedDbType;
@@ -10,13 +11,23 @@ import ted.driver.TedResult;
 import ted.driver.TedTask;
 import ted.driver.sys.JdbcSelectTed.SqlParam;
 import ted.driver.sys.Model.TaskRec;
+import ted.driver.sys.PrimeInstance.CheckPrimeParams;
+import ted.driver.sys.QuickCheck.CheckResult;
+import ted.driver.sys.TedDriverImpl.TedContext;
 import ted.driver.sys.TestTedProcessors.SingeInstanceFactory;
 import ted.driver.sys.TestTedProcessors.TestProcessorOk;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Matchers.anyBoolean;
+import static org.mockito.Matchers.isA;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 public class I10NotificationTest extends TestBase {
 	private final static Logger logger = LoggerFactory.getLogger(I10NotificationTest.class);
@@ -26,14 +37,12 @@ public class I10NotificationTest extends TestBase {
 
 	private TedDao tedDao;
 
-	private static int counter = 0;
-
 	@Override
 	protected TedDriverImpl getDriver() { return driver1; }
 
 	@Before
 	public void init() throws IOException {
-		Assume.assumeTrue("For PostgreSQL only", TestConfig.testDbType == TedDbType.POSTGRES);
+		Assume.assumeTrue("Not for Oracle", TestConfig.testDbType == TedDbType.POSTGRES);
 
 		driver1 = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), TestConfig.SYSTEM_ID);
 		driver2 = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), TestConfig.SYSTEM_ID);
@@ -78,7 +87,7 @@ public class I10NotificationTest extends TestBase {
 		TaskRec taskRec = tedDao.getTask(taskId);
 		TestUtils.print(taskRec.toString());
 		assertEquals("NEW", taskRec.status);
-		dao_execSql("update tedtask set nextts = nextts - interval '3 seconds' where taskid = " + taskId);
+		dao_execSql("update tedtask set nextts = nextts - interval '5 seconds' where taskid = " + taskId);
 		TestUtils.sleepMs(50);
 		driver1.getContext().notificationManager.processNotifications();
 		driver2.getContext().notificationManager.processNotifications();
@@ -90,5 +99,38 @@ public class I10NotificationTest extends TestBase {
 		assertEquals("2st instance called", 1, calls[1]);
 	}
 
+	@Test
+	public void test02SendNotification() {
+		final TedDriverImpl locDriver1 = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), TestConfig.SYSTEM_ID);
+		final TedDriverImpl locDriver2 = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), TestConfig.SYSTEM_ID);
+
+		locDriver1.prime().enable();
+		locDriver1.prime().init();
+		locDriver2.prime().enable();
+		locDriver2.prime().init();
+
+		TedContext context1 = locDriver1.getContext();
+		TedContext context2 = locDriver2.getContext();
+
+		context1.tedDao = Mockito.mock(TedDaoPostgres.class);
+		context1.notificationManager = Mockito.mock(NotificationManager.class);
+		context2.tedDao = Mockito.mock(TedDaoPostgres.class);
+		context2.notificationManager = Mockito.mock(NotificationManager.class);
+
+		List<CheckResult> chkres = new ArrayList<CheckResult>();
+		chkres.add(new CheckResult("CHAN", Model.CHANNEL_NOTIFY));
+		doReturn(chkres).when(context1.tedDao).quickCheck(isA(CheckPrimeParams.class), anyBoolean());
+		doReturn(chkres).when(context2.tedDao).quickCheck(isA(CheckPrimeParams.class), anyBoolean());
+
+		context1.quickCheck.quickCheck();
+		context2.quickCheck.quickCheck();
+
+		verify(context1.tedDao, times(1)).quickCheck(isA(CheckPrimeParams.class), anyBoolean());
+		verify(context1.notificationManager, times(1)).processNotifications();
+		verify(context2.tedDao, times(1)).quickCheck(isA(CheckPrimeParams.class), anyBoolean());
+		verify(context2.notificationManager, times(1)).processNotifications();
+
+
+	}
 
 }

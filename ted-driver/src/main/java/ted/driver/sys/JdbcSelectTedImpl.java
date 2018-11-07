@@ -13,6 +13,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.math.BigDecimal;
 import java.sql.CallableStatement;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLDataException;
@@ -284,10 +285,10 @@ class JdbcSelectTedImpl {
 
 	static <T> List<T> selectData(Connection connection, String sql, Class<T> clazz, List<SqlParam> sqlParams) throws SQLException {
 		List<T> list;
-		CallableStatement stmt = null;
+		PreparedStatement stmt = null;
 		ResultSet resultSet = null;
 		try {
-			stmt = connection.prepareCall(sql);
+			stmt = connection.prepareStatement(sql);
 			stmtAssignSqlParams(stmt, sqlParams);
 			resultSet = stmt.executeQuery();
 			list = resultSetToList(resultSet, clazz);
@@ -300,10 +301,10 @@ class JdbcSelectTedImpl {
 
 
 	static int executeUpdate(Connection connection, String sql, List<SqlParam> sqlParams) throws SQLException {
-		CallableStatement stmt = null;
+		PreparedStatement stmt = null;
 		int res = 0;
 		try {
-			stmt = connection.prepareCall(sql);
+			stmt = connection.prepareStatement(sql);
 			stmtAssignSqlParams(stmt, sqlParams);
 			res = stmt.executeUpdate();
 		} finally {
@@ -328,10 +329,10 @@ class JdbcSelectTedImpl {
 //	}
 
 	private static BigDecimal findDecimalSingleValue(Connection connection, String sql, List<SqlParam> sqlParams) throws SQLException {
-		CallableStatement stmt = null;
+		PreparedStatement stmt = null;
 		ResultSet resultSet = null;
 		try {
-			stmt = connection.prepareCall(sql);
+			stmt = connection.prepareStatement(sql);
 			stmtAssignSqlParams(stmt, sqlParams);
 			resultSet = stmt.executeQuery();
 			if (resultSet == null /*|| resultSet.isClosed()*/) // isClosed may throw AbstractMethod error for older versions of driver
@@ -393,37 +394,48 @@ class JdbcSelectTedImpl {
 	// support input STRING, INTEGER, LONG, TIMESTAMP, DATE, BLOB
 	// returns name of CURSOR parameter
 	// named parameters are not supported in Postgres
-	static String stmtAssignSqlParams(CallableStatement stmt, List<SqlParam> sqlParams) throws SQLException {
+	// for Oracle block/procedure call will use CallableStatement
+	private static String stmtAssignSqlParams(PreparedStatement stmt, List<SqlParam> sqlParams) throws SQLException {
 		String cursorParam = null;
 		if (sqlParams == null)
 			return null;
 
+		CallableStatement cstmt = null;
+		if (stmt instanceof CallableStatement) {
+			cstmt = (CallableStatement) stmt;
+		}
+
 		int pos = 0;
 		for (SqlParam param : sqlParams) {
 			pos++;
+			boolean isPositionalParam = (param.code == null); // named vs positional param
 			if (param.type == null)
 				throw new SQLDataException("Please provide parameter type for param.code='" + param.code + "' pos=" + pos);
+			if (isPositionalParam == false && cstmt == null)
+				throw new SQLDataException("To use named params, need to use CallableStatement (param.code='" + param.code + "' pos=" + pos + ")");
 
 			switch (param.type) {
 				case CURSOR:
+					if (cstmt == null)
+						throw new SQLDataException("Param type CURSOR is not allowed for preparedStatement");
 					cursorParam = param.code;
 					if (param.code == null)
-						stmt.registerOutParameter(pos, JetJdbcParamType.CURSOR.oracleId);
+						cstmt.registerOutParameter(pos, JetJdbcParamType.CURSOR.oracleId);
 					else
-						stmt.registerOutParameter(param.code, JetJdbcParamType.CURSOR.oracleId);
+						cstmt.registerOutParameter(param.code, JetJdbcParamType.CURSOR.oracleId);
 					break;
 				case STRING:
-					if (param.code == null)
+					if (isPositionalParam)
 						stmt.setString(pos, param.value == null ? null : param.value.toString());
 					else
-						stmt.setString(param.code, param.value == null ? null : param.value.toString());
+						cstmt.setString(param.code, param.value == null ? null : param.value.toString());
 					break;
 				case INTEGER: case LONG:
 					if (param.value == null) {
-						if (param.code == null)
+						if (isPositionalParam)
 							stmt.setNull(pos, Types.BIGINT);
 						else
-							stmt.setNull(param.code, Types.BIGINT);
+							cstmt.setNull(param.code, Types.BIGINT);
 					} else {
 						long val = 0;
 						if (param.value.getClass().isAssignableFrom(Integer.class)) {
@@ -431,38 +443,38 @@ class JdbcSelectTedImpl {
 						} else {
 							val = (Long) param.value;
 						}
-						if (param.code == null)
+						if (isPositionalParam)
 							stmt.setLong(pos, val);
 						else
-							stmt.setLong(param.code, val);
+							cstmt.setLong(param.code, val);
 					}
 					break;
 				case TIMESTAMP:
 					Date date1 = (Date) param.value;
-					if (param.code == null)
+					if (isPositionalParam)
 						stmt.setTimestamp(pos, param.value == null ? null : new Timestamp(date1.getTime()));
 					else
-						stmt.setTimestamp(param.code, param.value == null ? null : new Timestamp(date1.getTime()));
+						cstmt.setTimestamp(param.code, param.value == null ? null : new Timestamp(date1.getTime()));
 					break;
 				case DATE:
 					Date date2 = (Date) param.value;
-					if (param.code == null)
+					if (isPositionalParam)
 						stmt.setDate(pos, param.value == null ? null : new java.sql.Date(date2.getTime()));
 					else
-						stmt.setDate(param.code, param.value == null ? null : new java.sql.Date(date2.getTime()));
+						cstmt.setDate(param.code, param.value == null ? null : new java.sql.Date(date2.getTime()));
 					break;
 				case BLOB:
 					if (param.value == null) {
-						if (param.code == null)
+						if (isPositionalParam)
 							stmt.setBlob(pos, new ByteArrayInputStream(new byte[0]));
 						else
-							stmt.setBlob(param.code, new ByteArrayInputStream(new byte[0]));
+							cstmt.setBlob(param.code, new ByteArrayInputStream(new byte[0]));
 					} else {
 						byte[] bytes = (byte[]) param.value;
-						if (param.code == null)
+						if (isPositionalParam)
 							stmt.setBlob(pos, new ByteArrayInputStream(bytes), (int) bytes.length);
 						else
-							stmt.setBlob(param.code, new ByteArrayInputStream(bytes), (int) bytes.length);
+							cstmt.setBlob(param.code, new ByteArrayInputStream(bytes), (int) bytes.length);
 					}
 					break;
 				default:

@@ -40,11 +40,11 @@ class ConfigUtils {
 		public static final String DRIVER_INTERVAL_DRIVER_MS 		= "ted.driver.intervalDriverMs";
 		public static final String DRIVER_INTERVAL_MAINTENANCE_MS 	= "ted.driver.intervalMaintenanceMs";
 		// maintenance
-		public static final String DRIVER_OLD_TASK_ARCHIVE_DAYS		= "ted.maintenance.oldTaskArchiveDays";
+		public static final String DRIVER_OLD_TASK_ARCHIVE_DAYS	= "ted.maintenance.oldTaskArchiveDays";
 
 		// task defaults
 		public static final String TASKDEF_RETRY_PAUSES 			= "ted.taskDefault.retryPauses";
-		public static final String TASKDEF_TIMEOUT_MINUTES 			= "ted.taskDefault.timeoutMinutes";
+		public static final String TASKDEF_TIMEOUT_MINUTES 		= "ted.taskDefault.timeoutMinutes";
 		public static final String TASKDEF_BATCH_TIMEOUT_MINUTES	= "ted.taskDefault.batchTimeoutMinutes";
 
 		// short channel properties (w/o prefix "ted.channel.<CHANNEL>.")
@@ -54,9 +54,9 @@ class ConfigUtils {
 		public static final String CHANNEL_PRIME_ONLY	 = "primeOnly";
 
 		// short task properties (w/o prefix "ted.task.<TASK>.")
-		public static final String TASK_TIMEOUT_MINUTES			= "timeoutMinutes";
+		public static final String TASK_TIMEOUT_MINUTES		= "timeoutMinutes";
 		public static final String TASK_RETRY_PAUSES			= "retryPauses";
-		public static final String TASK_CHANNEL					= "channel";
+		public static final String TASK_CHANNEL				= "channel";
 		public static final String TASK_TYPE					= "taskType";
 		public static final String TASK_BATCH_TASK				= "batchTask";
 		public static final String TASK_BATCH_TIMEOUT_MINUTES	= "batchTimeoutMinutes";

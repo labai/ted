@@ -1,6 +1,6 @@
 package sample1;
 
-import com.mchange.v2.c3p0.ComboPooledDataSource;
+import com.zaxxer.hikari.HikariDataSource;
 import org.apache.commons.lang3.RandomUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,7 +10,6 @@ import ted.driver.TedResult;
 import ted.driver.TedTask;
 
 import javax.sql.DataSource;
-import java.beans.PropertyVetoException;
 import java.io.IOException;
 import java.util.Properties;
 
@@ -26,15 +25,11 @@ public class Sample1_5_notify {
 	// connection to db configuration
 	//
 	private static DataSource dataSource() {
-		ComboPooledDataSource dataSource = new ComboPooledDataSource();
-		try {
-			dataSource.setDriverClass("org.postgresql.Driver");
-			dataSource.setJdbcUrl("jdbc:postgresql://localhost:5433/ted");
-			dataSource.setUser("ted");
-			dataSource.setPassword("ted");
-		} catch (PropertyVetoException e) {
-			throw new RuntimeException(e);
-		}
+		HikariDataSource dataSource = new HikariDataSource();
+		dataSource.setDriverClassName("org.postgresql.Driver");
+		dataSource.setJdbcUrl("jdbc:postgresql://localhost:5433/ted");
+		dataSource.setUsername("ted");
+		dataSource.setPassword("ted");
 		return dataSource;
 	}
 
@@ -44,8 +39,6 @@ public class Sample1_5_notify {
 		DataSource dataSource = dataSource();
 		TedDriver tedDriver = new TedDriver(TedDbType.POSTGRES, dataSource, properties);
 		return tedDriver;
-
-
 	}
 
 	public static void main(String ... args) throws IOException {

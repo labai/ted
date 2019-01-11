@@ -1,6 +1,6 @@
 package ted.driver.sys;
 
-import com.mchange.v2.c3p0.ComboPooledDataSource;
+import com.zaxxer.hikari.HikariDataSource;
 import org.hsqldb.cmdline.SqlFile;
 import org.hsqldb.cmdline.SqlToolError;
 import ted.driver.Ted.TedDbType;
@@ -30,7 +30,7 @@ class TestConfig {
 	}
 
 	private static DataSource initDataSource(TedDbType dbType) {
-		ComboPooledDataSource dataSource = null;
+		HikariDataSource dataSource = null;
 		try {
 			Properties properties = TestUtils.readPropertiesFile("application-test.properties");
 			String prefix = "db." + dbType.toString().toLowerCase();
@@ -40,9 +40,9 @@ class TestConfig {
 			String password = properties.getProperty(prefix + ".password");
 			String initScript = properties.getProperty(prefix + ".initScript");
 			Class.forName(driver);
-			dataSource = new ComboPooledDataSource();
+			dataSource = new HikariDataSource();
 			dataSource.setJdbcUrl(url);
-			dataSource.setUser(user);
+			dataSource.setUsername(user);
 			dataSource.setPassword(password);
 			if (initScript != null && ! initScript.isEmpty()) {
 				executeInitScript(initScript, dataSource);

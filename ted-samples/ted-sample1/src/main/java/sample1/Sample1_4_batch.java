@@ -1,6 +1,6 @@
 package sample1;
 
-import com.mchange.v2.c3p0.ComboPooledDataSource;
+import com.zaxxer.hikari.HikariDataSource;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.RandomUtils;
 import org.slf4j.Logger;
@@ -11,7 +11,6 @@ import ted.driver.TedResult;
 import ted.driver.TedTask;
 
 import javax.sql.DataSource;
-import java.beans.PropertyVetoException;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -34,17 +33,13 @@ public class Sample1_4_batch {
 	// connection to db configuration
 	//
 	private static DataSource dataSource() {
-		ComboPooledDataSource dataSource = new ComboPooledDataSource();
-		try {
-			dataSource.setDriverClass("org.postgresql.Driver");
-			dataSource.setJdbcUrl("jdbc:postgresql://localhost:5433/ted");
-//			dataSource.setDriverClass("oracle.jdbc.OracleDriver");
-//			dataSource.setJdbcUrl("jdbc:oracle:thin:@localhost:1521:XE");
-			dataSource.setUser("ted");
-			dataSource.setPassword("ted");
-		} catch (PropertyVetoException e) {
-			throw new RuntimeException(e);
-		}
+		HikariDataSource dataSource = new HikariDataSource();
+		dataSource.setDriverClassName("org.postgresql.Driver");
+		dataSource.setJdbcUrl("jdbc:postgresql://localhost:5433/ted");
+//		dataSource.setDriverClass("oracle.jdbc.OracleDriver");
+//		dataSource.setJdbcUrl("jdbc:oracle:thin:@localhost:1521:XE");
+		dataSource.setUsername("ted");
+		dataSource.setPassword("ted");
 		return dataSource;
 	}
 

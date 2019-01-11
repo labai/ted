@@ -1,5 +1,6 @@
 package ted.scheduler;
 
+import com.zaxxer.hikari.HikariDataSource;
 import ted.driver.Ted.TedDbType;
 
 import javax.sql.DataSource;
@@ -13,22 +14,23 @@ class TestConfig {
 	static final String SYSTEM_ID = "ted.test";
 	static final TedDbType testDbType = TedDbType.POSTGRES; // which one we are testing
 
-
-	static class TedConnPostgres {
-		public final String URL;
-		public final String USER;
-		public final String PASSWORD;
-		public TedConnPostgres() {
-			URL = "jdbc:postgresql://localhost:5433/ted";
-			USER = "ted";
-			PASSWORD = "ted";
-		}
-	}
+	private static DataSource dataSource = null;
 
 	static DataSource getDataSource() {
-		if (testDbType == TedDbType.POSTGRES)
-			return TestUtils.dbConnectionProviderPostgres();
-		throw new IllegalStateException("Invalid dbType:" + testDbType);
+		synchronized (TestConfig.class) {
+			if (dataSource == null)
+				dataSource = dataSource();
+		}
+		return dataSource;
+	}
+
+	private static DataSource dataSource() {
+		HikariDataSource dataSource = new HikariDataSource();
+		dataSource.setDriverClassName("org.postgresql.Driver");
+		dataSource.setJdbcUrl("jdbc:postgresql://localhost:5433/ted");
+		dataSource.setUsername("ted");
+		dataSource.setPassword("ted");
+		return dataSource;
 	}
 
 }

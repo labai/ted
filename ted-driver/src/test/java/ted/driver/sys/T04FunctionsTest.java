@@ -1,19 +1,16 @@
 package ted.driver.sys;
 
-import ted.driver.sys.RetryConfig.PeriodPatternConfig;
 import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ted.driver.sys.Model.FieldValidator;
+import ted.driver.sys.RetryConfig.PeriodPatternConfig;
 
 import java.util.Map;
 import java.util.Properties;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 /**
  * @author Augustus
@@ -22,29 +19,24 @@ import static org.junit.Assert.fail;
 public class T04FunctionsTest {
 	private final static Logger logger = LoggerFactory.getLogger(T04FunctionsTest.class);
 
-	private boolean hasNonAscii(String str) {
-		if (str == null)
-			return false;
-		return !str.matches("\\A\\p{ASCII}*\\z");
-	}
-
 	@Test
-	public void testCallOracle() throws Exception {
-		//TaskRec taskRec = driver.getContext().tedDao.getTask(1508);
-		//print(taskRec.toString());
-		Pattern p = Pattern.compile("[^a-z0-9 \\_\\-\\.]", Pattern.CASE_INSENSITIVE);
-		Matcher m = p.matcher("abra -._kadabra");
-		boolean b = m.find();
-		TestUtils.print("found:" + b);
+	public void testFieldValidatorFunctions() {
+		assertFalse(FieldValidator.hasNonLetters(""));
+		assertFalse(FieldValidator.hasNonLetters("abCD12"));
+		assertTrue(FieldValidator.hasNonLetters("ą"));
+		assertTrue(FieldValidator.hasNonLetters("a_B"));
+		assertTrue(FieldValidator.hasNonLetters("a\nb"));
+		assertTrue(FieldValidator.hasNonLetters("a b"));
 
-		TestUtils.print("has nonascii:" + hasNonAscii("abra-\nkadabra ę"));
+		assertTrue(FieldValidator.hasInvalidChars("a b"));
+		assertTrue(FieldValidator.hasInvalidChars("a\nb"));
+		assertTrue(FieldValidator.hasInvalidChars("a*b"));
+		assertTrue(FieldValidator.hasInvalidChars(" ab"));
+		assertTrue(FieldValidator.hasInvalidChars("ab "));
+		assertFalse(FieldValidator.hasInvalidChars("abra-._kadabra"));
 
-
-		char nonAscii = 0x00FF;
-		String asciiText = "Hello";
-		String nonAsciiText = "Buy: " + nonAscii;
-		System.out.println(asciiText.matches("\\A\\p{ASCII}*\\z"));
-		System.out.println(nonAsciiText.matches("\\A\\p{ASCII}*\\z"));
+		assertFalse(FieldValidator.hasNonAscii("abra-kadabra"));
+		assertTrue(FieldValidator.hasNonAscii("abra-\nkadabra ę"));
 	}
 
 	@Test

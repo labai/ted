@@ -150,11 +150,11 @@ class Model {
 
 		// allows letters and numbers
 		private static final Pattern hasNonLettersPattern = Pattern.compile("[^a-z0-9]", Pattern.CASE_INSENSITIVE);
-		private static boolean hasNonLetters(String str){
+		static boolean hasNonLetters(String str){
 			Matcher m = hasNonLettersPattern.matcher(str);
 			return m.find();
 		}
-		private static boolean hasNonAscii(String str) {
+		static boolean hasNonAscii(String str) {
 			if (str == null)
 				return false;
 			return !str.matches("\\A\\p{ASCII}*\\z");

@@ -1,22 +1,27 @@
 package ted.driver.sys;
 
+import org.junit.Before;
 import org.junit.Ignore;
+import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedProcessor;
+import ted.driver.Ted.TedRetryScheduler;
 import ted.driver.Ted.TedStatus;
+import ted.driver.TedDriver.TedDriverConfig;
 import ted.driver.TedResult;
 import ted.driver.TedTask;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.TedDriverImpl.TedContext;
-import org.junit.Before;
-import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -195,6 +200,25 @@ public class I06DriverTest extends TestBase {
 		TestUtils.sleepMs(1000);
 		driver.shutdown(10); // no working tasks left after 50ms
 		TestUtils.print("finish test");
+
+	}
+
+	@Test
+	public void test06GetDriverConfig() throws Exception {
+
+		TedRetryScheduler fakeRetryScheduler = new TedRetryScheduler() {
+			@Override
+			public Date getNextRetryTime(TedTask task, int retryNumber, Date startTime) {
+				return null;
+			}
+		};
+		driver.registerTaskConfig("TASK6", TestTedProcessors.forClass(Test06ProcessorLongIgnoreInterrupt.class), 1, fakeRetryScheduler, Model.CHANNEL_MAIN);
+
+		TedDriverConfig config = driver.getTedDriverConfig();
+
+		assertEquals(fakeRetryScheduler, config.getTaskConfig("TASK6").getRetryScheduler());
+
+		assertNull(config.getTaskConfig("X"));
 
 	}
 

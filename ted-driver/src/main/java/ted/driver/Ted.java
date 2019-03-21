@@ -46,6 +46,7 @@ public final class Ted {
 	/**
 	 * TedRetryScheduler.
 	 * 		Consumer can configure next retry time.
+	 * 		Return null if no more retries allowed.
 	 */
 	public interface TedRetryScheduler {
 		Date getNextRetryTime(TedTask task, int retryNumber, Date startTime);

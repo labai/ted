@@ -6,8 +6,9 @@ import ted.driver.Ted.TedDbType;
 import ted.driver.Ted.TedProcessorFactory;
 import ted.driver.Ted.TedRetryScheduler;
 import ted.driver.Ted.TedStatus;
+import ted.driver.TedDriver.TedDriverConfig;
+import ted.driver.TedDriver.TedTaskConfig;
 import ted.driver.TedTask;
-import ted.driver.sys.Trash.TedMetricsEvents;
 import ted.driver.sys.ConfigUtils.TedConfig;
 import ted.driver.sys.ConfigUtils.TedProperty;
 import ted.driver.sys.Executors.ChannelThreadPoolExecutor;
@@ -17,6 +18,7 @@ import ted.driver.sys.Model.TaskParam;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.Registry.Channel;
 import ted.driver.sys.Registry.TaskConfig;
+import ted.driver.sys.Trash.TedMetricsEvents;
 
 import javax.sql.DataSource;
 import java.util.ArrayList;
@@ -299,7 +301,7 @@ public final class TedDriverImpl {
 			context.taskManager.sendTaskListToChannels(Collections.singletonList(taskRec));
 		} else {
 			// in this thread
-			context.taskManager.processTask(Collections.singletonList(taskRec));
+			context.taskManager.processTask(taskRec);
 		}
 		return taskId;
 	}
@@ -373,7 +375,7 @@ public final class TedDriverImpl {
 
 	public void registerTaskConfig(String taskName, TedProcessorFactory tedProcessorFactory, Integer workTimeoutInMinutes, TedRetryScheduler retryScheduler, String channel) {
 		FieldValidator.validateTaskName(taskName);
-		context.registry.registerTaskConfig(taskName, tedProcessorFactory, null, workTimeoutInMinutes, retryScheduler, channel);
+		context.registry.registerTaskConfig(taskName, tedProcessorFactory, workTimeoutInMinutes, retryScheduler, channel);
 	}
 
 	public void registerChannel(String channel, int workerCount, int taskBufferSize) {
@@ -393,6 +395,18 @@ public final class TedDriverImpl {
 		context.stats.setMetricsRegistry(metricsRegistry);
 	}
 
+
+	public TedDriverConfig getTedDriverConfig() {
+		return new TedDriverConfig() {
+			@Override
+			public TedTaskConfig getTaskConfig(String taskName) {
+				TaskConfig taskConfig = context.registry.getTaskConfig(taskName);
+				if (taskConfig == null)
+					return null;
+				return taskConfig.api;
+			}
+		};
+	}
 
 	//
 	// package scoped - for tests and ted-ext only

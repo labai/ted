@@ -60,7 +60,7 @@ class Model {
 			boolean isTimeout = msg != null && msg.startsWith(TIMEOUT_MSG);
 			TedStatus status = null;
 			try { status = TedStatus.valueOf(this.status); } catch (IllegalArgumentException e) { }
-			return new TedTask(this.taskId, this.name, this.key1, this.key2, this.data, this.batchId, this.retries, this.createTs, isTimeout, status);
+			return new TedTask(this.taskId, this.name, this.key1, this.key2, this.data, this.batchId, this.retries, this.createTs, this.startTs, isTimeout, status);
 		}
 
 	}

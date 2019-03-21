@@ -19,6 +19,7 @@ public class TedTask {
 	private final String data;
 	private final Integer retries;
 	private final Date createTs;
+	private final Date startTs;
 	private final Long batchId;
 	private final TedStatus status;
 	private final boolean isNew;
@@ -26,10 +27,11 @@ public class TedTask {
 	private final boolean isAfterTimeout;
 
 	public TedTask(Long taskId, String name, String key1, String key2, String data) {
-		this(taskId, name, key1, key2, data, null, 0, new Date(), false, TedStatus.NEW);
+		this(taskId, name, key1, key2, data, null, 0, new Date(), new Date(), false, TedStatus.NEW);
 	}
 
-	public TedTask(Long taskId, String name, String key1, String key2, String data, Long batchId, Integer retries, Date createTs, boolean isAfterTimeout, TedStatus status) {
+	/** for ted */
+	public TedTask(Long taskId, String name, String key1, String key2, String data, Long batchId, Integer retries, Date createTs, Date startTs, boolean isAfterTimeout, TedStatus status) {
 		if (status == null)
 			status = TedStatus.NEW;
 		boolean work = status == TedStatus.WORK;
@@ -39,7 +41,8 @@ public class TedTask {
 		this.key2 = key2;
 		this.data = data;
 		this.retries = retries;
-		this.createTs = createTs;
+		this.createTs = createTs == null ? null : new Date(createTs.getTime());
+		this.startTs = startTs == null ? null : new Date(startTs.getTime());
 		this.batchId = batchId;
 		this.status = status;
 		this.isRetry = status == TedStatus.RETRY || (work && retries != null && retries > 0);
@@ -54,11 +57,18 @@ public class TedTask {
 	public String getData() { return data; }
 	public Integer getRetries() { return retries; }
 	public Date getCreateTs() { return createTs; }
+	/** startTs - is time, when task was taken from db, but not actually started to process it */
+	public Date getStartTs() { return startTs; }
 	public Long getBatchId() { return batchId; }
 	public TedStatus getStatus() { return status; }
-	public boolean isRetry() { return isRetry; }
-	public boolean isAfterTimeout() { return isAfterTimeout; }
+
+	/** is task executing first time */
 	public boolean isNew() { return isNew; }
+	/** is task executing not first time */
+	public boolean isRetry() { return isRetry; }
+	/** is task after timout (was returned from status 'WORK') */
+	public boolean isAfterTimeout() { return isAfterTimeout; }
+
 
 	@Override
 	public String toString() {

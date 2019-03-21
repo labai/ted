@@ -1,14 +1,14 @@
 package ted.driver.sys;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedProcessorFactory;
 import ted.driver.Ted.TedRetryScheduler;
+import ted.driver.TedDriver.TedTaskConfig;
 import ted.driver.sys.ConfigUtils.TedProperty;
 import ted.driver.sys.Model.FieldValidator;
 import ted.driver.sys.RetryConfig.PeriodPatternRetryScheduler;
 import ted.driver.sys.TedDriverImpl.TedContext;
-import ted.driver.sys.Trash.TedPackProcessorFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -51,10 +51,6 @@ class Registry {
 			this.workers = context.executors.createChannelExecutor(name, tedNamePrefix + "-" + name, workerCount, taskBufferSize + workerCount + CHANNEL_EXTRA_SIZE);
 		}
 
-		void setHasPackProcessingTask() {
-			this.slowStartCount = TaskManager.MAX_TASK_COUNT;
-		}
-
 		int getSlowStartCount() { return this.slowStartCount; }
 
 		//
@@ -66,31 +62,28 @@ class Registry {
 	static class TaskConfig {
 		final String taskName;
 		final TedProcessorFactory tedProcessorFactory;
-		final TedPackProcessorFactory tedPackProcessorFactory;
 		final int workTimeoutMinutes;
 		final String channel;
 		final TedRetryScheduler retryScheduler;
 		final int batchTimeoutMinutes;
-		final boolean isPackProcessing;
 		final String shortLogName; // 5 letters name for threadName
 
 		public TaskConfig(String taskName, TedProcessorFactory tedProcessorFactory,
-				TedPackProcessorFactory tedPackProcessorFactory,
 				int workTimeoutMinutes, TedRetryScheduler retryScheduler, String channel,
 				int batchTimeoutMinutes) {
-			if ((tedProcessorFactory == null && tedPackProcessorFactory == null) || (tedProcessorFactory != null && tedPackProcessorFactory != null))
-				throw new IllegalStateException("must be 1 of tedProcessorFactory or tedPackProcessorFactory");
 			this.taskName = taskName;
 			this.tedProcessorFactory = tedProcessorFactory;
-			this.tedPackProcessorFactory = tedPackProcessorFactory;
 			this.workTimeoutMinutes = Math.max(workTimeoutMinutes, 1); // timeout, less than 1 minute, is invalid, as process will check timeouts only >= 1 min
 			this.retryScheduler = retryScheduler;
 			this.channel = channel == null ? Model.CHANNEL_MAIN : channel;
 			this.batchTimeoutMinutes = batchTimeoutMinutes;
-			this.isPackProcessing = tedPackProcessorFactory != null;
 			this.shortLogName = makeShortName(taskName);
 		}
 
+		// api for public
+		final TedTaskConfig api = new TedTaskConfig() {
+			@Override public TedRetryScheduler getRetryScheduler() { return retryScheduler; }
+		};
 	}
 
 	// not public (for internal Ted class only!)
@@ -118,16 +111,11 @@ class Registry {
 
 	/** register task with default/ted.properties settings */
 	public void registerTaskConfig(String taskName, TedProcessorFactory tedProcessorFactory) {
-		registerTaskConfig(taskName, tedProcessorFactory, null, null, null, null);
+		registerTaskConfig(taskName, tedProcessorFactory, null, null, null);
 	}
 
-	/** register task with default/ted.properties settings */
-	public void registerTaskConfig(String taskName, TedPackProcessorFactory tedPackProcessorFactory) {
-		registerTaskConfig(taskName, null, tedPackProcessorFactory, null, null, null);
-	}
 
 	void registerTaskConfig(String taskName, TedProcessorFactory tedProcessorFactory,
-			TedPackProcessorFactory tedPackProcessorFactory,
 			Integer workTimeoutInMinutes, TedRetryScheduler retryScheduler, String channel) {
 
 		if (tasks.containsKey(taskName)) {
@@ -153,9 +141,6 @@ class Registry {
 		Channel channelConfig = getChannel(channel);
 		if (channelConfig == null)
 			throw new IllegalArgumentException("Channel '" + channel + "' does not exists");
-		if (tedPackProcessorFactory != null)
-			channelConfig.setHasPackProcessingTask();
-
 
 		if (retryScheduler == null) {
 			String retryPattern = ConfigUtils.getString(shortProp, TedProperty.TASK_RETRY_PAUSES, context.config.defaultRetryPauses());
@@ -165,7 +150,7 @@ class Registry {
 		if (Model.nonTaskChannels.contains(channel))
 			throw new IllegalStateException("Channel '"+ channel +"' cannot be assigned to regular task - is is reserved for Ted");
 
-		TaskConfig ttc = new TaskConfig(taskName, tedProcessorFactory, tedPackProcessorFactory,
+		TaskConfig ttc = new TaskConfig(taskName, tedProcessorFactory,
 				workTimeoutInMinutes, retryScheduler, channel,
 				// taskType, batchTask,
 				batchTimeoutInMinutes);

@@ -21,9 +21,18 @@ public class TedDriver {
 	final TedDriverImpl tedDriverImpl; // for Ted ext, do not use in app
 	private final TedDbType dbType;
 	private final DataSource dataSource;
+	private final TedDriverConfig driverConfig; /* some info about driver configuration */
 
-	/* some info about driver configuration */
-//	public final TedDriverConfig config = new TedDriverConfig();
+
+	public interface TedTaskConfig {
+		TedRetryScheduler getRetryScheduler();
+		//String getChannel(); ...and so on...
+	}
+	public interface TedDriverConfig {
+		TedTaskConfig getTaskConfig(String taskName);
+//		public TedDbType dbType() { return dbType; }
+//		public DataSource dataSource() { return dataSource; }
+	}
 
 	/**
 	 *  dataSource - provides oracle db (with tedtask table) connection dataSource;
@@ -33,13 +42,9 @@ public class TedDriver {
 		this.tedDriverImpl = new TedDriverImpl(dbType, dataSource, properties);
 		this.dataSource = dataSource;
 		this.dbType = dbType;
+		this.driverConfig = tedDriverImpl.getTedDriverConfig();
 	}
 
-
-//	public class TedDriverConfig {
-//		public TedDbType dbType() { return dbType; }
-//		public DataSource dataSource() { return dataSource; }
-//	}
 
 	/**
 	 * start TED task manager
@@ -128,6 +133,10 @@ public class TedDriver {
 		return tedDriverImpl.getTask(taskId);
 	}
 
+	public TedDriverConfig getDriverConfig() {
+		return driverConfig;
+	}
+
 	//
 	// prime instance
 	//
@@ -151,4 +160,6 @@ public class TedDriver {
 //	public void setMetricsRegistry(TedMetricsEvents metricsRegistry){
 //		tedDriverImpl.setMetricsRegistry(metricsRegistry);
 //	}
+
+
 }

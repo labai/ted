@@ -6,23 +6,19 @@ import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedProcessor;
 import ted.driver.Ted.TedStatus;
 import ted.driver.TedResult;
-import ted.driver.TedTask;
 import ted.driver.sys.Executors.TedRunnable;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.Registry.Channel;
 import ted.driver.sys.Registry.TaskConfig;
 import ted.driver.sys.TedDriverImpl.TedContext;
-import ted.driver.sys.Trash.TedPackProcessor;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.ConcurrentModificationException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Queue;
 
 /**
@@ -58,6 +54,7 @@ class TaskManager {
 			this.nextSlowLimit = context.registry.getChannel(channelName).getSlowStartCount();
 		}
 	}
+
 	private Map<String, ChannelWorkContext> channelContextMap = new HashMap<String, ChannelWorkContext>();
 
 	private long lastRareMaintExecTimeMilis = System.currentTimeMillis();
@@ -122,7 +119,7 @@ class TaskManager {
 	}
 
 	// process TED tasks
-	// return flag, was any channel fully loaded
+	// return flag, was any of channels fully loaded
 	//
 	boolean processChannelTasks(List<String> waitChannelsList) {
 		int totalProcessing = calcWaitingTaskCountInAllChannels();
@@ -131,7 +128,6 @@ class TaskManager {
 			return false;
 		}
 
-		// List<String> waitChannelsList = context.tedDao.getWaitChannels();
 		if (waitChannelsList.isEmpty()) {
 			logger.trace("no wait tasks");
 			for (ChannelWorkContext wc : channelContextMap.values())
@@ -223,25 +219,16 @@ class TaskManager {
 				handleUnknownTasks(taskList);
 				continue;
 			}
-			if (taskConfig.isPackProcessing) {
-				logger.debug("got tasks (task={} count={}) for pack processing", trec1.name, taskList.size());
-				channel.workers.execute(new TedRunnable(taskList) {
+
+			for (final TaskRec taskRec : taskList) {
+				logger.debug("got task: " + taskRec);
+				context.stats.metrics.loadTask(taskRec.taskId, taskRec.name, taskRec.channel);
+				channel.workers.execute(new TedRunnable(taskRec) {
 					@Override
 					public void run() {
-						processTask(taskList);
+						processTask(taskRec);
 					}
 				});
-			} else {
-				for (final TaskRec taskRec : taskList) {
-					logger.debug("got task: " + taskRec);
-					context.stats.metrics.loadTask(taskRec.taskId, taskRec.name, taskRec.channel);
-					channel.workers.execute(new TedRunnable(taskRec) {
-						@Override
-						public void run() {
-							processTask(Collections.singletonList(taskRec));
-						}
-					});
-				}
 			}
 		}
 	}
@@ -260,87 +247,60 @@ class TaskManager {
 		}
 	}
 
-	// Remarks:
-	// - all tasks must be of same type (will not be checked)
-	//
-	Map<Long, TedResult> processTask(List<TaskRec> taskRecList) {
-		if (taskRecList == null || taskRecList.isEmpty())
-			throw new IllegalStateException("taskRecList is empty");
-		TaskRec taskRec1 = taskRecList.get(0);
+	void processTask(TaskRec taskRec) {
 
 		long startMs = System.currentTimeMillis();
 
-		for (TaskRec trec : taskRecList) { // fixme for pack's will use other method?
-			context.stats.metrics.startTask(trec.taskId, trec.name, trec.channel);
-		}
+		context.stats.metrics.startTask(taskRec.taskId, taskRec.name, taskRec.channel);
 
 		TedDao tedDao = context.tedDao;
 		String threadName = Thread.currentThread().getName();
 
-		Map<Long, TedResult> results = new HashMap<Long, TedResult>();
+		TedResult result = null;
 		try {
 
-			TaskConfig taskConfig = context.registry.getTaskConfig(taskRec1.name);
+			TaskConfig taskConfig = context.registry.getTaskConfig(taskRec.name);
 
-			Thread.currentThread().setName(threadName + "-" + taskConfig.shortLogName + "-" + taskRec1.taskId);
+			Thread.currentThread().setName(threadName + "-" + taskConfig.shortLogName + "-" + taskRec.taskId);
 
 			// process
 			//
-			if (taskConfig.isPackProcessing) {
-				TedPackProcessor processor = taskConfig.tedPackProcessorFactory.getPackProcessor(taskRec1.name);
-				List<TedTask> taskList = new ArrayList<TedTask>();
-				for (TaskRec taskRec : taskRecList)
-					taskList.add(taskRec.getTedTask());
-				results = processor.process(taskList);
-				if (results == null)
-					results = Collections.emptyMap();
-			} else {
-				if (taskRecList.size() != 1)
-					throw new IllegalStateException("taskRecList size must by 1");
-				TedProcessor processor = taskConfig.tedProcessorFactory.getProcessor(taskRec1.name);
-				TedResult result1 = processor.process(taskRec1.getTedTask());
-				results.put(taskRec1.taskId, result1);
-			}
+			TedProcessor processor = taskConfig.tedProcessorFactory.getProcessor(taskRec.name);
+
+			result = processor.process(taskRec.getTedTask());
 
 			// check results
 			//
-			for (TaskRec trec : taskRecList) {
-				TedResult result = results.get(trec.taskId);
-				if (result == null) {
-					changeTaskStatus(trec.taskId, TedStatus.ERROR, "result is null");
-				} else if (result.status == TedStatus.RETRY) {
-					Date nextTm = taskConfig.retryScheduler.getNextRetryTime(trec.getTedTask(), trec.retries + 1, trec.startTs);
-					if (nextTm == null) {
-						changeTaskStatus(trec.taskId, TedStatus.ERROR, "max retries. " + result.message);
-					} else {
-						tedDao.setStatusPostponed(trec.taskId, result.status, result.message, nextTm);
-					}
-				} else if (result.status == TedStatus.DONE || result.status == TedStatus.ERROR) {
-					changeTaskStatus(trec.taskId, result.status, result.message);
+			if (result == null) {
+				changeTaskStatus(taskRec.taskId, TedStatus.ERROR, "result is null");
+			} else if (result.status == TedStatus.RETRY) {
+				Date nextTm = taskConfig.retryScheduler.getNextRetryTime(taskRec.getTedTask(), taskRec.retries + 1, taskRec.startTs);
+				if (nextTm == null) {
+					changeTaskStatus(taskRec.taskId, TedStatus.ERROR, "max retries. " + result.message);
 				} else {
-					changeTaskStatus(trec.taskId, TedStatus.ERROR, "invalid result status: " + result.status);
+					tedDao.setStatusPostponed(taskRec.taskId, result.status, result.message, nextTm);
 				}
+			} else if (result.status == TedStatus.DONE || result.status == TedStatus.ERROR) {
+				changeTaskStatus(taskRec.taskId, result.status, result.message);
+			} else {
+				changeTaskStatus(taskRec.taskId, TedStatus.ERROR, "invalid result status: " + result.status);
 			}
+
 		} catch (Exception e) {
-			logger.info("Unhandled exception while calling processor for task '{}': {}", taskRec1.name, e.getMessage());
-			taskExceptionLogger.error("Unhandled exception while calling processor for task '" + taskRec1.name + "'", e);
+			logger.info("Unhandled exception while calling processor for task '{}': {}", taskRec.name, e.getMessage());
+			taskExceptionLogger.error("Unhandled exception while calling processor for task '" + taskRec.name + "'", e);
 			try {
-				TedResult resultError = TedResult.error("Catch: " + e.getMessage());
-				for (TaskRec taskRec : taskRecList) {
-					results.put(taskRec.taskId, resultError);
-					changeTaskStatus(taskRec.taskId, TedStatus.ERROR, resultError.message);
-				}
+				result = TedResult.error("Catch: " + e.getMessage());
+				changeTaskStatus(taskRec.taskId, TedStatus.ERROR, result.message);
 			} catch (Exception e1) {
-				logger.warn("Unhandled exception while handling exception for task '{}', statuses will be not changed: {}", taskRec1.name, e1.getMessage());
+				logger.warn("Unhandled exception while handling exception for task '{}', statuses will be not changed: {}", taskRec.name, e1.getMessage());
 			}
 		} finally {
 			Thread.currentThread().setName(threadName);
 		}
 
-		for (Entry<Long, TedResult> entry : results.entrySet()) { // fixme for pack's will use other method?
-			context.stats.metrics.finishTask(entry.getKey(), taskRec1.name, taskRec1.channel, entry.getValue().status, (int)(System.currentTimeMillis() - startMs));
-		}
-		return results;
+		context.stats.metrics.finishTask(taskRec.taskId, taskRec.name, taskRec.channel, (result == null ? TedStatus.ERROR : result.status), (int)(System.currentTimeMillis() - startMs));
+
 	}
 
 	int calcChannelBufferFree(Channel channel) {

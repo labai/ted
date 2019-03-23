@@ -20,8 +20,11 @@ import java.util.List;
 import java.util.Properties;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static ted.driver.sys.TestUtils.print;
+import static ted.driver.sys.TestUtils.sleepMs;
 
 public class I08PrimeInstanceTest extends TestBase {
 	private final static Logger logger = LoggerFactory.getLogger(I08PrimeInstanceTest.class);
@@ -65,13 +68,13 @@ public class I08PrimeInstanceTest extends TestBase {
 				return;
 			throw e;
 		}
-		TestUtils.print("created primeTaskId=" + primeTaskId + " inst=" + getContext().config.instanceId());
-		Assert.assertNotNull(primeTaskId);
+		print("created primeTaskId=" + primeTaskId + " inst=" + getContext().config.instanceId());
+		assertNotNull(primeTaskId);
 		//Assert.assertEquals(11L, (long)primeTaskId);
 
 		Long primeTaskId2 = tedDaoExt.findPrimeTaskId();
-		TestUtils.print("tried again primeTaskId=" + primeTaskId2);
-		Assert.assertNotNull(primeTaskId2);
+		print("tried again primeTaskId=" + primeTaskId2);
+		assertNotNull(primeTaskId2);
 		Assert.assertEquals((long)primeTaskId, (long)primeTaskId);
 
 		// insert next one
@@ -84,7 +87,7 @@ public class I08PrimeInstanceTest extends TestBase {
 			fail("should rise exception");
 		} catch (IllegalStateException e) {
 			// ok
-			TestUtils.print("got exception as expected");
+			print("got exception as expected");
 		}
 
 		// cleanup
@@ -106,23 +109,23 @@ public class I08PrimeInstanceTest extends TestBase {
 		final Long primeTaskId = tmpId;
 
 		CheckPrimeParams checkPrimeParams = new CheckPrimeParams() {
-			public boolean isPrime() { return true; };
-			public String instanceId() { return "abra1"; };
+			public boolean isPrime() { return true; }
+			public String instanceId() { return "abra1"; }
 			public long primeTaskId() { return primeTaskId; }
-			public int postponeSec() { return 1; };
+			public int postponeSec() { return 1; }
 
 		};
 		List<CheckResult> res = tedDao.quickCheck(checkPrimeParams, false);
-		TestUtils.print(gson.toJson(res));
+		print(gson.toJson(res));
 
-		TestUtils.sleepMs(20);
+		sleepMs(20);
 
 		boolean isPrime = tedDaoExt.becomePrime(primeTaskId, "abra1");
-		TestUtils.print("isPrime=" + isPrime);
+		print("isPrime=" + isPrime);
 		assertTrue("take 1st", isPrime);
-		TestUtils.sleepMs(20);
+		sleepMs(20);
 		boolean isPrime2 = tedDaoExt.becomePrime(primeTaskId, "abra2");
-		TestUtils.print("isPrime=" + isPrime2);
+		print("isPrime=" + isPrime2);
 		assertFalse("cannot take 2nd", isPrime2);
 
 	}

@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Properties;
 
 import static org.junit.Assert.*;
+import static ted.driver.sys.TestUtils.print;
 
 /**
  * @author Augustus
@@ -113,20 +114,20 @@ public class T04FunctionsTest {
 
 		Map<String, Properties> result = ConfigUtils.getShortPropertiesByPrefix(properties, "abra.channel.");
 		assertEquals(3, result.size());
-		Assert.assertTrue(result.containsKey("MAIN"));
-		Assert.assertTrue(result.containsKey("CHAN1"));
+		assertTrue(result.containsKey("MAIN"));
+		assertTrue(result.containsKey("CHAN1"));
 		assertEquals(2, result.get("MAIN").size());
-		Assert.assertTrue(result.get("MAIN").containsKey("workerMax"));
-		TestUtils.print(result.toString());
+		assertTrue(result.get("MAIN").containsKey("workerMax"));
+		print(result.toString());
 
 	}
 
 
 	@Test
 	public void testMakeShortName() throws Exception {
-		TestUtils.print(Registry.makeShortName(""));
-		TestUtils.print(Registry.makeShortName("A"));
-		TestUtils.print(Registry.makeShortName("a"));
+		print(Registry.makeShortName(""));
+		print(Registry.makeShortName("A"));
+		print(Registry.makeShortName("a"));
 		assertEquals("ASJB0", Registry.makeShortName("_ASA;pa ssdp-a"));
 
 	}

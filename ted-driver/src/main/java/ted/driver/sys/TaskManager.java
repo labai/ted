@@ -337,8 +337,6 @@ class TaskManager {
 				wc.dropNextSlowLimit();
 			}
 		}
-
-
 	}
 
 	int calcWaitingTaskCountInAllChannels() {

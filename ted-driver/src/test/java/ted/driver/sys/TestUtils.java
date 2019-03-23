@@ -1,5 +1,10 @@
 package ted.driver.sys;
 
+import org.awaitility.Awaitility;
+import org.awaitility.Duration;
+import org.awaitility.core.ConditionFactory;
+import ted.driver.sys.Model.TaskRec;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -7,12 +12,18 @@ import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Properties;
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
+
+import static java.util.Arrays.asList;
+import static org.awaitility.Awaitility.await;
 
 /**
  * @author Augustus
  *         created on 2016.09.20
  */
 class TestUtils {
+	static final Duration POLL_INTERVAL = new Duration(30, TimeUnit.MILLISECONDS);
 
 	private static SimpleDateFormat dateFormat = new SimpleDateFormat("mm:ss.SSS");
 
@@ -55,4 +66,27 @@ class TestUtils {
 	public static String shortTime(Date date) {
 		return dateFormat.format(date);
 	}
+
+	public static void awaitTask(int maxMs, Callable<Boolean> conditionEvaluator) {
+		Awaitility.await()
+				.pollDelay(5, TimeUnit.MILLISECONDS)
+				.pollInterval(POLL_INTERVAL)
+				.atMost(maxMs, TimeUnit.MILLISECONDS)
+				.until(conditionEvaluator);
+	}
+
+	public static void awaitUntilTaskFinish(final TedDriverImpl driver, final long taskId, int maxMs) {
+		awaitTask(maxMs, new Callable<Boolean>() {
+			@Override
+			public Boolean call() throws Exception {
+				//driver.getContext().taskManager.processChannelTasks();
+				TaskRec rec = driver.getContext().tedDao.getTask(taskId);
+				return ! asList("WORK", "NEW").contains(rec.status);
+			}
+		});
+	}
+
+//	public static void awaitTask(Callable<Boolean> conditionEvaluator) {
+//		awaitTask(200, conditionEvaluator);
+//	}
 }

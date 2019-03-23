@@ -53,41 +53,14 @@ class QuickCheck {
 		}
 	}
 
-	private static class ParsedResults {
-
-		private final Set<String> channelResults = new HashSet<String>();
+	private static class PrimeResult {
 		private final List<CheckResult> primeResults = new ArrayList<CheckResult>();
 
-		public ParsedResults(List<CheckResult> checkResList) {
+		public PrimeResult(List<CheckResult> checkResList) {
 			for (CheckResult cres : checkResList) {
 				if ("PRIM".equals(cres.type))
 					primeResults.add(cres);
-				if ("CHAN".equals(cres.type)) {
-					channelResults.add(cres.name);
-				}
 			}
-		}
-
-		public boolean needProcessTedQueue() {
-			return channelResults.contains(Model.CHANNEL_QUEUE);
-		}
-
-		public boolean needProcessTedBatch() {
-			return channelResults.contains(Model.CHANNEL_BATCH);
-		}
-
-		public boolean needProcessTedNotify() {
-			return channelResults.contains(Model.CHANNEL_NOTIFY);
-		}
-
-		public Set<String> getTaskChannels() {
-			Set<String> taskChannels = new HashSet<String>();
-			for (String chan : channelResults) {
-				if (Model.nonTaskChannels.contains(chan))
-					continue;
-				taskChannels.add(chan);
-			}
-			return taskChannels;
 		}
 
 		public boolean canPrime() {
@@ -118,6 +91,37 @@ class QuickCheck {
 			}
 			return false;
 		}
+
+	}
+
+	private static class ChannelResult {
+		private final Set<String> channelResults = new HashSet<String>();
+
+		public ChannelResult(List<CheckResult> checkResList) {
+			for (CheckResult cres : checkResList) {
+				if ("CHAN".equals(cres.type))
+					channelResults.add(cres.name);
+			}
+		}
+
+		public boolean needProcessTedQueue() {
+			return channelResults.contains(Model.CHANNEL_QUEUE);
+		}
+
+		public boolean needProcessTedBatch() {
+			return channelResults.contains(Model.CHANNEL_BATCH);
+		}
+
+		public boolean needProcessTedNotify() {
+			return channelResults.contains(Model.CHANNEL_NOTIFY);
+		}
+
+		public Set<String> getTaskChannels() {
+			Set<String> taskChannels = new HashSet<String>(channelResults);
+			taskChannels.removeAll(Model.nonTaskChannels);
+			return taskChannels;
+		}
+
 	}
 
 	public void quickCheck() {
@@ -132,13 +136,14 @@ class QuickCheck {
 
 		long checkDurationMs = System.currentTimeMillis() - startTs;
 
-		ParsedResults results = new ParsedResults(checkResList);
+		PrimeResult primeResult = new PrimeResult(checkResList);
+		ChannelResult channelResult = new ChannelResult(checkResList);
 
-		handleResultSystemChannels(results);
+		handleResultSystemChannels(channelResult);
 
-		handleResultTaskChannels(results, checkDurationMs);
+		handleResultTaskChannels(channelResult, checkDurationMs);
 
-		handleResultPrime(results);
+		handleResultPrime(primeResult);
 
 	}
 
@@ -186,8 +191,8 @@ class QuickCheck {
 		return checkResList;
 	}
 
-	private void handleResultTaskChannels(ParsedResults results, long checkDurationMs) {
-		Set<String> allTaskChannels = results.getTaskChannels();
+	private void handleResultTaskChannels(ChannelResult channelResult, long checkDurationMs) {
+		Set<String> allTaskChannels = channelResult.getTaskChannels();
 
 		List<String> taskChannels = new ArrayList<String>();
 
@@ -213,31 +218,31 @@ class QuickCheck {
 
 	}
 
-	private void handleResultSystemChannels(ParsedResults checkResults) {
-		if (checkResults.needProcessTedQueue()) {
+	private void handleResultSystemChannels(ChannelResult channelResult) {
+		if (channelResult.needProcessTedQueue()) {
 			context.eventQueueManager.processTedQueue();
 		}
-		if (checkResults.needProcessTedBatch()) {
+		if (channelResult.needProcessTedBatch()) {
 			context.batchWaitManager.processBatchWaitTasks();
 		}
-		if (checkResults.needProcessTedNotify()) {
+		if (channelResult.needProcessTedNotify()) {
 			context.notificationManager.processNotifications();
 		}
 
 	}
 
-	private void handleResultPrime(ParsedResults checkResults) {
+	private void handleResultPrime(PrimeResult primeResult) {
 		if (! context.prime.isEnabled())
 			return;
 
-		Date tillTs = checkResults.nextPrimeCheck();
+		Date tillTs = primeResult.nextPrimeCheck();
 		if (tillTs != null) {
 			nextPrimeCheckTimeMs = Math.min(System.currentTimeMillis() + 3000, tillTs.getTime());
 		}
 
-		if (context.prime.isPrime() && checkResults.lostPrime()) {
+		if (context.prime.isPrime() && primeResult.lostPrime()) {
 			context.prime.lostPrime();
-		} else if (! context.prime.isPrime() && checkResults.canPrime()) {
+		} else if (! context.prime.isPrime() && primeResult.canPrime()) {
 			context.prime.becomePrime();
 		}
 	}

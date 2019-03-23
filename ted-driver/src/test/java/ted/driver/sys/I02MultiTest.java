@@ -1,5 +1,6 @@
 package ted.driver.sys;
 
+import org.junit.Ignore;
 import ted.driver.sys.Registry.Channel;
 import ted.driver.sys.TestTedProcessors.TestProcessorOk;
 import org.junit.Before;
@@ -59,6 +60,7 @@ public class I02MultiTest extends TestBase {
 
 	// test 2 instances
 	// 1-st will take 20 tasks of 30 (2 workers * 10), 2-nd - remaining 10
+	@Ignore
 	@Test
 	public void test01FullQueue() throws Exception {
 		String taskName = "TEST02-01";

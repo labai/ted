@@ -95,7 +95,7 @@ public class I03MaintenanceTest extends TestBase {
 		assertEquals("WORK", taskRec.status);
 
 		// change startTs to test work timeout
-		dao_setStartTs(taskId, new Date(new Date().getTime() - 121 * 1000));
+		dao_setStartTs(taskId, new Date(System.currentTimeMillis() - 121 * 1000));
 		taskRec = context.tedDao.getTask(taskId);
 		//print(taskRec.toString() + " startTs=" + taskRec.startTs);
 
@@ -139,7 +139,7 @@ public class I03MaintenanceTest extends TestBase {
 		assertNull(taskRec.finishTs); // finish time is not set in beginning
 
 		// 1. 30 min - still working
-		dao_setStartTs(taskId, new Date(new Date().getTime() - 31 * 60 * 1000));
+		dao_setStartTs(taskId, new Date(System.currentTimeMillis() - 31 * 60 * 1000));
 		context.taskManager.processMaintenanceTasks();
 		taskRec = context.tedDao.getTask(taskId);
 		print(taskRec.toString() + " startTs=" + MiscUtils.toTimeString(taskRec.startTs));
@@ -173,8 +173,8 @@ public class I03MaintenanceTest extends TestBase {
 
 		// 2. after 1 day - must go to error
 		print("Setting createTs to > 1 day ago");
-		dao_setCreateTs(taskId, new Date(new Date().getTime() - 24 * 60 * 61 * 1000));
-		dao_setNextTs(taskId, new Date(new Date().getTime() - 2 * 1000));
+		dao_setCreateTs(taskId, new Date(System.currentTimeMillis() - 24 * 60 * 61 * 1000));
+		dao_setNextTs(taskId, new Date(System.currentTimeMillis() - 2 * 1000));
 
 		context.taskManager.processChannelTasks();
 		Thread.sleep(20);
@@ -211,7 +211,7 @@ public class I03MaintenanceTest extends TestBase {
 		assertNull(taskRec.finishTs); // finish time is not set in beginning
 
 		// change startTs to test work timeout - more than 40 minutes - should go to ERROR
-		dao_setStartTs(taskId, new Date(new Date().getTime() - 41 * 60 * 1000));
+		dao_setStartTs(taskId, new Date(System.currentTimeMillis() - 41 * 60 * 1000));
 		taskRec = context.tedDao.getTask(taskId);
 		print(taskRec.toString() + " startTs=" + MiscUtils.toTimeString(taskRec.startTs));
 		context.taskManager.processMaintenanceTasks();
@@ -241,7 +241,7 @@ public class I03MaintenanceTest extends TestBase {
 		TaskRec taskRec = context.tedDao.getTask(taskId);
 		//print(taskRec.toString() + " startTs=" + taskRec.startTs);
 		assertEquals("DONE", taskRec.status);
-		Assert.assertEquals(5, driver.getContext().config.oldTaskArchiveDays()); // from config
+		assertEquals(5, driver.getContext().config.oldTaskArchiveDays()); // from config
 		context.tedDao.processMaintenanceRare(driver.getContext().config.oldTaskArchiveDays());
 
 		taskRec = context.tedDao.getTask(taskId); // should still exists

@@ -1,5 +1,7 @@
 package ted.driver.sys;
 
+import org.awaitility.Awaitility;
+import org.awaitility.Duration;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -13,6 +15,8 @@ import ted.driver.sys.JdbcSelectTed.SqlParam;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.TedDaoAbstract.DbType;
 import ted.driver.sys.TedDriverImpl.TedContext;
+import ted.driver.sys.TestTedProcessors.OnTaskFinishListener;
+import ted.driver.sys.TestTedProcessors.OnTaskFinishListener.OnFinish;
 import ted.driver.sys.TestTedProcessors.TestProcessorException;
 import ted.driver.sys.TestTedProcessors.TestProcessorOk;
 
@@ -23,9 +27,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
-import static org.junit.Assert.*;
+import static java.util.Arrays.asList;
+import static org.awaitility.Awaitility.await;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static ted.driver.sys.TestTedProcessors.forClass;
+import static ted.driver.sys.TestUtils.awaitUntilTaskFinish;
+import static ted.driver.sys.TestUtils.print;
+import static ted.driver.sys.TestUtils.sleepMs;
 
 /**
  * @author Augustus
@@ -45,7 +61,7 @@ public class I01SimpleTest extends TestBase {
 		Properties properties = TestUtils.readPropertiesFile("ted-I01.properties");
 		driver = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), TestConfig.SYSTEM_ID, properties);
 		this.context = driver.getContext();
-
+		dao_cleanupAllTasks();
 	}
 
 	private static class DateVal {
@@ -63,8 +79,8 @@ public class I01SimpleTest extends TestBase {
 		Date sqlNow = res.get(0).dateVal;
 		//Date sqlNow =  new Date(res.get(0).dateVal.getTime());
 		Date after = new Date();
-		TestUtils.print(TestUtils.shortTime(before) + " - " + TestUtils.shortTime(sqlNow) + " - " + TestUtils.shortTime(after));
-		TestUtils.print(before.getTime() + " - " + sqlNow.getTime() + " - " + after.getTime());
+		print(TestUtils.shortTime(before) + " - " + TestUtils.shortTime(sqlNow) + " - " + TestUtils.shortTime(after));
+		print(before.getTime() + " - " + sqlNow.getTime() + " - " + after.getTime());
 		assertTrue("clocks differs between db server and this machine(1)", before.compareTo(sqlNow) <= 0);
 		assertTrue("clocks differs between db server and this machine(2)", sqlNow.compareTo(after) <= 0);
 	}
@@ -133,55 +149,52 @@ public class I01SimpleTest extends TestBase {
 	}
 
 	@Test
-	public void test02CreateAndDone() throws Exception {
+	public void test02CreateAndDone() {
 		String taskName = "TEST01-02";
 
 		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class));
 
-
-		Long taskId = driver.createTask(taskName, null, null, null);
+		final Long taskId = driver.createTask(taskName, null, null, null);
 
 		TaskRec taskRec = driver.getContext().tedDao.getTask(taskId);
-		TestUtils.print(taskRec.toString());
+		print(taskRec.toString());
 		assertEquals("NEW", taskRec.status);
 
 		// will start parallel
 		driver.getContext().taskManager.processChannelTasks();
 
 		taskRec = driver.getContext().tedDao.getTask(taskId);
-		TestUtils.print(taskRec.toString());
+		print(taskRec.toString());
 		assertEquals("WORK", taskRec.status);
 
-		TestUtils.sleepMs(500);
+		awaitUntilTaskFinish(driver, taskId, 500);
 
-		// here we wait for time, not finish event, so sometimes it can fail
 		taskRec = driver.getContext().tedDao.getTask(taskId);
 		assertEquals("DONE", taskRec.status);
 
 	}
 
 	@Test
-	public void test03CreateAndException() throws Exception {
+	public void test03CreateAndException() {
 		String taskName = "TEST01-03";
 
 		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorException.class));
 
-		Long taskId = driver.createTask(taskName, null, null, null);
+		final Long taskId = driver.createTask(taskName, null, null, null);
 
 		TaskRec taskRec = driver.getContext().tedDao.getTask(taskId);
-		TestUtils.print(taskRec.toString());
+		print(taskRec.toString());
 		assertEquals("NEW", taskRec.status);
 
 		// will start parallel
 		driver.getContext().taskManager.processChannelTasks();
 
 		taskRec = driver.getContext().tedDao.getTask(taskId);
-		TestUtils.print(taskRec.toString());
+		print(taskRec.toString());
 		assertEquals("WORK", taskRec.status);
 
-		TestUtils.sleepMs(50);
+		awaitUntilTaskFinish(driver, taskId, 100);
 
-		// here we wait for time, not finish event, so sometimes it can fail
 		taskRec = driver.getContext().tedDao.getTask(taskId);
 		assertEquals("ERROR", taskRec.status);
 		assertEquals("Catch: Test runtime exception", taskRec.msg);
@@ -192,7 +205,9 @@ public class I01SimpleTest extends TestBase {
 		@Override
 		public TedResult process(TedTask task)  {
 			logger.info(this.getClass().getSimpleName() + " process");
-			TestUtils.sleepMs(20);
+			sleepMs(20);
+			if (task.getRetries() >= 2)
+				return TedResult.retry("done");
 			return TedResult.retry("temporary problems");
 		}
 	}
@@ -201,10 +216,18 @@ public class I01SimpleTest extends TestBase {
 	@Test
 	public void test04CreateAndRetry() throws Exception {
 		String taskName = "TEST01-04";
-
+		final CountDownLatch latch = new CountDownLatch(1);
 		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test01ProcessorRetry.class));
 
-		Long taskId = driver.createTask(taskName, null, null, null);
+		final Long taskId = driver.createTask(taskName, null, null, null);
+
+		driver.setMetricsRegistry(new OnTaskFinishListener(new OnFinish() {
+			@Override
+			public void onFinishTask(long ataskId, TedStatus status) {
+				if (ataskId != taskId) return;
+				latch.countDown();
+			}
+		}));
 
 		TaskRec taskRec = driver.getContext().tedDao.getTask(taskId);
 		//print(taskRec.toString());
@@ -217,20 +240,20 @@ public class I01SimpleTest extends TestBase {
 		//print(taskRec.toString());
 		assertEquals("WORK", taskRec.status);
 
-		TestUtils.sleepMs(50);
+		latch.await(200, TimeUnit.MILLISECONDS);
 
-		// here we wait for time, not finish event, so sometimes it can fail
 		taskRec = driver.getContext().tedDao.getTask(taskId);
-		long deltaMs = taskRec.nextTs.getTime() - new Date().getTime();
-		TestUtils.print(taskRec.toString() + " deltaMs:" + deltaMs);
+		long deltaMs = taskRec.nextTs.getTime() - System.currentTimeMillis();
+		print(taskRec.toString() + " deltaMs:" + deltaMs);
 		assertEquals("RETRY", taskRec.status);
 		assertTrue("next ts in 12 +/- 15% sec", (deltaMs > 9000 && deltaMs < 14000));
 		assertEquals(1, (long)taskRec.retries);
+
 	}
 
 
 	@Test
-	public void test05GetPortion() throws Exception {
+	public void test05GetPortion() {
 		String taskName = "TEST01-05";
 		driver.getContext().registry.registerChannel("TEST1", 5, 100);
 		//driver.registerTaskConfig(taskName, forClass(Test01ProcessorRetry.class), 1, null, "TEST1");

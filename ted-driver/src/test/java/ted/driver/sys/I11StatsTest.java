@@ -15,6 +15,8 @@ import java.util.Properties;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static ted.driver.sys.TestUtils.print;
+import static ted.driver.sys.TestUtils.sleepMs;
 
 public class I11StatsTest extends TestBase {
 	private final static Logger logger = LoggerFactory.getLogger(I01SimpleTest.class);
@@ -43,19 +45,19 @@ public class I11StatsTest extends TestBase {
 		Long taskId = driver.createTask(taskName, null, null, null);
 
 		TaskRec taskRec = driver.getContext().tedDao.getTask(taskId);
-		TestUtils.print(taskRec.toString());
+		print(taskRec.toString());
 		assertEquals("NEW", taskRec.status);
 
 		// will start parallel
 		driver.getContext().taskManager.processChannelTasks();
 
 		taskRec = driver.getContext().tedDao.getTask(taskId);
-		TestUtils.print(taskRec.toString());
+		print(taskRec.toString());
 		assertEquals("WORK", taskRec.status);
 
-		TestUtils.sleepMs(500);
+		sleepMs(500);
 
-		// here we wait for time, not finish event, so sometimes it can fail
+		// here we wait for time, not finish event..
 		taskRec = driver.getContext().tedDao.getTask(taskId);
 		assertEquals("DONE", taskRec.status);
 

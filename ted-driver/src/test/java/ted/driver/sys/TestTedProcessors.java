@@ -1,11 +1,15 @@
 package ted.driver.sys;
 
-import ted.driver.Ted.TedProcessor;
-import ted.driver.Ted.TedProcessorFactory;
-import ted.driver.TedResult;
-import ted.driver.TedTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ted.driver.Ted.TedProcessor;
+import ted.driver.Ted.TedProcessorFactory;
+import ted.driver.Ted.TedStatus;
+import ted.driver.TedResult;
+import ted.driver.TedTask;
+import ted.driver.sys.Trash.TedMetricsEvents;
+
+import static ted.driver.sys.TestUtils.sleepMs;
 
 public class TestTedProcessors {
 	private final static Logger logger = LoggerFactory.getLogger(TestTedProcessors.class);
@@ -15,7 +19,7 @@ public class TestTedProcessors {
 		@Override
 		public TedResult process(TedTask task)  {
 			logger.info(this.getClass().getSimpleName() + " process " + task);
-			TestUtils.sleepMs(20);
+			sleepMs(20);
 			if (++inum % 10 == 0)
 				return TedResult.retry("error-" + inum);
 			return TedResult.done();
@@ -35,7 +39,7 @@ public class TestTedProcessors {
 		@Override
 		public TedResult process(TedTask task)  {
 			logger.info(this.getClass().getSimpleName() + " process " + task);
-			TestUtils.sleepMs(5);
+			sleepMs(5);
 			if (++inum > okCount)
 				return fail;
 			return TedResult.done();
@@ -49,7 +53,7 @@ public class TestTedProcessors {
 		@Override
 		public TedResult process(TedTask task)  {
 			logger.info(this.getClass().getSimpleName() + " process");
-			TestUtils.sleepMs(20);
+			sleepMs(20);
 			return TedResult.done();
 		}
 	}
@@ -62,7 +66,7 @@ public class TestTedProcessors {
 		@Override
 		public TedResult process(TedTask task)  {
 			logger.info(this.getClass().getSimpleName() + " process");
-			TestUtils.sleepMs(sleepMs);
+			sleepMs(sleepMs);
 			return TedResult.done();
 		}
 	}
@@ -72,7 +76,7 @@ public class TestTedProcessors {
 		@Override
 		public TedResult process(TedTask task)  {
 			logger.info(this.getClass().getSimpleName() + " process");
-			TestUtils.sleepMs(20);
+			sleepMs(20);
 			throw new RuntimeException("Test runtime exception");
 		}
 	}
@@ -109,4 +113,27 @@ public class TestTedProcessors {
 			}
 		};
 	}
+
+	public static class OnTaskFinishListener implements TedMetricsEvents {
+		public interface OnFinish {
+			void onFinishTask(long taskId, TedStatus status);
+		}
+		private final OnFinish onFinish;
+
+		public OnTaskFinishListener(OnFinish onFinish) {
+			this.onFinish = onFinish;
+		}
+
+		@Override public void dbCall(String logId, int resultCount, int durationMs) { }
+		@Override public void loadTask(long taskId, String taskName, String channel) { }
+		@Override public void startTask(long taskId, String taskName, String channel) { }
+
+		@Override
+		public void finishTask(long taskId, String taskName, String channel, TedStatus status, int durationMs) {
+			onFinish.onFinishTask(taskId, status);
+		}
+	}
+
+
 }
+

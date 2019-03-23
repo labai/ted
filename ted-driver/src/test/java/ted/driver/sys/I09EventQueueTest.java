@@ -227,7 +227,7 @@ public class I09EventQueueTest extends TestBase {
 		driver.getContext().eventQueueManager.processTedQueue();
 
 		sleepMs(2000);
-		// here we wait for time, not finish event, so sometimes it can fail
+		// here we wait for time, not finish event..
 		TaskRec taskRec = driver.getContext().tedDao.getTask(taskId);
 		assertEquals("DONE", taskRec.status);
 	}

@@ -86,10 +86,6 @@ class Registry {
 		};
 	}
 
-	// not public (for internal Ted class only!)
-	public interface ITedProcessorFactory {
-	}
-
 	static String makeShortName(String taskName) {
 		final int prefixLen = 2, hashLen = 3;
 		if (taskName.length() <= prefixLen + hashLen)

@@ -312,7 +312,6 @@ abstract class TedDaoAbstract implements TedDao {
 		sql = sql.replace("$systemCheck", systemCheck);
 		execute("maint02", sql, Collections.<SqlParam>emptyList());
 
-
 		if (dbType == DbType.POSTGRES) { // eventsQueue is not for Oracle
 			// find queue events w/o head
 			sql = "with headless as (" +
@@ -370,7 +369,7 @@ abstract class TedDaoAbstract implements TedDao {
 		return results.isEmpty() ? null : results.get(0);
 	}
 
-	// TODO is not really bulk
+	// is not really bulk...
 	// for postgres will be override
 	@Override
 	public List<Long> createTasksBulk(List<TaskParam> taskParams) {
@@ -410,29 +409,6 @@ abstract class TedDaoAbstract implements TedDao {
 		));
 	}
 
-//	private static class StatsRes {
-//		String status;
-//		Integer cnt;
-//	}
-
-	// TODO remove?
-//	@Override
-//	public Map<TedStatus, Integer> getBatchStatusStats(long batchId) {
-//		String sqlLogId = "batch_stats";
-//		String sql = "select status, count(*) as cnt from tedtask where $systemCheck"
-//				+ " and batchid = ?"
-//				+ " group by status";
-//		sql = sql.replace("$sys", thisSystem);
-//		List<StatsRes> statsResults = selectData(sqlLogId, sql, StatsRes.class, asList(
-//				sqlParam(batchId, JetJdbcParamType.LONG)
-//		));
-//		Map<TedStatus, Integer> resMap = new HashMap<TedStatus, Integer>();
-//		for (StatsRes stats : statsResults) {
-//			TedStatus status = TedStatus.valueOf(stats.status);
-//			resMap.put(status, stats.cnt);
-//		}
-//		return resMap;
-//	}
 
 	protected Long getSequenceNextValue(String seqName) {
 		return selectSingleLong("get_sequence", dbType.sql.sequenceSelect(seqName));

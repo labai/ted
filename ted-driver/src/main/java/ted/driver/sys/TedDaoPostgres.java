@@ -50,6 +50,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 	public List<CheckResult> quickCheck(CheckPrimeParams checkPrimeParams, boolean skipChannelCheck) {
 		String sql = "";
 		String logId = "";
+
 		if (checkPrimeParams != null) {
 			String sqlPrime;
 			if (checkPrimeParams.isPrime()) {
@@ -74,6 +75,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 			sqlPrime = sqlPrime.replace("$primeTaskId", Long.toString(checkPrimeParams.primeTaskId()));
 			sql += sqlPrime;
 		}
+
 		// check for new tasks
 		if (! skipChannelCheck) {
 			if (! sql.isEmpty())
@@ -83,6 +85,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 					+ " where system = '$sys' and nextTs <= $now";
 			logId = "a" + logId;
 		}
+
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$now", dbType.sql.now());
 
@@ -99,6 +102,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 		for (TaskParam param : taskParams) {
 			param.taskId = taskIds.get(iNum++);
 		}
+
 		Connection connection;
 		try {
 			connection = dataSource.getConnection();
@@ -106,6 +110,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 			logger.error("Failed to get DB connection: " + e.getMessage());
 			throw new TedSqlException("Cannot get DB connection", e);
 		}
+
 		try {
 			executePgCopy(connection, taskParams);
 		} catch (SQLException e) {
@@ -113,6 +118,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 		} finally {
 			try { if (connection != null) connection.close(); } catch (Exception e) {logger.error("Cannot close connection", e);};
 		}
+
 		return taskIds;
 	}
 

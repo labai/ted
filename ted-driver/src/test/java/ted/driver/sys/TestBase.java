@@ -45,4 +45,12 @@ public abstract class TestBase {
 				));
 	}
 
+	protected void dao_cleanupPrime() {
+		DbType dbType = getDriver().getContext().tedDao.getDbType();
+		((TedDaoAbstract)getContext().tedDao).execute("dao_cleanupPrime",
+					" update tedtask set finishTs = null"
+							+ " where "+ dbType.sql.systemColumn() +" = '" + TestConfig.SYSTEM_ID + "' "
+							+ " and name = 'TED_PRIME'", Collections.<SqlParam>emptyList());
+	}
+
 }

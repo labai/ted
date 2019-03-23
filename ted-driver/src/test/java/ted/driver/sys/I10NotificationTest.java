@@ -28,6 +28,8 @@ import static org.mockito.Matchers.isA;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static ted.driver.sys.TestUtils.print;
+import static ted.driver.sys.TestUtils.sleepMs;
 
 public class I10NotificationTest extends TestBase {
 	private final static Logger logger = LoggerFactory.getLogger(I10NotificationTest.class);
@@ -49,6 +51,10 @@ public class I10NotificationTest extends TestBase {
 
 		tedDao = driver1.getContext().tedDao;
 
+		dao_cleanupAllTasks();
+		dao_cleanupPrime();
+		dao_execSql("update tedtask set status = 'DONE', nextts = null where system = '" + TestConfig.SYSTEM_ID + "' and channel = 'TedIN' " +
+				" and status <> 'DONE'");
 	}
 
 	private void dao_execSql (String sql) {
@@ -58,8 +64,7 @@ public class I10NotificationTest extends TestBase {
 	@Test
 	public void test01SendNotification() {
 		String taskName = "TEST10-1";
-		dao_execSql("update tedtask set status = 'DONE', nextts = null where system = '" + TestConfig.SYSTEM_ID + "' and channel = 'TedIN' " +
-				" and status <> 'DONE'");
+
 		final int[] calls = {0, 0};
 		driver1.registerTaskConfig(taskName, new SingeInstanceFactory(new TestProcessorOk(){
 			@Override
@@ -79,21 +84,26 @@ public class I10NotificationTest extends TestBase {
 		driver1.prime().init();
 		driver2.prime().enable();
 		driver2.prime().init();
+
 		Long taskId = driver1.sendNotification(taskName, "test10");
 		driver1.getContext().notificationManager.processNotifications();
-		TestUtils.sleepMs(100);
+		sleepMs(10);
 		driver2.getContext().notificationManager.processNotifications();
 
 		TaskRec taskRec = tedDao.getTask(taskId);
-		TestUtils.print(taskRec.toString());
+		print(taskRec.toString());
 		assertEquals("NEW", taskRec.status);
-		dao_execSql("update tedtask set nextts = nextts - interval '5 seconds' where taskid = " + taskId);
-		TestUtils.sleepMs(50);
+
+		// set to expired
+		dao_execSql("update tedtask set nextts = nextts - interval '10 seconds' where taskid = " + taskId);
+		sleepMs(50);
 		driver1.getContext().notificationManager.processNotifications();
+		sleepMs(10);
 		driver2.getContext().notificationManager.processNotifications();
-		TestUtils.sleepMs(50);
+		sleepMs(50);
 		taskRec = tedDao.getTask(taskId);
-		TestUtils.print(taskRec.toString());
+		print(taskRec.toString());
+
 		assertEquals("DONE", taskRec.status);
 		assertEquals("1st instance called", 1, calls[0]);
 		assertEquals("2st instance called", 1, calls[1]);

@@ -1,16 +1,16 @@
 package ted.scheduler;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedProcessor;
 import ted.driver.Ted.TedProcessorFactory;
 import ted.driver.Ted.TedRetryScheduler;
 import ted.driver.TedDriver;
-import ted.scheduler.TedSchedulerImpl.CronRetry;
-import ted.scheduler.TedSchedulerImpl.CustomRetry;
-import ted.scheduler.TedSchedulerImpl.Factory;
-import ted.scheduler.TedSchedulerImpl.PeriodicRetry;
-import ted.scheduler.TedSchedulerImpl.SchedulerProcessorFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import ted.scheduler.impl.TedSchedulerImpl;
+import ted.scheduler.impl.TedSchedulerImpl.CronRetry;
+import ted.scheduler.impl.TedSchedulerImpl.CustomRetry;
+import ted.scheduler.impl.TedSchedulerImpl.PeriodicRetry;
+import ted.scheduler.impl.TedSchedulerImpl.SchedulerProcessorFactory;
 
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
@@ -70,11 +70,11 @@ public class TedScheduler {
 			return this;
 		}
 		public SchedulerBuilder processor(TedProcessor tedProcessor) {
-			this.tedProcessorFactory = Factory.single(tedProcessor);
+			this.tedProcessorFactory = TedSchedulerImpl.Factory.single(tedProcessor);
 			return this;
 		}
 		public SchedulerBuilder runnable(Runnable runnable) {
-			this.tedProcessorFactory = Factory.single(runnable);
+			this.tedProcessorFactory = TedSchedulerImpl.Factory.single(runnable);
 			return this;
 		}
 		public SchedulerBuilder processorFactory(TedProcessorFactory tedProcessorFactory) {

@@ -23,15 +23,15 @@ class _TedSchdDriverExt(private val tedDriver: TedDriver) {
     }
 
     fun systemId(): String {
-        return tedDriverImpl.getContext().config.systemId()
+        return tedDriverImpl.context.config.systemId()
     }
 
     fun instanceId(): String {
-        return tedDriverImpl.getContext().config.instanceId()
+        return tedDriverImpl.context.config.instanceId()
     }
 
     fun primeTaskId(): Long? {
-        return tedDriverImpl.getContext().prime.primeTaskId()
+        return tedDriverImpl.context.prime.primeTaskId()
     }
 
     fun dataSource(): DataSource {

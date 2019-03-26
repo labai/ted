@@ -13,6 +13,7 @@ import java.util.Arrays.asList
 import java.util.function.Function
 import java.util.stream.Collectors
 import javax.sql.DataSource
+import kotlin.reflect.KClass
 import kotlin.streams.toList
 
 
@@ -40,9 +41,7 @@ internal class DaoPostgres(private val dataSource: DataSource, private val thisS
         }
     }
 
-
-    fun <T> execWithLockedPrimeTaskId(dataSource: DataSource, primeTaskId: Long?, function: Function<TxContext, T?>): T? {
-        if (primeTaskId == null) throw IllegalStateException("primeTaskId is null")
+    fun <T> execWithLockedPrimeTaskId(dataSource: DataSource, primeTaskId: Long, function: (TxContext) -> T?): T? {
 
         val connection: Connection?
         try {
@@ -52,26 +51,25 @@ internal class DaoPostgres(private val dataSource: DataSource, private val thisS
             throw TedSqlException("Cannot get DB connection", e)
         }
 
-        try {
-            return txRun(connection, Function() fn@{ tx ->
+        connection.use {
+            return txRun(connection) { tx ->
                 if (!advisoryLockPrimeTask(tx.connection, primeTaskId)) {
                     logger.debug("Cannot get advisoryLockPrimeTask for primeTaskId={}, skipping", primeTaskId)
-                    return@fn null
+                    return@txRun null
                 }
-                function.apply(tx)
-            })
-
-        } finally {
-            try { connection?.close() } catch (e: Exception) { logger.error("Cannot close connection", e) }
+                function(tx)
+            }
         }
     }
 
-    fun <T> txRun(connection: Connection?, function: Function<TxContext, T>): T {
+    // run block in transaction. TxContext will be provided as parameter
+    //
+    fun <T> txRun(connection: Connection, function: (TxContext) -> T): T {
         var savepoint: Savepoint? = null
         var autocommit: Boolean? = null
 
         try {
-            autocommit = connection!!.autoCommit
+            autocommit = connection.autoCommit
             connection.autoCommit = false
             savepoint = connection.setSavepoint("txRun")
             val txLogId = Integer.toHexString(savepoint!!.hashCode())
@@ -81,7 +79,7 @@ internal class DaoPostgres(private val dataSource: DataSource, private val thisS
             logger.trace("[B] after start transaction {}", txLogId)
 
             val txContext = TxContext(connection)
-            val result = function.apply(txContext)
+            val result = function(txContext)
 
             if (!txContext.rollbacked) {
                 logger.trace("[E] before commit transaction {}", txLogId)
@@ -94,9 +92,9 @@ internal class DaoPostgres(private val dataSource: DataSource, private val thisS
             //if (!session.getTransaction().wasCommitted() && !session.getTransaction().wasRolledBack()) {
             try {
                 if (savepoint != null)
-                    connection!!.rollback(savepoint)
+                    connection.rollback(savepoint)
                 else
-                    connection!!.rollback()
+                    connection.rollback()
             } catch (rollbackException: Exception) {
                 e.addSuppressed(rollbackException)
             }
@@ -128,21 +126,19 @@ internal class DaoPostgres(private val dataSource: DataSource, private val thisS
         } catch (e: SQLException) {
             return false
         }
-
-        return if (res.isEmpty() || res[0].longVal == 0L) false else true
+        return ! (res.isEmpty() || res[0].longVal == 0L)
     }
 
 
     // returned count: 0 - not exists, 1 - exists 1, 2 - exists more than 1
     // includingError - do include with status ERROR?
-    // todo SLEEP?
+    // 'SLEEP'?
     fun get2ActiveTasks(taskName: String, includingError: Boolean): List<Long> {
         val sqlLogId = "chk_uniq_task"
         val sql = ("select taskid as longVal from tedtask where system = '$thisSystem' and name = ?"
                 + " and status in ('NEW', 'RETRY', 'WORK'" + (if (includingError) ",'ERROR'" else "") + ")"
                 + " limit 2")
-        //sql = sql.replace("\$sys", thisSystem)
-        val results = selectData<LongVal>(sqlLogId, sql, LongVal::class.java, asList(
+        val results = selectData(sqlLogId, sql, LongVal::class, listOf(
                 sqlParam(taskName, JetJdbcParamType.STRING)
         ))
         return results.stream().map<Long> { longVal -> longVal.longVal }.toList()
@@ -155,10 +151,8 @@ internal class DaoPostgres(private val dataSource: DataSource, private val thisS
                 + " where system = '$thisSystem' and taskid = ? and name = ?"
                 + " and status = 'ERROR'"
                 + " returning tedtask.taskid")
-//        sql = sql.replace("\$sys", thisSystem)
-//        sql = sql.replace("\$postponeSec", postponeSec.toString())
 
-        selectData<LongVal>(sqlLogId, sql, LongVal::class.java, asList(
+        selectData(sqlLogId, sql, LongVal::class, listOf(
                 sqlParam(taskId, JetJdbcParamType.LONG),
                 sqlParam(taskName, JetJdbcParamType.STRING)
         ))
@@ -169,20 +163,19 @@ internal class DaoPostgres(private val dataSource: DataSource, private val thisS
         if (taskIds.isEmpty())
             return emptyList<Long>()
         val inIds = taskIds.stream().map { it.toString() }.collect(Collectors.joining(","))
-        var sql = ("select taskid as longVal from tedtask"
-                + " where system = '\$sys'"
+        val sql = ("select taskid as longVal from tedtask"
+                + " where system = '$thisSystem'"
                 + " and status = 'ERROR'"
-                + " and taskid in (" + inIds + ")")
-        sql = sql.replace("\$sys", thisSystem)
+                + " and taskid in ($inIds)")
 
-        val results = selectData(sqlLogId, sql, LongVal::class.java, emptyList())
+        val results = selectData(sqlLogId, sql, LongVal::class, emptyList())
         return results.stream().map<Long> { longVal -> longVal.longVal }.toList()
     }
 
 
-    fun <T> selectData(sqlLogId: String, sql: String, clazz: Class<T>, params: List<SqlParam>): List<T> {
+    fun <T : Any> selectData(sqlLogId: String, sql: String, clazz: KClass<T>, params: List<SqlParam>): List<T> {
         val startTm = System.currentTimeMillis()
-        val list = _TedSchdJdbcSelect.selectData(dataSource, sql, clazz, params)
+        val list = _TedSchdJdbcSelect.selectData(dataSource, sql, clazz.java, params)
         val durationMs = System.currentTimeMillis() - startTm
         if (durationMs >= 50)
             logger.info("After [{}] time={}ms items={}", sqlLogId, durationMs, list.size)
@@ -190,5 +183,7 @@ internal class DaoPostgres(private val dataSource: DataSource, private val thisS
             logger.debug("After [{}] time={}ms items={}", sqlLogId, durationMs, list.size)
         return list
     }
+
+
 
 }

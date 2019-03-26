@@ -29,9 +29,8 @@ object _TedSchdJdbcSelect {
         }
     }
 
-//    @PublishedApi
     internal class SqlParam(code: String?, value: Any, type: JetJdbcParamType?) :
-            JdbcSelectTed.SqlParam(code, value, if (type == null) null else type.tedType) {
+            JdbcSelectTed.SqlParam(code, value, type?.tedType) {
         fun code(): String = code
         fun value(): Any = value
     }
@@ -44,7 +43,9 @@ object _TedSchdJdbcSelect {
     }
 
     internal fun <T> selectData(dataSource: DataSource, sql: String, clazz: Class<T>, sqlParams: List<JdbcSelectTed.SqlParam>): List<T> {
-        return JdbcSelectTed.runInConn(dataSource, { connection -> JdbcSelectTedImpl.selectData(connection, sql, clazz, sqlParams) })
+        return JdbcSelectTed.runInConn(dataSource) {
+            connection -> JdbcSelectTedImpl.selectData(connection, sql, clazz, sqlParams)
+        }
     }
 
     @Throws(SQLException::class)

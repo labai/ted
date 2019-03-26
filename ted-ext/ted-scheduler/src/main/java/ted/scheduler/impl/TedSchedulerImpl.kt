@@ -59,17 +59,17 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
     }
 
     fun registerScheduler(taskName: String, data: String?, processorFactory: TedProcessorFactory, retryScheduler: TedRetryScheduler): Long {
-        if (!tedSchdDriverExt.isPrimeEnabled)
+        if (! tedSchdDriverExt.isPrimeEnabled)
             throw IllegalStateException("Prime-instance functionality must be enabled!")
+
         tedDriver.registerTaskConfig(taskName, processorFactory, retryScheduler)
 
         // create task is not exists
         val postponeSec = getPostponeSec(retryScheduler)
-        val taskId = createUniqueTask(taskName, data, "", null, postponeSec)
-                ?: throw IllegalStateException("taskId == null for task $taskName")
+        val taskId = createUniqueTask(taskName, data, "", null, postponeSec) ?: throw IllegalStateException("taskId == null for task $taskName")
 
-        val sch = SchedulerInfo(taskName, taskId, retryScheduler)
-        schedulerTasks[taskName] = sch
+        schedulerTasks[taskName] = SchedulerInfo(taskName, taskId, retryScheduler)
+
         return taskId
     }
 
@@ -77,26 +77,26 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
         val schdTaskIds = schedulerTasks.values.stream().map<Long> { sch -> sch.taskId }.toList()
         val badTaskIds = dao.checkForErrorStatus(schdTaskIds)
         for (taskId in badTaskIds) {
-            val schInfo = schedulerTasks.values.stream()
-                    .filter { sch -> sch.taskId == taskId }
-                    .findFirst()
-                    .orElse(null)
+            val schInfo = schedulerTasks.values.firstOrNull { sch -> sch.taskId == taskId }
             logger.warn("Restore schedule task {} {} from ERROR to RETRY", taskId, schInfo?.name ?: "null")
+
             val task = tedDriver.getTask(taskId)
+
             val postponeSec = if (schInfo == null) 0 else getPostponeSec(schInfo.retryScheduler)
-            dao.restoreFromError(taskId, task!!.name, postponeSec)
+            dao.restoreFromError(taskId, task.name, postponeSec)
         }
 
     }
-
 
 
     /* creates task only if does not exists (task + activeStatus).
 	   While there are not 100% guarantee, but will try to ensure, that 2 processes will not create same task twice (using this method).
 	   If task with ERROR status will be found, then it will be converted to RETRY
 	*/
-    fun createUniqueTask(name: String, data: String?, key1: String?, key2: String?, postponeSec: Int): Long? {
-        return dao.execWithLockedPrimeTaskId(dataSource, tedSchdDriverExt.primeTaskId(), function = java.util.function.Function<DaoPostgres.TxContext, Long?>() fn@ { tx ->
+    private fun createUniqueTask(name: String, data: String?, key1: String?, key2: String?, postponeSec: Int): Long? {
+        val primeTaskId = tedSchdDriverExt.primeTaskId() ?: throw java.lang.IllegalStateException("primeTaskId not found")
+
+        return dao.execWithLockedPrimeTaskId(dataSource, primeTaskId) fn@ {
             val taskIds = dao.get2ActiveTasks(name, true)
             if (taskIds.size > 1)
                 throw IllegalStateException("Exists more than one $name active scheduler task (statuses NEW, RETRY, WORK or ERROR) $taskIds, skipping")
@@ -113,10 +113,10 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
             }
             logger.debug("No active scheduler tasks {} exists, will create new", name)
             tedDriver.createTaskPostponed(name, data, key1, key2, postponeSec)
-        })
-
+        }
     }
 
+    // wrap original processor and on error return retry
     internal class SchedulerProcessorFactory(private val origTedProcessorFactory: TedProcessorFactory) : TedProcessorFactory {
 
         override fun getProcessor(taskName: String): TedProcessor {
@@ -127,27 +127,24 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
     private class SchedulerProcessor(private val origTedProcessor: TedProcessor) : TedProcessor {
 
         override fun process(task: TedTask): TedResult {
-            var result: TedResult? = null
+            val result: TedResult
             try {
-                result = origTedProcessor.process(task)
+                result = origTedProcessor.process(task) ?: TedResult.error("null returned as result")
             } catch (e: Throwable) {
                 logger.warn("Got exception, but will retry anyway: {}", e.message)
                 return TedResult.retry(e.message)
             }
 
-            if (result!!.status == TedStatus.ERROR) {
+            if (result.status == TedStatus.ERROR) {
                 logger.warn("Got error, but will retry anyway: {}", result.message)
             }
             return TedResult.retry(result.message)
         }
     }
 
+    // use cron expression
     internal class CronRetry(cron: String) : TedRetryScheduler {
-        private val cronExpr: CronExpression
-
-        init {
-            this.cronExpr = CronExpression(cron)
-        }
+        private val cronExpr: CronExpression = CronExpression(cron)
 
         override fun getNextRetryTime(task: TedTask?, retryNumber: Int, startTime: Date): Date {
             val ztm = ZonedDateTime.ofInstant(startTime.toInstant(), ZoneId.systemDefault())
@@ -163,22 +160,14 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
     }
 
     internal class PeriodicRetry(period: Int, timeUnit: TimeUnit) : TedRetryScheduler {
-        private val periodMs: Long
-
-        init {
-            this.periodMs = TimeUnit.MILLISECONDS.convert(period.toLong(), timeUnit)
-        }
+        private val periodMs: Long = TimeUnit.MILLISECONDS.convert(period.toLong(), timeUnit)
 
         override fun getNextRetryTime(task: TedTask, retryNumber: Int, startTime: Date?): Date {
-            var startTime = startTime
-            if (startTime == null)
-                startTime = Date()
-            return Date(startTime.time + periodMs)
+            return Date((startTime?.time ?: System.currentTimeMillis()) + periodMs)
         }
     }
 
     private class SingeInstanceFactory(private val tedProcessor: TedProcessor) : TedProcessorFactory {
-
         override fun getProcessor(taskName: String): TedProcessor {
             return tedProcessor
         }
@@ -188,7 +177,7 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
     object Factory {
         @JvmStatic
         fun single(runnable: Runnable): TedProcessorFactory {
-            return SchedulerProcessorFactory(SingeInstanceFactory(TedProcessor() { task ->
+            return SchedulerProcessorFactory(SingeInstanceFactory(TedProcessor() { _ ->
                 runnable.run()
                 TedResult.done()
             }))

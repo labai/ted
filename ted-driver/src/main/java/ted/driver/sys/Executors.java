@@ -47,7 +47,7 @@ class Executors {
 		}
 		public TedRunnable(List<TaskRec> tasks) {
 			this.task = null;
-			this.tasks = new ArrayList<TaskRec>(tasks);
+			this.tasks = new ArrayList<>(tasks);
 		}
 		public List<TaskRec> getTasks() {
 			if (tasks != null)
@@ -72,7 +72,7 @@ class Executors {
 			super(workerCount, workerCount, 0, TimeUnit.SECONDS, workQueue, threadFactory);
 
 			this.channel = channel;
-			this.threads = new WeakHashMap<Thread, Runnable>(workerCount);
+			this.threads = new WeakHashMap<>(workerCount);
 
 			setRejectedExecutionHandler(new TaskRejectedExecutionHandler());
 		}
@@ -90,7 +90,7 @@ class Executors {
 		}
 
 		private List<TaskRec> getWorkingTasks() {
-			List<TaskRec> tasks = new ArrayList<TaskRec>();
+			List<TaskRec> tasks = new ArrayList<>();
 			for (Entry<Thread, Runnable> entry : threads.entrySet()) {
 				try {
 					if (entry.getValue() instanceof TedRunnable)
@@ -114,7 +114,7 @@ class Executors {
 				context.tedDao.setStatusPostponed(task.taskId, TedStatus.RETRY, Model.TIMEOUT_MSG + " (stopped on shutdown)", new Date(System.currentTimeMillis() + postponeSec * 1000));
 			}
 		}
-	};
+	}
 
 
 	/**

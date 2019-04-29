@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedProcessor;
 import ted.driver.Ted.TedRetryScheduler;
 import ted.driver.Ted.TedStatus;
-import ted.driver.TedDriver.TedDriverConfig;
+import ted.driver.TedDriverApi.TedDriverConfig;
 import ted.driver.TedResult;
 import ted.driver.TedTask;
 import ted.driver.sys.Model.TaskRec;
@@ -22,6 +22,7 @@ import java.util.Properties;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -97,13 +98,11 @@ public class I06DriverTest extends TestBase {
 	}
 
 	@Test
-	public void test01ShutdownWOInterrupt() throws Exception {
+	public void test01ShutdownWOInterrupt() {
 		String taskName = "TEST06-01";
 		dao_cleanupAllTasks();
 
 		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test06ProcessorLongIgnoreInterrupt.class), 1, null, Model.CHANNEL_MAIN);
-		Long taskId;
-		TaskRec taskRec;
 
 		Long taskId1 = driver.createTask(taskName, null, null, null);
 		Long taskId2 = driver.createTask(taskName, null, null, null);
@@ -128,13 +127,11 @@ public class I06DriverTest extends TestBase {
 	}
 
 	@Test
-	public void test01ShutdownWithInterrupt() throws Exception {
+	public void test01ShutdownWithInterrupt() {
 		String taskName = "TEST06-01";
 		dao_cleanupAllTasks();
 
 		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test06ProcessorLongOk.class), 1, null, Model.CHANNEL_MAIN);
-		Long taskId;
-		TaskRec taskRec;
 
 		Long taskId1 = driver.createTask(taskName, null, null, null);
 		Long taskId2 = driver.createTask(taskName, null, null, null);
@@ -160,13 +157,11 @@ public class I06DriverTest extends TestBase {
 
 
 	@Test
-	public void test01Shutdown3() throws Exception {
+	public void test01Shutdown3() {
 		String taskName = "TEST06-01";
 		dao_cleanupAllTasks();
 
 		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test06ProcessorFastOk.class), 1, null, Model.CHANNEL_MAIN);
-		Long taskId;
-		TaskRec taskRec;
 
 		driver.createTask(taskName, null, null, null);
 		driver.createTask(taskName, null, null, null);
@@ -180,13 +175,13 @@ public class I06DriverTest extends TestBase {
 
 	@Ignore
 	@Test
-	public void test05Reject() throws Exception {
+	public void test05Reject() {
 		String taskName = "TEST06-01";
 		dao_cleanupAllTasks();
 
 		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test06ProcessorLongOk.class), 1, null, Model.CHANNEL_MAIN);
 		// create more tasks, than allowed in queue
-		List<TaskRec> dummyTasks = new ArrayList<TaskRec>();
+		List<TaskRec> dummyTasks = new ArrayList<>();
 		for (int i = 0; i < 600; i++) {
 			TaskRec taskRec = new TaskRec();
 			taskRec.taskId = -1000L - i;
@@ -204,7 +199,7 @@ public class I06DriverTest extends TestBase {
 	}
 
 	@Test
-	public void test06GetDriverConfig() throws Exception {
+	public void test06GetDriverConfig() {
 
 		TedRetryScheduler fakeRetryScheduler = new TedRetryScheduler() {
 			@Override
@@ -216,7 +211,7 @@ public class I06DriverTest extends TestBase {
 
 		TedDriverConfig config = driver.getTedDriverConfig();
 
-		assertEquals(fakeRetryScheduler, config.getTaskConfig("TASK6").getRetryScheduler());
+		assertSame(fakeRetryScheduler, config.getTaskConfig("TASK6").getRetryScheduler());
 
 		assertNull(config.getTaskConfig("X"));
 

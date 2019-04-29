@@ -24,8 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import static java.util.Arrays.asList;
 import static ted.driver.sys.JdbcSelectTed.sqlParam;
+import static ted.driver.sys.MiscUtils.asList;
 
 /**
  * @author Augustus
@@ -266,7 +266,7 @@ abstract class TedDaoAbstract implements TedDao {
 		if (skipChannelCheck)
 			return Collections.emptyList();
 		List<String> chans = getWaitChannels();
-		List<CheckResult> res = new ArrayList<CheckResult>();
+		List<CheckResult> res = new ArrayList<>();
 		for (String chan : chans) {
 			res.add(new CheckResult("CHAN", chan));
 		}
@@ -281,7 +281,7 @@ abstract class TedDaoAbstract implements TedDao {
 		sql = "update tedtask set channel = 'MAIN' where channel is null and $systemCheck and status = 'NEW'";
 		sql = sql.replace("$now", dbType.sql.now());
 		sql = sql.replace("$systemCheck", systemCheck);
-		execute("maint03", sql, Collections.<SqlParam>emptyList());
+		execute("maint03", sql, Collections.emptyList());
 
 		if (deleteAfterDays < 99999) {
 			// delete finished tasks > 35 days old
@@ -290,7 +290,7 @@ abstract class TedDaoAbstract implements TedDao {
 			sql = sql.replace("$now", dbType.sql.now());
 			sql = sql.replace("$systemCheck", systemCheck);
 			sql = sql.replace("$days35", dbType.sql.intervalDays(deleteAfterDays));
-			execute("delold", sql, Collections.<SqlParam>emptyList());
+			execute("delold", sql, Collections.emptyList());
 		}
 	}
 
@@ -304,13 +304,13 @@ abstract class TedDaoAbstract implements TedDao {
 		sql = sql.replace("$now", dbType.sql.now());
 		sql = sql.replace("$systemCheck", systemCheck);
 		sql = sql.replace("$seconds60", dbType.sql.intervalSeconds(60));
-		execute("maint01", sql, Collections.<SqlParam>emptyList());
+		execute("maint01", sql, Collections.emptyList());
 
 		//  update NEW w/o nextTs
 		sql = "update tedtask set nextTs = $now where status in ('NEW', 'RETRY') and $systemCheck and nextTs is null";
 		sql = sql.replace("$now", dbType.sql.now());
 		sql = sql.replace("$systemCheck", systemCheck);
-		execute("maint02", sql, Collections.<SqlParam>emptyList());
+		execute("maint02", sql, Collections.emptyList());
 
 		if (dbType == DbType.POSTGRES) { // eventsQueue is not for Oracle
 			// find queue events w/o head
@@ -326,7 +326,7 @@ abstract class TedDaoAbstract implements TedDao {
 			sql = sql.replace("$now", dbType.sql.now());
 			sql = sql.replace("$systemCheck", systemCheck);
 			sql = sql.replace("$seconds10", dbType.sql.intervalSeconds(10));
-			execute("maint04", sql, Collections.<SqlParam>emptyList());
+			execute("maint04", sql, Collections.emptyList());
 		}
 
 		//  update finished statuses (DONE, ERROR) with nextTs (should not happen, may occurs during dev)
@@ -334,7 +334,7 @@ abstract class TedDaoAbstract implements TedDao {
 		sql = sql.replace("$now", dbType.sql.now());
 		sql = sql.replace("$systemCheck", systemCheck);
 		sql = sql.replace("$delta", dbType.sql.intervalSeconds(120));
-		execute("maint05", sql, Collections.<SqlParam>emptyList());
+		execute("maint05", sql, Collections.emptyList());
 	}
 
 	@Override
@@ -442,12 +442,8 @@ abstract class TedDaoAbstract implements TedDao {
 	}
 
 	protected Long selectSingleLong(String sqlLogId, final String sql, final List<SqlParam> params) {
-		return runInConnWithLog(sqlLogId, new ExecInConn<Long>() {
-			@Override
-			public Long execute(Connection connection) throws SQLException {
-				return JdbcSelectTedImpl.selectSingleLong(connection, sql, params);
-			}
-		});
+		return runInConnWithLog(sqlLogId,
+				conn -> JdbcSelectTedImpl.selectSingleLong(conn, sql, params));
 	}
 
 	private void handleSQLException(SQLException sqle, String sqlLogId) {

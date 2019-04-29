@@ -9,6 +9,8 @@ import ted.driver.TedResult;
 import ted.driver.TedTask;
 import ted.driver.sys.Trash.TedMetricsEvents;
 
+import java.lang.reflect.InvocationTargetException;
+
 import static ted.driver.sys.TestUtils.sleepMs;
 
 public class TestTedProcessors {
@@ -100,16 +102,13 @@ public class TestTedProcessors {
 
 
 	public static <T extends TedProcessor> TedProcessorFactory forClass(final Class<T> clazz) {
-		return new TedProcessorFactory() {
-			@Override
-			public TedProcessor getProcessor(String taskName) {
-				try {
-					return clazz.newInstance();
-				} catch (InstantiationException e) {
-					throw new RuntimeException("Class instantiate exception", e);
-				} catch (IllegalAccessException e) {
-					throw new RuntimeException("Class instantiate exception", e);
-				}
+		return taskName -> {
+			try {
+				return clazz.getDeclaredConstructor().newInstance();
+			} catch (InstantiationException | IllegalAccessException e) {
+				throw new RuntimeException("Class instantiate exception", e);
+			} catch (NoSuchMethodException | InvocationTargetException e) {
+				throw new RuntimeException("Class instantiate exception", e);
 			}
 		};
 	}

@@ -6,8 +6,8 @@ import ted.driver.Ted.TedDbType;
 import ted.driver.Ted.TedProcessorFactory;
 import ted.driver.Ted.TedRetryScheduler;
 import ted.driver.Ted.TedStatus;
-import ted.driver.TedDriver.TedDriverConfig;
-import ted.driver.TedDriver.TedTaskConfig;
+import ted.driver.TedDriverApi.TedDriverConfig;
+import ted.driver.TedDriverApi.TedTaskConfig;
 import ted.driver.TedTask;
 import ted.driver.sys.ConfigUtils.TedConfig;
 import ted.driver.sys.ConfigUtils.TedProperty;
@@ -16,6 +16,7 @@ import ted.driver.sys.Executors.TedRunnable;
 import ted.driver.sys.Model.FieldValidator;
 import ted.driver.sys.Model.TaskParam;
 import ted.driver.sys.Model.TaskRec;
+import ted.driver.sys.Model.TedTaskImpl;
 import ted.driver.sys.Registry.Channel;
 import ted.driver.sys.Registry.TaskConfig;
 import ted.driver.sys.Trash.TedMetricsEvents;
@@ -46,6 +47,7 @@ public final class TedDriverImpl {
 	private final static Logger logger = LoggerFactory.getLogger(TedDriverImpl.class);
 
 	private static int driverLocalInstanceCounter = 0; // expected always 1, more for testings
+
 	private final int localInstanceNo = ++TedDriverImpl.driverLocalInstanceCounter;
 	final String tedNamePrefix = localInstanceNo == 1 ? "Ted" : "Te" + localInstanceNo;
 
@@ -157,27 +159,21 @@ public final class TedDriverImpl {
 
 		// driver
 		driverExecutor = context.executors.createSchedulerExecutor(tedNamePrefix + "Driver-");;
-		driverExecutor.scheduleAtFixedRate(new Runnable() {
-			@Override
-			public void run() {
-				try {
-					context.quickCheck.quickCheck();
-				} catch (Exception e) {
-					logger.error("Error while executing driver task", e);
-				}
+		driverExecutor.scheduleAtFixedRate(() -> {
+			try {
+				context.quickCheck.quickCheck();
+			} catch (Exception e) {
+				logger.error("Error while executing driver task", e);
 			}
 		}, context.config.initDelayMs(), context.config.intervalDriverMs(), TimeUnit.MILLISECONDS);
 
 		// maintenance tasks processor
 		maintenanceExecutor = context.executors.createSchedulerExecutor(tedNamePrefix + "Maint-");
-		maintenanceExecutor.scheduleAtFixedRate(new Runnable() {
-			@Override
-			public void run() {
-				try {
-					context.taskManager.processMaintenanceTasks();
-				} catch (Exception e) {
-					logger.error("Error while executing maintenance tasks", e);
-				}
+		maintenanceExecutor.scheduleAtFixedRate(() -> {
+			try {
+				context.taskManager.processMaintenanceTasks();
+			} catch (Exception e) {
+				logger.error("Error while executing maintenance tasks", e);
 			}
 		}, context.config.initDelayMs(), context.config.intervalMaintenanceMs(), TimeUnit.MILLISECONDS);
 	}
@@ -198,7 +194,7 @@ public final class TedDriverImpl {
 		for (Channel channel : context.registry.getChannels()) {
 			channel.workers.shutdown();
 		}
-		List<TedRunnable> tasksToReturn = new ArrayList<TedRunnable>();
+		List<TedRunnable> tasksToReturn = new ArrayList<>();
 		for (Channel channel : context.registry.getChannels()) {
 			List<Runnable> chanTasks = channel.workers.shutdownNow();
 			for (Runnable r : chanTasks) {
@@ -215,7 +211,7 @@ public final class TedDriverImpl {
 
 		// wait for finish
 		logger.debug("waiting for finish TED tasks...");
-		Map<String, ExecutorService> pools = new LinkedHashMap<String, ExecutorService>();
+		Map<String, ExecutorService> pools = new LinkedHashMap<>();
 		pools.put("(driver)", driverExecutor);
 		pools.put("(maintenance)", maintenanceExecutor);
 		//pools.put("(stats)", statsEventExecutor);
@@ -312,7 +308,7 @@ public final class TedDriverImpl {
 		if (tedTasks == null || tedTasks.isEmpty())
 			return Collections.emptyList();
 
-		List<TaskParam> taskParams = new ArrayList<TaskParam>();
+		List<TaskParam> taskParams = new ArrayList<>();
 		for (TedTask task : tedTasks) {
 			if (task.getTaskId() != null)
 				throw new IllegalArgumentException("taskId must be null for parameter (task=" + task.getName() + " taskId=" + task.getTaskId() + "");
@@ -395,7 +391,6 @@ public final class TedDriverImpl {
 		context.stats.setMetricsRegistry(metricsRegistry);
 	}
 
-
 	public TedDriverConfig getTedDriverConfig() {
 		return new TedDriverConfig() {
 			@Override
@@ -407,6 +402,11 @@ public final class TedDriverImpl {
 			}
 		};
 	}
+
+	public TedTask newTedTask(String taskName, String data, String key1, String key2) {
+		return new TedTaskImpl(null, taskName, key1, key2, data);
+	}
+
 
 	//
 	// package scoped - for tests and ted-ext only

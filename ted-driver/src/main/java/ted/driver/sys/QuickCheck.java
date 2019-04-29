@@ -54,7 +54,7 @@ class QuickCheck {
 	}
 
 	private static class PrimeResult {
-		private final List<CheckResult> primeResults = new ArrayList<CheckResult>();
+		private final List<CheckResult> primeResults = new ArrayList<>();
 
 		public PrimeResult(List<CheckResult> checkResList) {
 			for (CheckResult cres : checkResList) {
@@ -95,7 +95,7 @@ class QuickCheck {
 	}
 
 	private static class ChannelResult {
-		private final Set<String> channelResults = new HashSet<String>();
+		private final Set<String> channelResults = new HashSet<>();
 
 		public ChannelResult(List<CheckResult> checkResList) {
 			for (CheckResult cres : checkResList) {
@@ -117,7 +117,7 @@ class QuickCheck {
 		}
 
 		public Set<String> getTaskChannels() {
-			Set<String> taskChannels = new HashSet<String>(channelResults);
+			Set<String> taskChannels = new HashSet<>(channelResults);
 			taskChannels.removeAll(Model.nonTaskChannels);
 			return taskChannels;
 		}
@@ -176,7 +176,7 @@ class QuickCheck {
 			checkResList = context.tedDao.quickCheck(checkPrimeParams, skipNextChannelCheck);
 
 			if (skipNextChannelCheck) { // add all channels
-				checkResList = new ArrayList<CheckResult>(checkResList);
+				checkResList = new ArrayList<>(checkResList);
 				for (Channel chan : context.registry.getChannels()) {
 					checkResList.add(new CheckResult("CHAN", chan.name));
 				}
@@ -194,7 +194,7 @@ class QuickCheck {
 	private void handleResultTaskChannels(ChannelResult channelResult, long checkDurationMs) {
 		Set<String> allTaskChannels = channelResult.getTaskChannels();
 
-		List<String> taskChannels = new ArrayList<String>();
+		List<String> taskChannels = new ArrayList<>();
 
 		// if we are not in prime instance, then remove channel allowed to run only in for prime instance
 		if (context.prime.isEnabled() && context.prime.isPrime() == false) {

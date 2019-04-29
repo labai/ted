@@ -4,7 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedProcessorFactory;
 import ted.driver.Ted.TedRetryScheduler;
-import ted.driver.TedDriver.TedTaskConfig;
+import ted.driver.TedDriverApi.TedTaskConfig;
 import ted.driver.sys.ConfigUtils.TedProperty;
 import ted.driver.sys.Model.FieldValidator;
 import ted.driver.sys.RetryConfig.PeriodPatternRetryScheduler;
@@ -32,8 +32,8 @@ class Registry {
 
 	private final TedContext context;
 
-	private Map<String, TaskConfig> tasks = new ConcurrentHashMap<String, TaskConfig>();
-	private Map<String, Channel> channels = new ConcurrentHashMap<String, Channel>();
+	private Map<String, TaskConfig> tasks = new ConcurrentHashMap<>();
+	private Map<String, Channel> channels = new ConcurrentHashMap<>();
 
 	class Channel {
 		final String name;

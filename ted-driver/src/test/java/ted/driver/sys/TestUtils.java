@@ -76,13 +76,10 @@ class TestUtils {
 	}
 
 	public static void awaitUntilTaskFinish(final TedDriverImpl driver, final long taskId, int maxMs) {
-		awaitTask(maxMs, new Callable<Boolean>() {
-			@Override
-			public Boolean call() throws Exception {
-				//driver.getContext().taskManager.processChannelTasks();
-				TaskRec rec = driver.getContext().tedDao.getTask(taskId);
-				return ! asList("WORK", "NEW").contains(rec.status);
-			}
+		awaitTask(maxMs, () -> {
+			//driver.getContext().taskManager.processChannelTasks();
+			TaskRec rec = driver.getContext().tedDao.getTask(taskId);
+			return ! asList("WORK", "NEW").contains(rec.status);
 		});
 	}
 

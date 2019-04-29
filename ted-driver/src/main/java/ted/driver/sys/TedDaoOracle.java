@@ -123,12 +123,8 @@ class TedDaoOracle extends TedDaoAbstract {
 	// wrapper
 	//
 	<T> List<T> selectFromBlock(String sqlLogId, final String sql, final Class<T> clazz, final List<SqlParam> params) {
-		return runInConnWithLog(sqlLogId, new ExecInConn<List<T>>() {
-			@Override
-			public List<T> execute(Connection connection) throws SQLException {
-				return JdbcSelectTedImpl.executeOraBlock(connection, sql, clazz, params);
-			}
-		});
+		return runInConnWithLog(sqlLogId,
+				conn -> JdbcSelectTedImpl.executeOraBlock(conn, sql, clazz, params));
 	}
 
 }

@@ -6,7 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedStatus;
 import ted.driver.sys.JdbcSelectTed.JetJdbcParamType;
-import ted.driver.sys.JdbcSelectTed.SqlParam;
 import ted.driver.sys.JdbcSelectTed.TedSqlDuplicateException;
 import ted.driver.sys.JdbcSelectTed.TedSqlException;
 import ted.driver.sys.Model.TaskParam;
@@ -25,8 +24,8 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
-import static java.util.Arrays.asList;
 import static ted.driver.sys.JdbcSelectTed.sqlParam;
+import static ted.driver.sys.MiscUtils.asList;
 import static ted.driver.sys.MiscUtils.nvle;
 
 /**
@@ -92,31 +91,22 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 		if (sql.isEmpty())
 			return Collections.emptyList();
 
-		return selectData("qckchk_" + logId, sql, CheckResult.class, Collections.<SqlParam>emptyList());
+		return selectData("qckchk_" + logId, sql, CheckResult.class, Collections.emptyList());
 	}
 
 	@Override
 	public List<Long> createTasksBulk(List<TaskParam> taskParams) {
 		ArrayList<Long> taskIds = getSequencePortion("SEQ_TEDTASK_ID", taskParams.size());
 		int iNum = 0;
+
 		for (TaskParam param : taskParams) {
 			param.taskId = taskIds.get(iNum++);
 		}
 
-		Connection connection;
-		try {
-			connection = dataSource.getConnection();
-		} catch (SQLException e) {
-			logger.error("Failed to get DB connection: " + e.getMessage());
-			throw new TedSqlException("Cannot get DB connection", e);
-		}
-
-		try {
+		try (Connection connection = dataSource.getConnection()) {
 			executePgCopy(connection, taskParams);
 		} catch (SQLException e) {
 			throw new TedSqlException("can't execute pgCopy", e);
-		} finally {
-			try { if (connection != null) connection.close(); } catch (Exception e) {logger.error("Cannot close connection", e);};
 		}
 
 		return taskIds;
@@ -157,7 +147,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 		String sql;
 		sql = "select taskid from tedtask where system = '$sys' and name = 'TED_PRIME' limit 2";
 		sql = sql.replace("$sys", thisSystem);
-		List<TaskIdRes> ls2 = selectData("find_primetask", sql, TaskIdRes.class, Collections.<SqlParam>emptyList());
+		List<TaskIdRes> ls2 = selectData("find_primetask", sql, TaskIdRes.class, Collections.emptyList());
 		if (ls2.size() == 1) {
 			logger.debug("found primeTaskId={}", ls2.get(0).taskid);
 			return ls2.get(0).taskid;
@@ -180,7 +170,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 		sql = sql.replace("$channel", Model.CHANNEL_PRIME);
 		sql = sql.replace("$sequenceTedTask", dbType.sql.sequenceSql("SEQ_TEDTASK_ID"));
 
-		execute("insert_prime", sql, Collections.<SqlParam>emptyList());
+		execute("insert_prime", sql, Collections.emptyList());
 
 		// check again, to be sure
 		sql = "select taskid from tedtask where system = '$sys' and name = 'TED_PRIME'";
@@ -203,7 +193,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 		sql = sql.replace("$primeTaskId", primeTaskId.toString());
 		sql = sql.replace("$instanceId", instanceId);
 
-		List<TaskIdRes> res = selectData("take_prime", sql, TaskIdRes.class, Collections.<SqlParam>emptyList());
+		List<TaskIdRes> res = selectData("take_prime", sql, TaskIdRes.class, Collections.emptyList());
 		return res.size() == 1;
 	}
 
@@ -396,8 +386,8 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 		if (number < 1 || number > 100000)
 			throw new IllegalArgumentException("Invalid requested sequence count: " + number);
 		String sql = "select nextval('" + seqName + "') as seqval from generate_series(1," + number + ")";
-		List<ResSeqVal> seqVals = selectData("seq_portion", sql, ResSeqVal.class, Collections.<SqlParam>emptyList());
-		ArrayList<Long> result = new ArrayList<Long>();
+		List<ResSeqVal> seqVals = selectData("seq_portion", sql, ResSeqVal.class, Collections.emptyList());
+		ArrayList<Long> result = new ArrayList<>();
 		for (ResSeqVal item : seqVals) {
 			result.add(item.seqval);
 		}

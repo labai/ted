@@ -2,17 +2,16 @@ package ted.driver.sys;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import ted.driver.Ted.TedDbType;
-import ted.driver.sys.JdbcSelectTed.SqlParam;
-import ted.driver.sys.PrimeInstance.CheckPrimeParams;
-import ted.driver.sys.QuickCheck.CheckResult;
-import ted.driver.sys.TedDaoAbstract.DbType;
 import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ted.driver.Ted.TedDbType;
+import ted.driver.sys.PrimeInstance.CheckPrimeParams;
+import ted.driver.sys.QuickCheck.CheckResult;
+import ted.driver.sys.TedDaoAbstract.DbType;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -50,15 +49,15 @@ public class I08PrimeInstanceTest extends TestBase {
 	}
 
 	private void dao_execSql (String sql) {
-		((TedDaoAbstract)getContext().tedDao).execute("test", sql, Collections.<SqlParam>emptyList());
+		((TedDaoAbstract)getContext().tedDao).execute("test", sql, Collections.emptyList());
 	}
 
 	@Test
-	public void testPrimeInit() throws Exception {
+	public void testPrimeInit() {
 		// delete if exists
 		dao_execSql("delete from tedtask where system = '" + TestConfig.SYSTEM_ID + "' and name = 'TED_PRIME'");
 
-		Long primeTaskId = null;
+		Long primeTaskId;
 		try {
 			primeTaskId = tedDaoExt.findPrimeTaskId();
 			if (tedDao.getDbType() != DbType.POSTGRES)

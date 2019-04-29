@@ -17,8 +17,8 @@ public class TedResult {
 	private static final TedResult RES_DONE = new TedResult(TedStatus.DONE, null);
 	private static final TedResult RES_RETRY = new TedResult(TedStatus.RETRY, null);
 	private static final TedResult RES_ERROR = new TedResult(TedStatus.ERROR, null);
-	public final TedStatus status;
-	public final String message;
+	private final TedStatus status;
+	private final String message;
 
 	private TedResult(TedStatus status, String message) {
 		this.status = status;
@@ -48,4 +48,11 @@ public class TedResult {
 		return RES_RETRY;
 	}
 
+	public TedStatus status() {
+		return status;
+	}
+
+	public String message() {
+		return message;
+	}
 }

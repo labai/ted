@@ -16,7 +16,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static java.util.Arrays.asList;
+import static ted.driver.sys.MiscUtils.asList;
+
 
 /**
  * @author Augustus
@@ -50,7 +51,7 @@ class EventQueueManager {
 		Channel channel = context.registry.getChannelOrMain(Model.CHANNEL_QUEUE);
 		int maxTask = context.taskManager.calcChannelBufferFree(channel);
 		maxTask = Math.min(maxTask, 50);
-		Map<String, Integer> channelSizes = new HashMap<String, Integer>();
+		Map<String, Integer> channelSizes = new HashMap<>();
 		channelSizes.put(Model.CHANNEL_QUEUE, maxTask);
 		List<TaskRec> heads = tedDao.reserveTaskPortion(channelSizes);
 		if (heads.isEmpty())
@@ -68,12 +69,12 @@ class EventQueueManager {
 	}
 
 	private void saveResult(TaskRec event, TedResult result) {
-		if (result.status == TedStatus.RETRY) {
+		if (result.status() == TedStatus.RETRY) {
 			TaskConfig tc = context.registry.getTaskConfig(event.name);
 			Date nextTm = tc.retryScheduler.getNextRetryTime(event.getTedTask(), event.retries + 1, event.startTs);
-			tedDao.setStatusPostponed(event.taskId, result.status, result.message, nextTm);
+			tedDao.setStatusPostponed(event.taskId, result.status(), result.message(), nextTm);
 		} else {
-			tedDao.setStatus(event.taskId, result.status, result.message);
+			tedDao.setStatus(event.taskId, result.status(), result.message());
 		}
 	}
 
@@ -89,7 +90,7 @@ class EventQueueManager {
 		TaskRec lastUnsavedEvent = null;
 		TedResult lastUnsavedResult = null;
 		// try to execute next events, while head is reserved. some events may be created while executing current
-		if (headResult.status == TedStatus.DONE) {
+		if (headResult.status() == TedStatus.DONE) {
 			outer:
 			for (int i = 0; i < 10; i++) {
 				List<TaskRec> events = tedDaoExt.eventQueueGetTail(head.key1);
@@ -103,7 +104,7 @@ class EventQueueManager {
 					TedResult result = processEvent(event);
 
 					// DONE - final status, on which can continue with next event
-					if (result.status == TedStatus.DONE) {
+					if (result.status() == TedStatus.DONE) {
 						saveResult(event, result);
 					} else {
 						lastUnsavedEvent = event;
@@ -117,17 +118,14 @@ class EventQueueManager {
 		// first save head, otherwise unique index will fail
 		final TedResult finalLastUnsavedResult = lastUnsavedResult;
 		final TaskRec finalLastUnsavedEvent = lastUnsavedEvent;
-		tedDaoExt.runInTx(new Runnable() {
-			@Override
-			public void run() {
-				try {
-					saveResult(head, headResult);
-					if (finalLastUnsavedResult != null) {
-						saveResult(finalLastUnsavedEvent, finalLastUnsavedResult);
-					}
-				} catch (Exception e) {
-					logger.error("Error while finishing events queue execution", e);
+		tedDaoExt.runInTx(() -> {
+			try {
+				saveResult(head, headResult);
+				if (finalLastUnsavedResult != null) {
+					saveResult(finalLastUnsavedEvent, finalLastUnsavedResult);
 				}
+			} catch (Exception e) {
+				logger.error("Error while finishing events queue execution", e);
 			}
 		});
 	}
@@ -169,17 +167,17 @@ class EventQueueManager {
 			//
 			if (result == null) {
 				result = TedResult.error("result is null");
-			} else if (result.status == TedStatus.RETRY) {
+			} else if (result.status() == TedStatus.RETRY) {
 				Date nextTm = taskConfig.retryScheduler.getNextRetryTime(taskRec1.getTedTask(), taskRec1.retries + 1, taskRec1.startTs);
 				if (nextTm == null) {
-					result = TedResult.error("max retries. " + result.message);
+					result = TedResult.error("max retries. " + result.message());
 				} else {
 					// return as is
 				}
-			} else if (result.status == TedStatus.DONE || result.status == TedStatus.ERROR) {
+			} else if (result.status() == TedStatus.DONE || result.status() == TedStatus.ERROR) {
 				// return as is
 			} else {
-				result = TedResult.error("invalid result status: " + result.status);
+				result = TedResult.error("invalid result status: " + result.status());
 			}
 
 		} catch (Exception e) {

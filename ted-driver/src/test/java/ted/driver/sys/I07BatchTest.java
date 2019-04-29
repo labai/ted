@@ -6,11 +6,9 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedProcessor;
-import ted.driver.TedDriver;
 import ted.driver.TedResult;
 import ted.driver.TedTask;
 import ted.driver.sys.JdbcSelectTed.JetJdbcParamType;
-import ted.driver.sys.JdbcSelectTed.SqlParam;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.TestTedProcessors.TestProcessorOk;
 
@@ -19,13 +17,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
-import static java.util.Arrays.asList;
 import static org.awaitility.Awaitility.await;
 import static org.junit.Assert.assertEquals;
 import static ted.driver.sys.JdbcSelectTed.sqlParam;
+import static ted.driver.sys.MiscUtils.asList;
 import static ted.driver.sys.TestUtils.print;
 import static ted.driver.sys.TestUtils.sleepMs;
 
@@ -54,7 +51,7 @@ public class I07BatchTest extends TestBase {
 
 	@Ignore
 	@Test
-	public void testCreate200() throws Exception {
+	public void testCreate200() {
 		String taskName = "TEST01-01";
 		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class));
 		((TedDaoAbstract)driver.getContext().tedDao).getSequenceNextValue("SEQ_TEDTASK_BNO");
@@ -71,7 +68,7 @@ public class I07BatchTest extends TestBase {
 
 	@Ignore
 	@Test
-	public void testCreateBulk200() throws Exception {
+	public void testCreateBulk200() {
 		String taskName = "TEST01-01";
 
 		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class));
@@ -82,9 +79,9 @@ public class I07BatchTest extends TestBase {
 		// }
 
 		long startTs = System.currentTimeMillis();
-		List<TedTask> taskParams = new ArrayList<TedTask>();
+		List<TedTask> taskParams = new ArrayList<>();
 		for (int i = 0; i < 200; i++) {
-			taskParams.add(TedDriver.newTedTask(taskName, "te\tst\\. i07" + param, "\\N", null));
+			taskParams.add(driver.newTedTask(taskName, "te\tst\\. i07" + param, "\\N", null));
 		}
 		driver.createTasksBulk(taskParams, null);
 		// postgres.copy 200 - 35, 39, 41
@@ -98,19 +95,19 @@ public class I07BatchTest extends TestBase {
 	// create batch tasks, wait for finish (one of subtasks will retry once).
 	// after subtasks finish, batch task processor will be executed and will return retry itself.
 	@Test
-	public void testBatch1() throws Exception {
+	public void testBatch1() {
 		dao_cleanupAllTasks();
 
 		String taskName = "TEST07-1";
 		String batchName = "BAT07";
-		String batchChannel = "BAT1";
+		String batchChannel = "BAT";
 
 		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(ProcessorRandomOk.class));
 		driver.registerTaskConfig(batchName, TestTedProcessors.forClass(BatchFinishProcessor.class));
 
-		List<TedTask> taskParams = new ArrayList<TedTask>();
+		List<TedTask> taskParams = new ArrayList<>();
 		for (int i = 0; i < 3; i++) {
-			taskParams.add(TedDriver.newTedTask(taskName, ""+i, null, null));
+			taskParams.add(driver.newTedTask(taskName, ""+i, null, null));
 		}
 		final Long batchId = driver.createBatch(batchName, "data", "key1", "key2", taskParams);
 
@@ -132,19 +129,16 @@ public class I07BatchTest extends TestBase {
 		assertEquals("Batch task is waiting for finish of subtasks", batchRec.msg);
 		print("sleep...");
 
-		await().atMost(2600, TimeUnit.MILLISECONDS).pollInterval(TestUtils.POLL_INTERVAL).until(new Callable<Boolean>() {
-			@Override
-			public Boolean call() throws Exception {
-				driver.getContext().taskManager.processChannelTasks(); // here all subtask should be finished
-				List<String> finished = asList("DONE", "ERROR");
-				for (TaskRec rec : tasks) {
-					TaskRec rec2 = driver.getContext().tedDao.getTask(rec.taskId);
-					logger.debug("task {} status {}", rec2.taskId, rec2.status);
-					if (! finished.contains(rec2.status))
-						return false;
-				}
-				return true;
+		await().atMost(2600, TimeUnit.MILLISECONDS).pollInterval(TestUtils.POLL_INTERVAL).until(() -> {
+			driver.getContext().taskManager.processChannelTasks(); // here all subtask should be finished
+			List<String> finished = asList("DONE", "ERROR");
+			for (TaskRec rec : tasks) {
+				TaskRec rec2 = driver.getContext().tedDao.getTask(rec.taskId);
+				logger.debug("task {} status {}", rec2.taskId, rec2.status);
+				if (! finished.contains(rec2.status))
+					return false;
 			}
+			return true;
 		});
 
 		driver.getContext().taskManager.processChannelTasks(); // here all subtask should be finished
@@ -159,13 +153,10 @@ public class I07BatchTest extends TestBase {
 		assertEquals("channel should be as is in config", batchChannel, batchRec.channel);
 
 		print("subtasks finished, waiting for batch tasks own retry");
-		await().atMost(2600, TimeUnit.MILLISECONDS).pollInterval(TestUtils.POLL_INTERVAL).until(new Callable<Boolean>() {
-			@Override
-			public Boolean call() {
-				driver.getContext().taskManager.processChannelTasks();
-				TaskRec rec = driver.getContext().tedDao.getTask(batchId);
-				return asList("DONE", "ERROR").contains(rec.status);
-			}
+		await().atMost(2600, TimeUnit.MILLISECONDS).pollInterval(TestUtils.POLL_INTERVAL).until(() -> {
+			driver.getContext().taskManager.processChannelTasks();
+			TaskRec rec = driver.getContext().tedDao.getTask(batchId);
+			return asList("DONE", "ERROR").contains(rec.status);
 		});
 
 		batchRec = tedDao.getTask(batchId);
@@ -215,7 +206,7 @@ public class I07BatchTest extends TestBase {
 		String sql = "update tedtask set nextts = $now where taskId=" + taskId
 			+ " and status in ('NEW', 'RETRY')";
 		sql = sql.replace("$now", tedDao.getDbType().sql.now());
-		((TedDaoAbstract)tedDao).execute("setTaskNextTsNow", sql, Collections.<SqlParam>emptyList());
+		((TedDaoAbstract)tedDao).execute("setTaskNextTsNow", sql, Collections.emptyList());
 	}
 
 
@@ -224,6 +215,7 @@ public class I07BatchTest extends TestBase {
 		List<TaskRec> results = ((TedDaoAbstract)tedDao).selectData("batchIds", sql, TaskRec.class, asList(
 				sqlParam(batchId, JetJdbcParamType.LONG)
 		));
-		return results;	}
+		return results;
+	}
 
 }

@@ -103,7 +103,7 @@ internal class DaoPostgres(private val dataSource: DataSource, private val thisS
             throw RuntimeException(e)
         } finally {
             try {
-                if (autocommit != null && autocommit != connection!!.autoCommit) {
+                if (autocommit != null && autocommit != connection.autoCommit) {
                     connection.autoCommit = autocommit
                 }
             } catch (e: SQLException) {
@@ -161,7 +161,8 @@ internal class DaoPostgres(private val dataSource: DataSource, private val thisS
     fun checkForErrorStatus(taskIds: Collection<Long>): List<Long> {
         val sqlLogId = "check_for_errors"
         if (taskIds.isEmpty())
-            return emptyList<Long>()
+            return emptyList()
+
         val inIds = taskIds.stream().map { it.toString() }.collect(Collectors.joining(","))
         val sql = ("select taskid as longVal from tedtask"
                 + " where system = '$thisSystem'"

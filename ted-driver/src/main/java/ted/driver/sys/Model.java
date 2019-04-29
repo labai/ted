@@ -3,6 +3,12 @@ package ted.driver.sys;
 import ted.driver.Ted.TedStatus;
 import ted.driver.TedTask;
 
+import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
@@ -52,6 +58,7 @@ class Model {
 			return "TaskRec{taskId=" + taskId + " system=" + system + " name=" + name + " status=" + status + '}';
 		}
 
+		// create hard copy
 		TedTask getTedTask() {
 			if (this.taskId == null)
 				throw new NullPointerException("task.taskId is null");
@@ -60,10 +67,77 @@ class Model {
 			boolean isTimeout = msg != null && msg.startsWith(TIMEOUT_MSG);
 			TedStatus status = null;
 			try { status = TedStatus.valueOf(this.status); } catch (IllegalArgumentException e) { }
-			return new TedTask(this.taskId, this.name, this.key1, this.key2, this.data, this.batchId, this.retries, this.createTs, this.startTs, isTimeout, status);
+			return new TedTaskImpl(this.taskId, this.name, this.key1, this.key2, this.data, this.batchId, this.retries, this.createTs, this.startTs, isTimeout, status);
 		}
 
 	}
+
+	static class TedTaskImpl implements TedTask {
+		private final Long taskId;
+		private final String name;
+		private final String key1;
+		private final String key2;
+		private final String data;
+		private final Integer retries;
+		private final Date createTs;
+		private final Date startTs;
+		private final Long batchId;
+		private final TedStatus status;
+		private final boolean isNew;
+		private final boolean isRetry;
+		private final boolean isAfterTimeout;
+
+		public TedTaskImpl(Long taskId, String name, String key1, String key2, String data) {
+			this(taskId, name, key1, key2, data, null, 0, new Date(), new Date(), false, TedStatus.NEW);
+		}
+
+		/** for ted */
+		public TedTaskImpl(Long taskId, String name, String key1, String key2, String data, Long batchId, Integer retries, Date createTs, Date startTs, boolean isAfterTimeout, TedStatus status) {
+			if (status == null)
+				status = TedStatus.NEW;
+			boolean work = status == TedStatus.WORK;
+			this.taskId = taskId;
+			this.name = name;
+			this.key1 = key1;
+			this.key2 = key2;
+			this.data = data;
+			this.retries = retries;
+			this.createTs = createTs == null ? null : new Date(createTs.getTime());
+			this.startTs = startTs == null ? null : new Date(startTs.getTime());
+			this.batchId = batchId;
+			this.status = status;
+			this.isRetry = status == TedStatus.RETRY || (work && retries != null && retries > 0);
+			this.isAfterTimeout = (status == TedStatus.RETRY || work) && isAfterTimeout;
+			this.isNew = status == TedStatus.NEW || (work && !(this.isRetry || this.isAfterTimeout));
+		}
+
+		@Override public Long getTaskId() { return taskId; }
+		@Override public String getName() { return name; }
+		@Override public String getKey1() { return key1; }
+		@Override public String getKey2() { return key2; }
+		@Override public String getData() { return data; }
+		@Override public Integer getRetries() { return retries; }
+		@Override public Date getCreateTs() { return createTs; } /** startTs - is time, when task was taken from db, but not actually started to process it */
+		@Override public Date getStartTs() { return startTs; }
+		@Override public Long getBatchId() { return batchId; }
+		@Override public TedStatus getStatus() { return status; }
+
+		/** is task executing first time */
+		@Override public boolean isNew() { return isNew; }
+		/** is task executing not first time */
+		@Override public boolean isRetry() { return isRetry; }
+		/** is task after timout (was returned from status 'WORK') */
+		@Override public boolean isAfterTimeout() { return isAfterTimeout; }
+
+
+		@Override
+		public String toString() {
+			SimpleDateFormat iso = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS");
+			return "TedTask{" + name + " " + taskId + " " + (isRetry?"R"+retries:"") + (isAfterTimeout ?"T":"") + (isNew?"N":"") + (key1==null?"":" key1='"+key1+'\'') + (key2==null?"":" key2='"+key2+'\'') + " createTs=" + (createTs==null?"null":iso.format(createTs)) + (batchId == null?"":" batchId="+batchId) + '}';
+		}
+	}
+
+
 
 	static class TaskParam {
 		Long taskId;
@@ -94,6 +168,8 @@ class Model {
 
 	static class FieldValidator {
 		public static boolean isEmpty(String str) { return str == null || str.isEmpty(); }
+		// allows letters, numbers, and ".-_"
+		private static final Pattern hasInvalidCharsPattern = Pattern.compile("[^a-z0-9\\_\\-\\.]", Pattern.CASE_INSENSITIVE);
 
 		public static void validateTaskKey1(String key1) {
 			checkMaxLengthAscii("key1", key1, Lengths.len_key1);
@@ -135,10 +211,6 @@ class Model {
 				throw new IllegalArgumentException("Channel name is reserved (TED*), channel=" + channel);
 		}
 
-
-
-		// allows letters, numbers, and ".-_"
-		private static final Pattern hasInvalidCharsPattern = Pattern.compile("[^a-z0-9\\_\\-\\.]", Pattern.CASE_INSENSITIVE);
 		static boolean hasInvalidChars(String str){
 			Matcher m = hasInvalidCharsPattern.matcher(str);
 			return m.find();
@@ -178,4 +250,5 @@ class Model {
 		}
 
 	}
+
 }

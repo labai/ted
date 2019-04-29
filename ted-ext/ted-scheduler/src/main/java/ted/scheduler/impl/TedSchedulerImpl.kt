@@ -135,10 +135,10 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
                 return TedResult.retry(e.message)
             }
 
-            if (result.status == TedStatus.ERROR) {
-                logger.warn("Got error, but will retry anyway: {}", result.message)
+            if (result.status() == TedStatus.ERROR) {
+                logger.warn("Got error, but will retry anyway: {}", result.message())
             }
-            return TedResult.retry(result.message)
+            return TedResult.retry(result.message())
         }
     }
 

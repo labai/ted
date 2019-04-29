@@ -14,7 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static java.util.Arrays.asList;
+import static ted.driver.sys.MiscUtils.asList;
 
 /**
  * @author Augustus
@@ -40,7 +40,7 @@ class BatchWaitManager {
 	void processBatchWaitTasks() {
 		Channel channel = context.registry.getChannelOrSystem(Model.CHANNEL_BATCH); // channel TedBW or TedSS
 		int maxTask = context.taskManager.calcChannelBufferFree(channel);
-		Map<String, Integer> channelSizes = new HashMap<String, Integer>();
+		Map<String, Integer> channelSizes = new HashMap<>();
 		channelSizes.put(Model.CHANNEL_BATCH, maxTask);
 		List<TaskRec> batches = context.tedDao.reserveTaskPortion(channelSizes);
 		if (batches.isEmpty())

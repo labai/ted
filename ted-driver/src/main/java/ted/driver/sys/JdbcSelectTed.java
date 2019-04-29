@@ -77,26 +77,13 @@ class JdbcSelectTed {
 		return new SqlParam(null, value, type);
 	}
 
-	// ensure to close connection (yeah, we are still in Java6)
-	//
+	// ensure to close connection
 	static <T> T runInConn(DataSource dataSource, ExecInConn<T> executor) {
-		T result = null;
-		Connection connection;
-		try {
-			connection = dataSource.getConnection();
+		try (Connection connection = dataSource.getConnection()){
+			return executor.execute(connection);
 		} catch (SQLException e) {
-			logger.error("Failed to get DB connection: " + e.getMessage());
-			throw new TedSqlException("Cannot get DB connection", e);
-		}
-		try {
-			try {
-				result = executor.execute(connection);
-				return result;
-			} catch (SQLException e) {
-				throw new TedSqlException(e);
-			}
-		} finally {
-			try { if (connection != null) connection.close(); } catch (Exception e) { logger.error("Cannot close connection", e); };
+			logger.error("Sql exception: " + e.getMessage());
+			throw new TedSqlException(e);
 		}
 	}
 

@@ -173,7 +173,6 @@ class JdbcSelectTedImpl {
 	}
 
 	private static void copyArrayToBean(Object dataRow, Object bean, ArrayList<Field> entityFields) throws SQLDataException {
-		Class<?> clazz = bean.getClass();
 		Object[] dataArray = null;
 		Object dataObject = null;
 		if (dataRow instanceof Object[]) {

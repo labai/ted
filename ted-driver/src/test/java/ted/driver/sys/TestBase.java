@@ -9,7 +9,7 @@ import org.junit.Before;
 
 import java.util.Collections;
 
-import static java.util.Arrays.asList;
+import static ted.driver.sys.MiscUtils.asList;
 
 /**
  * @author Augustus
@@ -33,7 +33,7 @@ public abstract class TestBase {
 		DbType dbType = getDriver().getContext().tedDao.getDbType();
 		((TedDaoAbstract)getContext().tedDao).execute("dao_cleanupTasks",
 				" update tedtask set status = 'ERROR', nextTs = null, msg = concat('cleanup from status ', status) " +
-						" where "+ dbType.sql.systemColumn() +" = '" + TestConfig.SYSTEM_ID + "' and status in ('NEW', 'WORK', 'RETRY')", Collections.<SqlParam>emptyList());
+						" where "+ dbType.sql.systemColumn() +" = '" + TestConfig.SYSTEM_ID + "' and status in ('NEW', 'WORK', 'RETRY')", Collections.emptyList());
 	}
 
 	protected void dao_cleanupTasks(String taskName) {

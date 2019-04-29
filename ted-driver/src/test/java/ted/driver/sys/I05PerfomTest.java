@@ -46,7 +46,7 @@ public class I05PerfomTest extends TestBase {
 
 	@Ignore
 	@Test
-	public void test01FullQueue() throws Exception {
+	public void test01FullQueue() {
 		/* fill:
 		(oracle)
 		insert into tedtask (taskId, system, name, channel, bno, status, createTs, nextTs)

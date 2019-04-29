@@ -41,7 +41,7 @@ public class T04FunctionsTest {
 	}
 
 	@Test
-	public void testRetryPolicy() throws Exception {
+	public void testRetryPolicy() {
 		// test getNextRetryPauseSec
 		PeriodPatternConfig policy = new PeriodPatternConfig("2s,10s*2,30s*5,10m*3,1h*5");
 		assertEquals(2,  (long)policy.getNextRetryPauseSec(1));
@@ -103,7 +103,7 @@ public class T04FunctionsTest {
 
 
 	@Test
-	public void testParseChannelProperties() throws Exception {
+	public void testParseChannelProperties() {
 		Properties properties = new Properties();
 		properties.put("abra.kadabra", "abra.kadabra");
 		properties.put("abra.channel.MAIN", "abra.channel.MAIN");
@@ -124,7 +124,7 @@ public class T04FunctionsTest {
 
 
 	@Test
-	public void testMakeShortName() throws Exception {
+	public void testMakeShortName() {
 		print(Registry.makeShortName(""));
 		print(Registry.makeShortName("A"));
 		print(Registry.makeShortName("a"));

@@ -2,7 +2,10 @@ package ted.driver.sys;
 
 import java.lang.management.ManagementFactory;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Random;
 
 /**
@@ -44,4 +47,15 @@ class MiscUtils {
 	static String nvle (String str) {
 		return str == null ? "" : str;
 	}
+
+	public static <T> List<T> asList(T ... a) {
+		return Arrays.asList(a);
+	}
+	public static <T> List<T> asList(T a) {
+		return Collections.singletonList(a);
+	}
+	public static <T> List<T> asList() {
+		return Collections.emptyList();
+	}
+
 }

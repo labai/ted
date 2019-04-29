@@ -20,6 +20,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 /**
  * @author Augustus
@@ -55,7 +57,7 @@ class TaskManager {
 		}
 	}
 
-	private Map<String, ChannelWorkContext> channelContextMap = new HashMap<String, ChannelWorkContext>();
+	private Map<String, ChannelWorkContext> channelContextMap = new HashMap<>();
 
 	private long lastRareMaintExecTimeMilis = System.currentTimeMillis();
 
@@ -111,12 +113,14 @@ class TaskManager {
 		}
 	}
 
+
 	// tests only
 	void processChannelTasks() {
 		List<String> waitChannelsList = context.tedDao.getWaitChannels();
 		waitChannelsList.removeAll(Model.nonTaskChannels);
 		processChannelTasks(waitChannelsList);
 	}
+
 
 	// process TED tasks
 	// return flag, was any of channels fully loaded
@@ -159,7 +163,7 @@ class TaskManager {
 		}
 
 		// fill channels for request
-		Map<String, Integer> channelSizes = new HashMap<String, Integer>();
+		Map<String, Integer> channelSizes = new HashMap<>();
 		for (ChannelWorkContext wc : channelContextMap.values()) {
 			if (wc.nextPortion > 0 && wc.foundTask)
 				channelSizes.put(wc.channelName, wc.nextPortion);
@@ -192,17 +196,10 @@ class TaskManager {
 
 	// will send task to their channels for execution
 	void sendTaskListToChannels(List<TaskRec> tasks) {
-		// group by type
-		//
-		Map<String, List<TaskRec>> grouped = new HashMap<String, List<TaskRec>>();
-		for (TaskRec taskRec : tasks) {
-			List<TaskRec> tlist = grouped.get(taskRec.name);
-			if (tlist == null) {
-				tlist = new ArrayList<TaskRec>();
-				grouped.put(taskRec.name, tlist);
-			}
-			tlist.add(taskRec);
-		}
+
+		// group by name
+		Map<String, List<TaskRec>> grouped = tasks.stream()
+				.collect(Collectors.groupingBy(it -> it.name));
 
 		// execute
 		//
@@ -232,6 +229,7 @@ class TaskManager {
 			}
 		}
 	}
+
 
 	// can be called from eventQueue also
 	void handleUnknownTasks(List<TaskRec> taskRecList) {
@@ -273,17 +271,17 @@ class TaskManager {
 			//
 			if (result == null) {
 				changeTaskStatus(taskRec.taskId, TedStatus.ERROR, "result is null");
-			} else if (result.status == TedStatus.RETRY) {
+			} else if (result.status() == TedStatus.RETRY) {
 				Date nextTm = taskConfig.retryScheduler.getNextRetryTime(taskRec.getTedTask(), taskRec.retries + 1, taskRec.startTs);
 				if (nextTm == null) {
-					changeTaskStatus(taskRec.taskId, TedStatus.ERROR, "max retries. " + result.message);
+					changeTaskStatus(taskRec.taskId, TedStatus.ERROR, "max retries. " + result.message());
 				} else {
-					tedDao.setStatusPostponed(taskRec.taskId, result.status, result.message, nextTm);
+					tedDao.setStatusPostponed(taskRec.taskId, result.status(), result.message(), nextTm);
 				}
-			} else if (result.status == TedStatus.DONE || result.status == TedStatus.ERROR) {
-				changeTaskStatus(taskRec.taskId, result.status, result.message);
+			} else if (result.status() == TedStatus.DONE || result.status() == TedStatus.ERROR) {
+				changeTaskStatus(taskRec.taskId, result.status(), result.message());
 			} else {
-				changeTaskStatus(taskRec.taskId, TedStatus.ERROR, "invalid result status: " + result.status);
+				changeTaskStatus(taskRec.taskId, TedStatus.ERROR, "invalid result status: " + result.status());
 			}
 
 		} catch (Exception e) {
@@ -291,7 +289,7 @@ class TaskManager {
 			taskExceptionLogger.error("Unhandled exception while calling processor for task '" + taskRec.name + "'", e);
 			try {
 				result = TedResult.error("Catch: " + e.getMessage());
-				changeTaskStatus(taskRec.taskId, TedStatus.ERROR, result.message);
+				changeTaskStatus(taskRec.taskId, TedStatus.ERROR, result.message());
 			} catch (Exception e1) {
 				logger.warn("Unhandled exception while handling exception for task '{}', statuses will be not changed: {}", taskRec.name, e1.getMessage());
 			}
@@ -299,9 +297,9 @@ class TaskManager {
 			Thread.currentThread().setName(threadName);
 		}
 
-		context.stats.metrics.finishTask(taskRec.taskId, taskRec.name, taskRec.channel, (result == null ? TedStatus.ERROR : result.status), (int)(System.currentTimeMillis() - startMs));
-
+		context.stats.metrics.finishTask(taskRec.taskId, taskRec.name, taskRec.channel, (result == null ? TedStatus.ERROR : result.status()), (int)(System.currentTimeMillis() - startMs));
 	}
+
 
 	int calcChannelBufferFree(Channel channel) {
 		int workerCount = channel.workers.getMaximumPoolSize();
@@ -314,6 +312,7 @@ class TaskManager {
 		}
 		return maxTask;
 	}
+
 
 	// refresh channels work info. is not thread safe
 	private void calcChannelsStats(List<TaskRec> tasks) {

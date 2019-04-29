@@ -58,21 +58,13 @@ class TestConfig {
 	}
 
 	private static void executeInitScript(String scriptFile, DataSource dataSource) {
-		Connection connection = null;
-		try {
-			connection = dataSource.getConnection();
+		try (Connection connection = dataSource.getConnection()){
 			InputStream inputStream = TestConfig.class.getClassLoader().getResourceAsStream(scriptFile);
 			SqlFile sqlFile = new SqlFile(new InputStreamReader(inputStream), "init", System.out, "UTF-8", false, new File("."));
 			sqlFile.setConnection(connection);
 			sqlFile.execute();
-		} catch (SQLException e) {
+		} catch (SQLException | SqlToolError | IOException e) {
 			e.printStackTrace();
-		} catch (SqlToolError e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		} finally {
-			try { if (connection != null) connection.close(); } catch (Exception e) { };
 		}
 	}
 

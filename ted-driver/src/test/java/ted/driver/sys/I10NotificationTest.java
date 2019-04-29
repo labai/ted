@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedDbType;
 import ted.driver.TedResult;
 import ted.driver.TedTask;
-import ted.driver.sys.JdbcSelectTed.SqlParam;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.PrimeInstance.CheckPrimeParams;
 import ted.driver.sys.QuickCheck.CheckResult;
@@ -17,7 +16,6 @@ import ted.driver.sys.TedDriverImpl.TedContext;
 import ted.driver.sys.TestTedProcessors.SingeInstanceFactory;
 import ted.driver.sys.TestTedProcessors.TestProcessorOk;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -43,7 +41,7 @@ public class I10NotificationTest extends TestBase {
 	protected TedDriverImpl getDriver() { return driver1; }
 
 	@Before
-	public void init() throws IOException {
+	public void init() {
 		Assume.assumeTrue("Not for Oracle", TestConfig.testDbType == TedDbType.POSTGRES);
 
 		driver1 = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), TestConfig.SYSTEM_ID);
@@ -58,7 +56,7 @@ public class I10NotificationTest extends TestBase {
 	}
 
 	private void dao_execSql (String sql) {
-		((TedDaoAbstract)getContext().tedDao).execute("test", sql, Collections.<SqlParam>emptyList());
+		((TedDaoAbstract)getContext().tedDao).execute("test", sql, Collections.emptyList());
 	}
 
 	@Test
@@ -127,7 +125,7 @@ public class I10NotificationTest extends TestBase {
 		context2.tedDao = Mockito.mock(TedDaoPostgres.class);
 		context2.notificationManager = Mockito.mock(NotificationManager.class);
 
-		List<CheckResult> chkres = new ArrayList<CheckResult>();
+		List<CheckResult> chkres = new ArrayList<>();
 		chkres.add(new CheckResult("CHAN", Model.CHANNEL_NOTIFY));
 		doReturn(chkres).when(context1.tedDao).quickCheck(isA(CheckPrimeParams.class), anyBoolean());
 		doReturn(chkres).when(context2.tedDao).quickCheck(isA(CheckPrimeParams.class), anyBoolean());

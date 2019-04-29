@@ -60,10 +60,10 @@ public class TedScheduler {
 	}
 
 	public class SchedulerBuilder {
-		String taskName;
-		TedRetryScheduler tedRetryScheduler;
-		TedProcessorFactory tedProcessorFactory;
-		String data = null;
+		private String taskName;
+		private TedRetryScheduler tedRetryScheduler;
+		private TedProcessorFactory tedProcessorFactory;
+		private String data = null;
 
 		public SchedulerBuilder name(String taskName) {
 			this.taskName = taskName;
@@ -81,8 +81,7 @@ public class TedScheduler {
 			this.tedProcessorFactory = tedProcessorFactory;
 			return this;
 		}
-
-		public SchedulerBuilder scheduleCustom(TedSchedulerNextTime nextTimeFn) {
+    	public SchedulerBuilder scheduleCustom(TedSchedulerNextTime nextTimeFn) {
 			this.tedRetryScheduler = new CustomRetry(nextTimeFn);
 			return this;
 		}

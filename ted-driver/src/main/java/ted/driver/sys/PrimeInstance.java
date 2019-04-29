@@ -84,14 +84,11 @@ public final class PrimeInstance {
 			logger.info("TED become prime. instanceId={}", context.config.instanceId());
 			if (onBecomePrime != null) {
 				ThreadPoolExecutor workers = context.registry.getChannel(Model.CHANNEL_SYSTEM).workers;
-				workers.execute(new Runnable() {
-					@Override
-					public void run() {
-						try {
-							onBecomePrime.onEvent();
-						} catch (Exception e) {
-							logger.error("Exception onBecomePrime handler", e);
-						}
+				workers.execute(() -> {
+					try {
+						onBecomePrime.onEvent();
+					} catch (Exception e) {
+						logger.error("Exception onBecomePrime handler", e);
 					}
 				});
 			}
@@ -105,14 +102,11 @@ public final class PrimeInstance {
 		this.isPrime = false;
 		if (onLostPrime != null) {
 			ThreadPoolExecutor workers = context.registry.getChannel(Model.CHANNEL_SYSTEM).workers;
-			workers.execute(new Runnable() {
-				@Override
-				public void run() {
-					try {
-						onLostPrime.onEvent();
-					} catch (Exception e) {
-						logger.error("Exception onLostPrime handler", e);
-					}
+			workers.execute(() -> {
+				try {
+					onLostPrime.onEvent();
+				} catch (Exception e) {
+					logger.error("Exception onLostPrime handler", e);
 				}
 			});
 		}

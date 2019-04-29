@@ -32,6 +32,7 @@ class ConfigUtils {
 	static final String PROPERTY_PREFIX_CHANNEL = "ted.channel.";
 	static final String PROPERTY_PREFIX_TASK = "ted.task.";
 
+
 	static class TedProperty {
 		public static final String SYSTEM_ID 						= "ted.systemId";
 
@@ -62,6 +63,8 @@ class ConfigUtils {
 		public static final String TASK_BATCH_TIMEOUT_MINUTES	= "batchTimeoutMinutes";
 
 	}
+
+
 	static class TedConfig {
 		private String defaultRetryPauses = "12s,36s,90s,300s,16m,50m,2h,5h,7h*5;dispersion=10";
 		private int defaultTaskTimeoutMn = 30; // 30min
@@ -70,8 +73,8 @@ class ConfigUtils {
 		private int intervalDriverMs = 700;
 		private int intervalMaintenanceMs = 10000;
 		private int oldTaskArchiveDays = 35;
-		private Map<String, Properties> channelMap = new HashMap<String, Properties>();
-		private Map<String, Properties> taskMap = new HashMap<String, Properties>();
+		private Map<String, Properties> channelMap = new HashMap<>();
+		private Map<String, Properties> taskMap = new HashMap<>();
 		private final String systemId;
 		private final String instanceId;
 
@@ -151,10 +154,11 @@ class ConfigUtils {
 	}
 
 	static Map<String, Properties> getShortPropertiesByPrefix(Properties properties, String prefix) {
-		Map<String, Properties> shortPropMap = new HashMap<String, Properties>();
+		Map<String, Properties> shortPropMap = new HashMap<>();
 		if (properties == null) {
 			return shortPropMap;
 		}
+
 		for (Object okey : properties.keySet()) {
 			String key = okey.toString();
 			if (!key.startsWith(prefix))

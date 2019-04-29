@@ -1,7 +1,5 @@
 package ted.driver.sys;
 
-import org.awaitility.Awaitility;
-import org.awaitility.Duration;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -11,12 +9,10 @@ import ted.driver.Ted.TedProcessor;
 import ted.driver.Ted.TedStatus;
 import ted.driver.TedResult;
 import ted.driver.TedTask;
-import ted.driver.sys.JdbcSelectTed.SqlParam;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.TedDaoAbstract.DbType;
 import ted.driver.sys.TedDriverImpl.TedContext;
 import ted.driver.sys.TestTedProcessors.OnTaskFinishListener;
-import ted.driver.sys.TestTedProcessors.OnTaskFinishListener.OnFinish;
 import ted.driver.sys.TestTedProcessors.TestProcessorException;
 import ted.driver.sys.TestTedProcessors.TestProcessorOk;
 
@@ -27,17 +23,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-import static java.util.Arrays.asList;
-import static org.awaitility.Awaitility.await;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 import static ted.driver.sys.TestTedProcessors.forClass;
 import static ted.driver.sys.TestUtils.awaitUntilTaskFinish;
 import static ted.driver.sys.TestUtils.print;
@@ -75,7 +64,7 @@ public class I01SimpleTest extends TestBase {
 		if (context.tedDao.getDbType() == DbType.ORACLE)
 			sql += " from dual";
 		Date before = new Date();
-		List<DateVal> res = ((TedDaoAbstract)context.tedDao).selectData("getnow", sql, DateVal.class, Collections.<SqlParam>emptyList());
+		List<DateVal> res = ((TedDaoAbstract)context.tedDao).selectData("getnow", sql, DateVal.class, Collections.emptyList());
 		Date sqlNow = res.get(0).dateVal;
 		//Date sqlNow =  new Date(res.get(0).dateVal.getTime());
 		Date after = new Date();
@@ -87,7 +76,7 @@ public class I01SimpleTest extends TestBase {
 
 	@Ignore // data not limited
 	@Test
-	public void test01ClobVarchar() throws Exception {
+	public void test01ClobVarchar() {
 		String taskName = "TEST01-01";
 		driver.registerTaskConfig(taskName, forClass(TestProcessorOk.class));
 
@@ -113,7 +102,7 @@ public class I01SimpleTest extends TestBase {
 	}
 
 	@Test
-	public void test01CreateTask() throws Exception {
+	public void test01CreateTask() {
 		String taskName = "TEST01-01";
 		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class));
 
@@ -221,12 +210,9 @@ public class I01SimpleTest extends TestBase {
 
 		final Long taskId = driver.createTask(taskName, null, null, null);
 
-		driver.setMetricsRegistry(new OnTaskFinishListener(new OnFinish() {
-			@Override
-			public void onFinishTask(long ataskId, TedStatus status) {
-				if (ataskId != taskId) return;
-				latch.countDown();
-			}
+		driver.setMetricsRegistry(new OnTaskFinishListener((ataskId, status) -> {
+			if (ataskId != taskId) return;
+			latch.countDown();
 		}));
 
 		TaskRec taskRec = driver.getContext().tedDao.getTask(taskId);
@@ -257,7 +243,6 @@ public class I01SimpleTest extends TestBase {
 		String taskName = "TEST01-05";
 		driver.getContext().registry.registerChannel("TEST1", 5, 100);
 		//driver.registerTaskConfig(taskName, forClass(Test01ProcessorRetry.class), 1, null, "TEST1");
-		Properties taskProp = new Properties();
 
 		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test01ProcessorRetry.class));
 
@@ -268,7 +253,7 @@ public class I01SimpleTest extends TestBase {
 		assertEquals("NEW", taskRec.status);
 
 
-		Map<String, Integer> channelSizes = new HashMap<String, Integer>();
+		Map<String, Integer> channelSizes = new HashMap<>();
 		channelSizes.put("TEST1", 3);
 		List<TaskRec> list = driver.getContext().tedDao.reserveTaskPortion(channelSizes);
 		assertEquals(1, list.size());
@@ -296,18 +281,15 @@ public class I01SimpleTest extends TestBase {
 		assertEquals("NEW", taskRec.status);
 
 		logger.info("Before lock");
-		new Thread(new Runnable() {
-			@Override
-			public void run() {
-				dao_lockAndSleep(lockTaskId, "0.1");
-				logger.info("After lock");
-			}
+		new Thread(() -> {
+			dao_lockAndSleep(lockTaskId, "0.1");
+			logger.info("After lock");
 		}).start();
 
 		Thread.sleep(20);
 		logger.info("Before next");
 
-		Map<String, Integer> channelSizes = new HashMap<String, Integer>();
+		Map<String, Integer> channelSizes = new HashMap<>();
 		channelSizes.put("TEST1", 3);
 		List<TaskRec> list = driver.getContext().tedDao.reserveTaskPortion(channelSizes);
 		assertEquals(1, list.size());
@@ -340,13 +322,13 @@ public class I01SimpleTest extends TestBase {
 						"   exit when systimestamp >= v_till;" + // sleep uses cpu..
 						" end loop;" +
 					" end;",
-					Void.class, Collections.<SqlParam>emptyList());
+					Void.class, Collections.emptyList());
 		} else if (context.tedDao instanceof TedDaoPostgres){
 			((TedDaoAbstract) context.tedDao).execute("dao_lockAndSleep",
-					" update tedtask set status = status where taskid = " + taskId + "; SELECT pg_sleep(" + sec + ");", Collections.<SqlParam>emptyList());
+					" update tedtask set status = status where taskid = " + taskId + "; SELECT pg_sleep(" + sec + ");", Collections.emptyList());
 		} else if (context.tedDao instanceof TedDaoMysql){
 			((TedDaoAbstract) context.tedDao).execute("dao_lockAndSleep",
-					" update tedtask set status = status where taskid = " + taskId + " and sleep(" + sec + ") = 0;", Collections.<SqlParam>emptyList());
+					" update tedtask set status = status where taskid = " + taskId + " and sleep(" + sec + ") = 0;", Collections.emptyList());
 		}
 	}
 

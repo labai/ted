@@ -9,10 +9,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedDbType;
-import ted.driver.Ted.TedProcessor;
 import ted.driver.TedResult;
-import ted.driver.TedTask;
-import ted.driver.sys.JdbcSelectTed.SqlParam;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.QuickCheck.CheckResult;
 import ted.driver.sys.TestTedProcessors.SingeInstanceFactory;
@@ -57,7 +54,7 @@ public class I09EventQueueTest extends TestBase {
 	}
 
 	private void dao_execSql (String sql) {
-		((TedDaoAbstract)getContext().tedDao).execute("test", sql, Collections.<SqlParam>emptyList());
+		((TedDaoAbstract)getContext().tedDao).execute("test", sql, Collections.emptyList());
 	}
 
 	private Long dao_selectLong (String sql) {
@@ -148,14 +145,11 @@ public class I09EventQueueTest extends TestBase {
 		cleanupData();
 
 		final Long[] taskId2 = new Long[2];
-		driver.registerTaskConfig(taskName, new SingeInstanceFactory(new TedProcessor() {
-				@Override
-				public TedResult process(TedTask task) {
-					taskId2[0] = getContext().tedDriver.createEventAndTryExecute(taskName2, "abra", "2", null);
-					taskId2[1] = getContext().tedDriver.createEvent(taskName2, "abra", "3", null);
-					return TedResult.done();
-				}
-			}
+		driver.registerTaskConfig(taskName, new SingeInstanceFactory(task -> {
+			taskId2[0] = getContext().tedDriver.createEventAndTryExecute(taskName2, "abra", "2", null);
+			taskId2[1] = getContext().tedDriver.createEvent(taskName2, "abra", "3", null);
+			return TedResult.done();
+		}
 		));
 		driver.registerTaskConfig(taskName2, TestTedProcessors.forClass(TestProcessorOk.class));
 
@@ -182,18 +176,15 @@ public class I09EventQueueTest extends TestBase {
 
 		driver.registerTaskConfig(taskName, forProcessor(new TestProcessorOkSleep(300)));
 
-		new Thread(new Runnable() {
-			@Override
-			public void run() {
-				logger.debug("start thread, will sleep for 150ms");
-				sleepMs(100); // need to start after createEventAndTryExecute
-				driver.getContext().eventQueueManager.processTedQueue();
-				// should be skipped
-				Long taskId = dao_selectLong("select taskid from tedtask where system = '" + SYSTEM_ID + "' and key2='" + key2 +"'");
-				TaskRec taskRec = tedDao.getTask(taskId);
-				print(taskRec.toString());
-				assertEquals("WORK", taskRec.status);
-			}
+		new Thread(() -> {
+			logger.debug("start thread, will sleep for 150ms");
+			sleepMs(100); // need to start after createEventAndTryExecute
+			driver.getContext().eventQueueManager.processTedQueue();
+			// should be skipped
+			Long taskId = dao_selectLong("select taskid from tedtask where system = '" + SYSTEM_ID + "' and key2='" + key2 +"'");
+			TaskRec taskRec = tedDao.getTask(taskId);
+			print(taskRec.toString());
+			assertEquals("WORK", taskRec.status);
 		}).start();
 
 		// first must become NEW

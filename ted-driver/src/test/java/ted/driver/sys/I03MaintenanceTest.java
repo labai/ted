@@ -1,14 +1,13 @@
 package ted.driver.sys;
 
-import ted.driver.sys.JdbcSelectTed.JetJdbcParamType;
-import ted.driver.sys.Model.TaskRec;
-import ted.driver.sys.TedDriverImpl.TedContext;
-import ted.driver.sys.TestTedProcessors.TestProcessorOk;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ted.driver.sys.JdbcSelectTed.JetJdbcParamType;
+import ted.driver.sys.Model.TaskRec;
+import ted.driver.sys.TedDriverImpl.TedContext;
+import ted.driver.sys.TestTedProcessors.TestProcessorOk;
 
 import java.io.IOException;
 import java.util.Date;
@@ -17,8 +16,8 @@ import java.util.List;
 import java.util.Properties;
 
 import static java.util.Arrays.asList;
-import static ted.driver.sys.TestConfig.SYSTEM_ID;
 import static org.junit.Assert.*;
+import static ted.driver.sys.TestConfig.SYSTEM_ID;
 import static ted.driver.sys.TestUtils.print;
 
 /**
@@ -76,7 +75,7 @@ public class I03MaintenanceTest extends TestBase {
 
 
 	@Test
-	public void test01WorkTimeoutMinute() throws Exception {
+	public void test01WorkTimeoutMinute() {
 		String taskName = "TEST03-01";
 		dao_cleanupAllTasks();
 
@@ -115,7 +114,7 @@ public class I03MaintenanceTest extends TestBase {
 
 	// if task TEST03-02 working > 1 min but < 40 min (setup in config), then finishTs should be set to this task.
 	@Test
-	public void test02WorkTimeoutPostpone() throws Exception {
+	public void test02WorkTimeoutPostpone() {
 		String taskName = "TEST03-02";
 		dao_cleanupAllTasks();
 
@@ -189,7 +188,7 @@ public class I03MaintenanceTest extends TestBase {
 
 	// if task TEST03-02 working > 40 min (setup in config), then it should be set to ERROR
 	@Test
-	public void test02WorkTimeoutCancel() throws Exception {
+	public void test02WorkTimeoutCancel() {
 		String taskName = "TEST03-02";
 		dao_cleanupAllTasks();
 
@@ -224,7 +223,7 @@ public class I03MaintenanceTest extends TestBase {
 
 
 	@Test
-	public void test03DeleteOldTasks() throws Exception {
+	public void test03DeleteOldTasks() {
 		// oldTaskArchiveDays = 5
 
 		String taskName = "TEST03-03";

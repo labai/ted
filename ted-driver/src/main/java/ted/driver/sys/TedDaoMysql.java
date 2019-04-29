@@ -49,22 +49,19 @@ class TedDaoMysql extends TedDaoAbstract {
 		sql = sql.replace("$status", status.toString());
 
 		final String finalSql = sql;
-		Long taskId = JdbcSelectTed.runInConn(dataSource, new ExecInConn<Long>() {
-			@Override
-			public Long execute(Connection connection) throws SQLException {
-				int res = JdbcSelectTedImpl.executeUpdate(connection, finalSql, asList(
-						sqlParam(name, JetJdbcParamType.STRING),
-						sqlParam(channel, JetJdbcParamType.STRING),
-						sqlParam(data, JetJdbcParamType.STRING),
-						sqlParam(key1, JetJdbcParamType.STRING),
-						sqlParam(key2, JetJdbcParamType.STRING),
-						sqlParam(batchId, JetJdbcParamType.LONG)
-				));
-				if (res != 1)
-					throw new IllegalStateException("expected 1 insert");
-				String sql = "select last_insert_id()";
-				return JdbcSelectTedImpl.selectSingleLong(connection, sql, Collections.<SqlParam>emptyList());
-			}
+		Long taskId = JdbcSelectTed.runInConn(dataSource, connection -> {
+			int res = JdbcSelectTedImpl.executeUpdate(connection, finalSql, asList(
+					sqlParam(name, JetJdbcParamType.STRING),
+					sqlParam(channel, JetJdbcParamType.STRING),
+					sqlParam(data, JetJdbcParamType.STRING),
+					sqlParam(key1, JetJdbcParamType.STRING),
+					sqlParam(key2, JetJdbcParamType.STRING),
+					sqlParam(batchId, JetJdbcParamType.LONG)
+			));
+			if (res != 1)
+				throw new IllegalStateException("expected 1 insert");
+			String sql1 = "select last_insert_id()";
+			return JdbcSelectTedImpl.selectSingleLong(connection, sql1, Collections.emptyList());
 		});
 
 		logger.trace("Task {} {} created successfully. ", name, taskId);

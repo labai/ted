@@ -59,4 +59,5 @@ public final class Ted {
 	public interface PrimeChangeEvent {
 		void onEvent();
 	}
+
 }

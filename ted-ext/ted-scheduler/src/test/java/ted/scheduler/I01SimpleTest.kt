@@ -11,7 +11,6 @@ import ted.scheduler.impl.TedSchedulerImpl.CronRetry
 import ted.scheduler.impl.TedSchedulerImpl.Factory
 
 import java.io.IOException
-import java.time.ZonedDateTime
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -20,6 +19,7 @@ import ted.scheduler.TestUtils.sleepMs
 import ted.scheduler.impl.DaoPostgres
 import ted.scheduler.impl.TedSchedulerImpl
 import ted.scheduler.utils.CronExpression
+import java.time.*
 import java.util.concurrent.TimeUnit
 
 class I01SimpleTest {
@@ -54,18 +54,9 @@ class I01SimpleTest {
                 + " status in ('NEW', 'RETRY', 'WORK') returning taskid")
     }
 
-    @Ignore
-    @Test
-    fun test1() {
-        val cron = CronExpression("0/11 14/19 0 1,11,21 1/2 *")
-        var zdt = cron.nextTimeAfter(ZonedDateTime.now())
-        zdt = cron.nextTimeAfter(zdt); println(zdt)
-        zdt = cron.nextTimeAfter(zdt); println(zdt)
-        zdt = cron.nextTimeAfter(zdt); println(zdt)
-    }
 
     @Test
-    fun testSchd01() {
+    fun `simple test scheduler every 1 second`() {
         var count = 0
         scheduler.builder().name("TEST1")
                 .scheduleCron("* * * ? * *")
@@ -78,7 +69,7 @@ class I01SimpleTest {
     }
 
     @Test
-    fun testSchd02_should_be_only_1_task_with_same_name() {
+    fun `should be only 1 task with same name`() {
         var count = 0
         var count2 = 0
         val shdId = scheduler.builder().name("TEST2")
@@ -107,7 +98,7 @@ class I01SimpleTest {
     }
 
     @Test
-    fun testMaint() {
+    fun `maintenance test`() {
         val taskId = schedulerImpl.registerScheduler("TEST1", null,
                 Factory.single(Runnable { logger.info("executing scheduler task") }),
                 CronRetry("0 0/10 * ? * *"))
@@ -134,7 +125,7 @@ class I01SimpleTest {
     }
 
     private fun dao_execSql(sql: String) {
-        dao.selectData("test", sql, Void::class, emptyList())
+        dao.selectData("test", sql, Void::class, listOf())
     }
 
     fun print(msg: String) {

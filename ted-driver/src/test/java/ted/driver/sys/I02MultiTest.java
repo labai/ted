@@ -1,14 +1,13 @@
 package ted.driver.sys;
 
-import org.junit.Ignore;
-import ted.driver.sys.Registry.Channel;
-import ted.driver.sys.TestTedProcessors.TestProcessorOk;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ted.driver.sys.Registry.Channel;
+import ted.driver.sys.TestTedProcessors.TestProcessorOk;
 
-import java.io.IOException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -29,7 +28,7 @@ public class I02MultiTest extends TestBase {
 	private Channel channel2;
 
 	@Before
-	public void init() throws IOException {
+	public void init() {
 		// driver1
 		driver1 = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), TestConfig.SYSTEM_ID);
 		channel1 = driver1.getContext().registry.getChannel("MAIN");
@@ -62,7 +61,7 @@ public class I02MultiTest extends TestBase {
 	// 1-st will take 20 tasks of 30 (2 workers * 10), 2-nd - remaining 10
 	@Ignore
 	@Test
-	public void test01FullQueue() throws Exception {
+	public void test01FullQueue() {
 		String taskName = "TEST02-01";
 		dao_cleanupAllTasks();
 

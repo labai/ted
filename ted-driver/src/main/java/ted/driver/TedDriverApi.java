@@ -65,11 +65,11 @@ public interface TedDriverApi {
 
 	}
 
-	interface TedDriverBatch {
-
-		Long createBatch(String batchTaskName, String data, String key1, String key2, List<TedTask> tedTasks);
-
-	}
+//	interface TedDriverBatch {
+//
+//		Long createBatch(String batchTaskName, String data, String key1, String key2, List<TedTask> tedTasks);
+//
+//	}
 
 	interface TedDriverEvent {
 

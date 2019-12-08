@@ -124,7 +124,7 @@ class EventQueueManager {
 				if (finalLastUnsavedResult != null) {
 					saveResult(finalLastUnsavedEvent, finalLastUnsavedResult);
 				}
-			} catch (Exception e) {
+			} catch (Throwable e) {
 				logger.error("Error while finishing events queue execution", e);
 			}
 		});
@@ -180,7 +180,7 @@ class EventQueueManager {
 				result = TedResult.error("invalid result status: " + result.status());
 			}
 
-		} catch (Exception e) {
+		} catch (Throwable e) {
 			logger.info("Unhandled exception while calling processor for task '{}': {}", taskRec1.name, e.getMessage());
 			taskExceptionLogger.error("Unhandled exception while calling processor for task '" + taskRec1.name + "'", e);
 			result = TedResult.error("Catch: " + e.getMessage());

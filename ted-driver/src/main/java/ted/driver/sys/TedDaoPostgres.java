@@ -204,7 +204,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 
 	@Override
 	public Long createEvent(String taskName, String queueId, String data, String key2) {
-		return createTaskInternal(taskName, Model.CHANNEL_QUEUE, data, nvle(queueId), key2, null, 0, TedStatus.SLEEP);
+		return createTaskInternal(taskName, Model.CHANNEL_QUEUE, data, nvle(queueId), key2, null, 0, TedStatus.SLEEP, null);
 	}
 
 	@Override
@@ -395,7 +395,8 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 	}
 
 	// use 1 call for postgres, instead of 2 (sequence and insert)
-	protected long createTaskInternal(String name, String channel, String data, String key1, String key2, Long batchId, int postponeSec, TedStatus status) {
+	@Override
+	protected long createTaskInternal(String name, String channel, String data, String key1, String key2, Long batchId, int postponeSec, TedStatus status, Connection conn) {
 		String sqlLogId = "create_task";
 		if (status == null)
 			status = TedStatus.NEW;
@@ -409,15 +410,17 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$nextts", nextts);
 		sql = sql.replace("$status", status.toString());
+		final String sqlFinal = sql;
 
-		List<TaskIdRes> resList = selectData(sqlLogId, sql, TaskIdRes.class, asList(
-				sqlParam(name, JetJdbcParamType.STRING),
-				sqlParam(channel, JetJdbcParamType.STRING),
-				sqlParam(data, JetJdbcParamType.STRING),
-				sqlParam(key1, JetJdbcParamType.STRING),
-				sqlParam(key2, JetJdbcParamType.STRING),
-				sqlParam(batchId, JetJdbcParamType.LONG)
-		));
+		List<TaskIdRes> resList = smartRunWithLog(conn, sqlLogId,
+				conn1 -> JdbcSelectTedImpl.selectData(conn1, sqlFinal, TaskIdRes.class, asList(
+					sqlParam(name, JetJdbcParamType.STRING),
+					sqlParam(channel, JetJdbcParamType.STRING),
+					sqlParam(data, JetJdbcParamType.STRING),
+					sqlParam(key1, JetJdbcParamType.STRING),
+					sqlParam(key2, JetJdbcParamType.STRING),
+					sqlParam(batchId, JetJdbcParamType.LONG)
+			)));
 		Long taskId = resList.get(0).taskid;
 		logger.trace("Task {} {} created successfully. ", name, taskId);
 		return taskId;

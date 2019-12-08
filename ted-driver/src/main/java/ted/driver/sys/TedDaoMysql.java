@@ -3,13 +3,10 @@ package ted.driver.sys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedStatus;
-import ted.driver.sys.JdbcSelectTed.ExecInConn;
 import ted.driver.sys.JdbcSelectTed.JetJdbcParamType;
-import ted.driver.sys.JdbcSelectTed.SqlParam;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.Collections;
 
 import static java.util.Arrays.asList;
@@ -33,7 +30,8 @@ class TedDaoMysql extends TedDaoAbstract {
 	//
 
 	// taskid is autonumber in MySql
-	protected long createTaskInternal(final String name, final String channel, final String data, final String key1, final String key2, final Long batchId, int postponeSec, TedStatus status) {
+	@Override
+	protected long createTaskInternal(final String name, final String channel, final String data, final String key1, final String key2, final Long batchId, int postponeSec, TedStatus status, Connection conn) {
 		final String sqlLogId = "create_task";
 		if (status == null)
 			status = TedStatus.NEW;
@@ -49,8 +47,8 @@ class TedDaoMysql extends TedDaoAbstract {
 		sql = sql.replace("$status", status.toString());
 
 		final String finalSql = sql;
-		Long taskId = JdbcSelectTed.runInConn(dataSource, connection -> {
-			int res = JdbcSelectTedImpl.executeUpdate(connection, finalSql, asList(
+		Long taskId = smartRunWithLog(conn, sqlLogId, conn1 -> {
+			int res = JdbcSelectTedImpl.executeUpdate(conn1, finalSql, asList(
 					sqlParam(name, JetJdbcParamType.STRING),
 					sqlParam(channel, JetJdbcParamType.STRING),
 					sqlParam(data, JetJdbcParamType.STRING),
@@ -61,7 +59,7 @@ class TedDaoMysql extends TedDaoAbstract {
 			if (res != 1)
 				throw new IllegalStateException("expected 1 insert");
 			String sql1 = "select last_insert_id()";
-			return JdbcSelectTedImpl.selectSingleLong(connection, sql1, Collections.emptyList());
+			return JdbcSelectTedImpl.selectSingleLong(conn1, sql1, Collections.emptyList());
 		});
 
 		logger.trace("Task {} {} created successfully. ", name, taskId);

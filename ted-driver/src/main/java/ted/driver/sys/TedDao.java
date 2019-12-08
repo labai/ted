@@ -7,6 +7,7 @@ import ted.driver.sys.PrimeInstance.CheckPrimeParams;
 import ted.driver.sys.QuickCheck.CheckResult;
 import ted.driver.sys.TedDaoAbstract.DbType;
 
+import java.sql.Connection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -21,11 +22,11 @@ interface TedDao {
 
 	DbType getDbType();
 
-	Long createTask(String name, String channel, String data, String key1, String key2, Long batchId);
+	Long createTask(String name, String channel, String data, String key1, String key2, Long batchId, Connection conn);
 
-	Long createTaskPostponed(String name, String channel, String data, String key1, String key2, int postponeSec);
+	Long createTaskPostponed(String name, String channel, String data, String key1, String key2, int postponeSec, Connection conn);
 
-	Long createTaskWithWorkStatus(String name, String channel, String data, String key1, String key2);
+	Long createTaskWithWorkStatus(String name, String channel, String data, String key1, String key2, Connection conn);
 
 	List<Long> createTasksBulk(List<TaskParam> taskParams);
 

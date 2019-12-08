@@ -2,7 +2,6 @@ package ted.driver.sys;
 
 import org.awaitility.Awaitility;
 import org.awaitility.Duration;
-import org.awaitility.core.ConditionFactory;
 import ted.driver.sys.Model.TaskRec;
 
 import java.io.FileNotFoundException;
@@ -16,7 +15,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.Arrays.asList;
-import static org.awaitility.Awaitility.await;
 
 /**
  * @author Augustus

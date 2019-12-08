@@ -22,6 +22,7 @@ import ted.driver.sys.Registry.TaskConfig;
 import ted.driver.sys.Trash.TedMetricsEvents;
 
 import javax.sql.DataSource;
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -162,7 +163,7 @@ public final class TedDriverImpl {
 		driverExecutor.scheduleAtFixedRate(() -> {
 			try {
 				context.quickCheck.quickCheck();
-			} catch (Exception e) {
+			} catch (Throwable e) {
 				logger.error("Error while executing driver task", e);
 			}
 		}, context.config.initDelayMs(), context.config.intervalDriverMs(), TimeUnit.MILLISECONDS);
@@ -172,7 +173,7 @@ public final class TedDriverImpl {
 		maintenanceExecutor.scheduleAtFixedRate(() -> {
 			try {
 				context.taskManager.processMaintenanceTasks();
-			} catch (Exception e) {
+			} catch (Throwable e) {
 				logger.error("Error while executing maintenance tasks", e);
 			}
 		}, context.config.initDelayMs(), context.config.intervalMaintenanceMs(), TimeUnit.MILLISECONDS);
@@ -243,40 +244,40 @@ public final class TedDriverImpl {
 	 * "public" for TedDriver only
 	 */
 
-	public Long createTask(String taskName, String data, String key1, String key2, Long batchId) {
+	public Long createTask(String taskName, String data, String key1, String key2, Long batchId, Connection conn) {
 		FieldValidator.validateTaskData(data);
 		FieldValidator.validateTaskKey1(key1);
 		FieldValidator.validateTaskKey2(key2);
 		TaskConfig tc = context.registry.getTaskConfig(taskName);
 		if (tc == null)
 			throw new IllegalArgumentException("Task '" + taskName + "' is not known for TED");
-		return context.tedDao.createTask(taskName, tc.channel, data, key1, key2, batchId);
+		return context.tedDao.createTask(taskName, tc.channel, data, key1, key2, batchId, conn);
 	}
 
 	Long createTask(String taskName, String data, String key1, String key2) {
-		return createTask(taskName, data, key1, key2, null);
+		return createTask(taskName, data, key1, key2, null, null);
 	}
 
-	public Long createTaskPostponed(String taskName, String data, String key1, String key2, int postponeSec) {
+	public Long createTaskPostponed(String taskName, String data, String key1, String key2, int postponeSec, Connection conn) {
 		FieldValidator.validateTaskData(data);
 		FieldValidator.validateTaskKey1(key1);
 		FieldValidator.validateTaskKey2(key2);
 		TaskConfig tc = context.registry.getTaskConfig(taskName);
 		if (tc == null)
 			throw new IllegalArgumentException("Task '" + taskName + "' is not known for TED");
-		return context.tedDao.createTaskPostponed(taskName, tc.channel, data, key1, key2, postponeSec);
+		return context.tedDao.createTaskPostponed(taskName, tc.channel, data, key1, key2, postponeSec, conn);
 	}
 
 	// create task and execute it
 	// (or add task to execution queue - channel)
-	public Long createAndExecuteTask(String taskName, String data, String key1, String key2, boolean inChannel) {
+	public Long createAndExecuteTask(String taskName, String data, String key1, String key2, boolean inChannel, Connection conn) {
 		FieldValidator.validateTaskData(data);
 		FieldValidator.validateTaskKey1(key1);
 		FieldValidator.validateTaskKey2(key2);
 		TaskConfig tc = context.registry.getTaskConfig(taskName);
 		if (tc == null)
 			throw new IllegalArgumentException("Task '" + taskName + "' is not known for TED");
-		Long taskId = context.tedDao.createTaskWithWorkStatus(taskName, tc.channel, data, key1, key2);
+		Long taskId = context.tedDao.createTaskWithWorkStatus(taskName, tc.channel, data, key1, key2, conn);
 		TaskRec taskRec = new TaskRec();
 		taskRec.taskId = taskId;
 		taskRec.batchId = null;
@@ -340,7 +341,7 @@ public final class TedDriverImpl {
 		if (batchTC == null)
 			throw new IllegalArgumentException("Batch task '" + batchTaskName + "' is not known for TED");
 
-		Long batchId = context.tedDao.createTaskPostponed(batchTC.taskName, Model.CHANNEL_BATCH, data, key1, key2, 30 * 60);
+		Long batchId = context.tedDao.createTaskPostponed(batchTC.taskName, Model.CHANNEL_BATCH, data, key1, key2, 30 * 60, null);
 		createTasksBulk(tedTasks, batchId);
 		context.tedDao.setStatusPostponed(batchId, TedStatus.NEW, Model.BATCH_MSG, new Date());
 

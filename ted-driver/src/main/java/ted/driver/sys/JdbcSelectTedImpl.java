@@ -107,7 +107,7 @@ class JdbcSelectTedImpl {
 			T result;
 			try {
 				if (entityFields == null) {
-					entityFields = new ArrayList<Field>(asList(new Field[aliases.length]));
+					entityFields = new ArrayList<>(asList(new Field[aliases.length]));
 
 					for (Field field : clazz.getDeclaredFields()) {
 						field.setAccessible(true);
@@ -230,7 +230,7 @@ class JdbcSelectTedImpl {
 			return false;
 		if (colData instanceof oracle.sql.TIMESTAMP) {
 			try {
-				fld.set(bean, ((oracle.sql.TIMESTAMP) colData).dateValue());
+				fld.set(bean, new Date(((oracle.sql.TIMESTAMP) colData).timestampValue().getTime()));
 				return true;
 			} catch (SQLException e) {
 				throw new SQLDataException("Cannot read from oracle.sql.TIMESTAMP", e);

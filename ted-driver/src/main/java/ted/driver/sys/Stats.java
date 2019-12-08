@@ -74,7 +74,7 @@ class Stats {
 				});
 			} catch (RejectedExecutionException e) {
 				logger.warn("Exception while registering metrics (method " + method.getName() + "). Queue is full? " + e.getMessage());
-			} catch (Exception e) {
+			} catch (Throwable e) {
 				logger.warn("Exception while registering metrics (method " + method.getName() + ")", e);
 			}
 			return null; // should be voids

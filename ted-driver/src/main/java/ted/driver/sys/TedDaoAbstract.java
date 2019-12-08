@@ -23,6 +23,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.function.Supplier;
 
 import static ted.driver.sys.JdbcSelectTed.sqlParam;
 import static ted.driver.sys.MiscUtils.asList;
@@ -53,7 +54,7 @@ abstract class TedDaoAbstract implements TedDao {
 
 	protected enum DbType {
 		ORACLE(new SqlDbExt() {
-			public String now() { return "systimestamp"; }
+			public String now() { return "cast(systimestamp as timestamp(3))"; }
 			public String intervalSeconds(int secCount) { return secCount + " / 86400"; }
 			public String intervalDays(int dayCount) { return "" + dayCount; }
 			public String rownum(String rowNum) { return " and rownum <= " + rowNum; } // must be last of conditions
@@ -119,21 +120,21 @@ abstract class TedDaoAbstract implements TedDao {
 	}
 
 	@Override
-	public Long createTask(String name, String channel, String data, String key1, String key2, Long batchId) {
-		return createTaskInternal(name, channel, data, key1, key2, batchId, 0, TedStatus.NEW);
+	public Long createTask(String name, String channel, String data, String key1, String key2, Long batchId, Connection conn) {
+		return createTaskInternal(name, channel, data, key1, key2, batchId, 0, TedStatus.NEW, conn);
 	}
 
 	@Override
-	public Long createTaskPostponed(String name, String channel, String data, String key1, String key2, int postponeSec) {
-		return createTaskInternal(name, channel, data, key1, key2, null, postponeSec, TedStatus.NEW);
+	public Long createTaskPostponed(String name, String channel, String data, String key1, String key2, int postponeSec, Connection conn) {
+		return createTaskInternal(name, channel, data, key1, key2, null, postponeSec, TedStatus.NEW, conn);
 	}
 
 	@Override
-	public Long createTaskWithWorkStatus(String name, String channel, String data, String key1, String key2) {
-		return createTaskInternal(name, channel, data, key1, key2, null, 0, TedStatus.WORK);
+	public Long createTaskWithWorkStatus(String name, String channel, String data, String key1, String key2, Connection conn) {
+		return createTaskInternal(name, channel, data, key1, key2, null, 0, TedStatus.WORK, conn);
 	}
 
-	abstract protected long createTaskInternal(String name, String channel, String data, String key1, String key2, Long batchId, int postponeSec, TedStatus status);
+	abstract protected long createTaskInternal(String name, String channel, String data, String key1, String key2, Long batchId, int postponeSec, TedStatus status, Connection conn);
 
 	private static class ChannelRes {
 		String channel;
@@ -376,7 +377,7 @@ abstract class TedDaoAbstract implements TedDao {
 		assert dbType != DbType.POSTGRES;
 		ArrayList<Long> taskIds = new ArrayList<Long>();
 		for (TaskParam param : taskParams) {
-			Long taskId = createTask(param.name, param.channel, param.data, param.key1, param.key2, param.batchId);
+			Long taskId = createTask(param.name, param.channel, param.data, param.key1, param.key2, param.batchId, null);
 			taskIds.add(taskId);
 		}
 		return taskIds;
@@ -419,48 +420,57 @@ abstract class TedDaoAbstract implements TedDao {
 	//
 
 	protected void execute(String sqlLogId, final String sql, final List<SqlParam> params) {
-		runInConnWithLog(sqlLogId, new ExecInConn<Boolean>() {
-			@Override
-			public Boolean execute(Connection connection) throws SQLException {
-				JdbcSelectTedImpl.executeUpdate(connection, sql, params);
-				return true;
-			}
+		execute(null, sqlLogId, sql, params);
+	}
+
+	protected void execute(Connection conn, String sqlLogId, final String sql, final List<SqlParam> params) {
+		smartRunWithLog(conn, sqlLogId, conn1 -> {
+			JdbcSelectTedImpl.executeUpdate(conn1, sql, params);
+			return true;
 		});
 	}
 
 	protected <T> List<T> selectData(String sqlLogId, final String sql, final Class<T> clazz, final List<SqlParam> params) {
-		return runInConnWithLog(sqlLogId, new ExecInConn<List<T>>() {
-			@Override
-			public List<T> execute(Connection connection) throws SQLException {
-				return JdbcSelectTedImpl.selectData(connection, sql, clazz, params);
-			}
-		});
+		return runInConnWithLog(sqlLogId, conn -> JdbcSelectTedImpl.selectData(conn, sql, clazz, params));
 	}
 
 	protected Long selectSingleLong(String sqlLogId, String sql) {
 		return selectSingleLong(sqlLogId, sql, null);
 	}
 
-	protected Long selectSingleLong(String sqlLogId, final String sql, final List<SqlParam> params) {
+	private Long selectSingleLong(String sqlLogId, final String sql, final List<SqlParam> params) {
 		return runInConnWithLog(sqlLogId,
 				conn -> JdbcSelectTedImpl.selectSingleLong(conn, sql, params));
 	}
 
-	private void handleSQLException(SQLException sqle, String sqlLogId) {
-		if ("23505".equals(sqle.getSQLState())) { // 23505 in postgres: duplicate key value violates unique constraint. TODO for oracle - don't care(?)
-			logger.info("duplicate was found for unique index. sqlId={} message={}", sqlLogId, sqle.getMessage());
-			throw new TedSqlDuplicateException("duplicate was found for sqlId=" + sqlLogId, sqle);
-		}
-		logger.error("SQLException while execute '{}': {}", sqlLogId, sqle.getMessage());
-		throw new TedSqlException("SQL exception while calling sqlId '" + sqlLogId + "'", sqle);
+	protected <T> T runInConnWithLog(String sqlLogId, ExecInConn<T> executor) {
+		return wrapWithLog(sqlLogId,
+				() -> JdbcSelectTed.runInConn(dataSource, executor));
 	}
 
-	protected <T> T runInConnWithLog(String sqlLogId, ExecInConn<T> executor) {
+	// "smart" conn check - is conn is null, then will take from dataSource
+	protected <T> T smartRunWithLog(Connection conn, String sqlLogId, ExecInConn<T> executor) {
+		if (conn == null) {
+			return wrapWithLog(sqlLogId, () -> JdbcSelectTed.runInConn(dataSource, executor));
+		} else {
+			// when want to execute in existing connection
+			return wrapWithLog(sqlLogId, () -> {
+				try {
+					return executor.execute(conn);
+				} catch (SQLException e) {
+					logger.error("Sql exception: " + e.getMessage());
+					throw new TedSqlException(e);
+				}
+			});
+		}
+	}
+
+	private  <T> T wrapWithLog(String sqlLogId, Supplier<T> executor) {
 		long startTm = System.currentTimeMillis();
 		T result = null;
 
 		try {
-			result = JdbcSelectTed.runInConn(dataSource, executor);
+			result = executor.get();
 			return result;
 		} catch (TedSqlException e) {
 			if (e.getCause() != null && e.getCause() instanceof SQLException) {
@@ -479,5 +489,14 @@ abstract class TedDaoAbstract implements TedDao {
 			}
 			stats.metrics.dbCall(sqlLogId, resCnt, (int)durationMs);
 		}
+	}
+
+	private void handleSQLException(SQLException sqle, String sqlLogId) {
+		if ("23505".equals(sqle.getSQLState())) { // 23505 in postgres: duplicate key value violates unique constraint. TODO for oracle - don't care(?)
+			logger.info("duplicate was found for unique index. sqlId={} message={}", sqlLogId, sqle.getMessage());
+			throw new TedSqlDuplicateException("duplicate was found for sqlId=" + sqlLogId, sqle);
+		}
+		logger.error("SQLException while execute '{}': {}", sqlLogId, sqle.getMessage());
+		throw new TedSqlException("SQL exception while calling sqlId '" + sqlLogId + "'", sqle);
 	}
 }

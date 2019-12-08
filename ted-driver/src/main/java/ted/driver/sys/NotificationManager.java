@@ -80,7 +80,7 @@ class NotificationManager {
 			Thread.currentThread().setName(threadName + "-" + taskConfig.shortLogName + "-" + notify.taskId);
 			TedProcessor processor = taskConfig.tedProcessorFactory.getProcessor(notify.name);
 			processor.process(notify.getTedTask());
-		} catch (Exception e) {
+		} catch (Throwable e) {
 			logger.error("Unhandled exception while calling notification processor for task '{}': {}", notify.name, e.getMessage());
 		} finally {
 			Thread.currentThread().setName(threadName);
@@ -118,7 +118,7 @@ class NotificationManager {
 	}
 
 	Long sendNotification(String taskName, String data) {
-		return tedDao.createTask(taskName, Model.CHANNEL_NOTIFY, data, null, null, null);
+		return tedDao.createTask(taskName, Model.CHANNEL_NOTIFY, data, null, null, null, null);
 	}
 
 }

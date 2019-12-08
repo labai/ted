@@ -4,7 +4,6 @@ import ted.driver.Ted.PrimeChangeEvent;
 import ted.driver.Ted.TedDbType;
 import ted.driver.Ted.TedProcessorFactory;
 import ted.driver.Ted.TedRetryScheduler;
-import ted.driver.TedDriverApi.TedDriverBatch;
 import ted.driver.TedDriverApi.TedDriverConfig;
 import ted.driver.TedDriverApi.TedDriverConfigAware;
 import ted.driver.TedDriverApi.TedDriverEvent;
@@ -16,7 +15,6 @@ import ted.driver.TedDriverApi.TedDriverTaskConfig;
 import ted.driver.sys.TedDriverImpl;
 
 import javax.sql.DataSource;
-import java.util.List;
 import java.util.Properties;
 
 /**
@@ -26,12 +24,12 @@ import java.util.Properties;
  *  TedDriver with api
  *
  */
-public final class TedDriver implements
+public class TedDriver implements
 		TedDriverService,
 		TedDriverConfigAware,
 		TedDriverTaskConfig,
 		TedDriverTask,
-		TedDriverBatch,
+//		TedDriverBatch,
 		TedDriverEvent,
 		TedDriverNotification,
 		TedDriverPrime {
@@ -74,7 +72,7 @@ public final class TedDriver implements
 	*/
 	@Override
 	public Long createTask(String taskName, String data, String key1, String key2) {
-		return tedDriverImpl.createTask(taskName, data, key1, key2, null);
+		return tedDriverImpl.createTask(taskName, data, key1, key2, null, null);
 	}
 
 	/**
@@ -82,7 +80,7 @@ public final class TedDriver implements
 	*/
 	@Override
 	public Long createTask(String taskName, String data) {
-		return tedDriverImpl.createTask(taskName, data, null, null, null);
+		return tedDriverImpl.createTask(taskName, data, null, null, null, null);
 	}
 
 	/**
@@ -90,7 +88,7 @@ public final class TedDriver implements
 	*/
 	@Override
 	public Long createTaskPostponed(String taskName, String data, String key1, String key2, int postponeSec) {
-		return tedDriverImpl.createTaskPostponed(taskName, data, key1, key2, postponeSec);
+		return tedDriverImpl.createTaskPostponed(taskName, data, key1, key2, postponeSec, null);
 	}
 
 	/**
@@ -98,7 +96,7 @@ public final class TedDriver implements
 	*/
 	@Override
 	public Long createAndExecuteTask(String taskName, String data, String key1, String key2) {
-		return tedDriverImpl.createAndExecuteTask(taskName, data, key1, key2, false);
+		return tedDriverImpl.createAndExecuteTask(taskName, data, key1, key2, false, null);
 	}
 
 	/**
@@ -106,16 +104,17 @@ public final class TedDriver implements
 	*/
 	@Override
 	public Long createAndStartTask(String taskName, String data, String key1, String key2) {
-		return tedDriverImpl.createAndExecuteTask(taskName, data, key1, key2, true);
+		return tedDriverImpl.createAndExecuteTask(taskName, data, key1, key2, true, null);
 	}
 
 	/**
 	 * create tasks by list and batch task for them. return batch taskId
 	*/
-	@Override
-	public Long createBatch(String batchTaskName, String data, String key1, String key2, List<TedTask> tedTasks) {
-		return tedDriverImpl.createBatch(batchTaskName, data, key1, key2, tedTasks);
-	}
+// moved to TedTaskHelper
+//	@Override
+//	public Long createBatch(String batchTaskName, String data, String key1, String key2, List<TedTask> tedTasks) {
+//		return tedDriverImpl.createBatch(batchTaskName, data, key1, key2, tedTasks);
+//	}
 
 	/**
 	 * create event in queue
@@ -216,8 +215,8 @@ public final class TedDriver implements
 	 * helper function to
 	 * create TedTask for createBatch (with required params only)
 	 */
-	public TedTask newTedTask(String taskName, String data, String key1, String key2) {
-		return tedDriverImpl.newTedTask(taskName, key1, key2, data);
-	}
+//	public TedTask newTedTask(String taskName, String data, String key1, String key2) {
+//		return tedDriverImpl.newTedTask(taskName, key1, key2, data);
+//	}
 
 }

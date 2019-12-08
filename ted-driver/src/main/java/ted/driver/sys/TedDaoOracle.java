@@ -3,14 +3,12 @@ package ted.driver.sys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedStatus;
-import ted.driver.sys.JdbcSelectTed.ExecInConn;
 import ted.driver.sys.JdbcSelectTed.JetJdbcParamType;
 import ted.driver.sys.JdbcSelectTed.SqlParam;
 import ted.driver.sys.Model.TaskRec;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 
@@ -33,9 +31,8 @@ class TedDaoOracle extends TedDaoAbstract {
 		super(system, dataSource, DbType.ORACLE, stats);
 	}
 
-
-	//
-	protected long createTaskInternal(String name, String channel, String data, String key1, String key2, Long batchId, int postponeSec, TedStatus status) {
+	@Override
+	protected long createTaskInternal(String name, String channel, String data, String key1, String key2, Long batchId, int postponeSec, TedStatus status, Connection conn) {
 		String sqlLogId = "create_task0";
 		Long nextId = getSequenceNextValue("SEQ_TEDTASK_ID");
 		if (status == null)
@@ -49,7 +46,7 @@ class TedDaoOracle extends TedDaoAbstract {
 		sql = sql.replace("$nextts", nextts);
 		sql = sql.replace("$status", status.toString());
 
-		execute(sqlLogId, sql, asList(
+		execute(conn, sqlLogId, sql, asList(
 				sqlParam(nextId, JetJdbcParamType.LONG),
 				sqlParam(name, JetJdbcParamType.STRING),
 				sqlParam(channel, JetJdbcParamType.STRING),
@@ -75,7 +72,7 @@ class TedDaoOracle extends TedDaoAbstract {
 		String sql = ""
 				+ " declare"
 				+ "   v_bno number;"
-				+ "   now timestamp := systimestamp;"
+				+ "   now timestamp(3) := systimestamp;"
 				+ "	  p_sys tedtask.system%type := :p_sys;"
 				+ "   p_pairs varchar(500) := :p_pairs; "
 				+ "   v_taskid number;"

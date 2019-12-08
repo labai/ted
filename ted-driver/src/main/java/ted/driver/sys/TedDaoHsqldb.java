@@ -6,6 +6,7 @@ import ted.driver.Ted.TedStatus;
 import ted.driver.sys.JdbcSelectTed.JetJdbcParamType;
 
 import javax.sql.DataSource;
+import java.sql.Connection;
 
 import static java.util.Arrays.asList;
 import static ted.driver.sys.JdbcSelectTed.sqlParam;
@@ -25,7 +26,7 @@ class TedDaoHsqldb extends TedDaoAbstract {
 	}
 
 	@Override
-	protected long createTaskInternal(String name, String channel, String data, String key1, String key2, Long batchId, int postponeSec, TedStatus status) {
+	protected long createTaskInternal(String name, String channel, String data, String key1, String key2, Long batchId, int postponeSec, TedStatus status, Connection conn) {
 		String sqlLogId = "create_taskH";
 		Long nextId = getSequenceNextValue("SEQ_TEDTASK_ID");
 		if (status == null)

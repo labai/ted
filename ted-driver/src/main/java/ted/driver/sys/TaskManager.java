@@ -12,7 +12,6 @@ import ted.driver.sys.Registry.Channel;
 import ted.driver.sys.Registry.TaskConfig;
 import ted.driver.sys.TedDriverImpl.TedContext;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.ConcurrentModificationException;
 import java.util.Date;
@@ -20,7 +19,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 /**
@@ -284,13 +282,13 @@ class TaskManager {
 				changeTaskStatus(taskRec.taskId, TedStatus.ERROR, "invalid result status: " + result.status());
 			}
 
-		} catch (Exception e) {
+		} catch (Throwable e) {
 			logger.info("Unhandled exception while calling processor for task '{}': {}", taskRec.name, e.getMessage());
 			taskExceptionLogger.error("Unhandled exception while calling processor for task '" + taskRec.name + "'", e);
 			try {
 				result = TedResult.error("Catch: " + e.getMessage());
 				changeTaskStatus(taskRec.taskId, TedStatus.ERROR, result.message());
-			} catch (Exception e1) {
+			} catch (Throwable e1) {
 				logger.warn("Unhandled exception while handling exception for task '{}', statuses will be not changed: {}", taskRec.name, e1.getMessage());
 			}
 		} finally {

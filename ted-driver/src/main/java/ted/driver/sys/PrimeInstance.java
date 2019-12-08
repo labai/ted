@@ -87,7 +87,7 @@ public final class PrimeInstance {
 				workers.execute(() -> {
 					try {
 						onBecomePrime.onEvent();
-					} catch (Exception e) {
+					} catch (Throwable e) {
 						logger.error("Exception onBecomePrime handler", e);
 					}
 				});
@@ -105,7 +105,7 @@ public final class PrimeInstance {
 			workers.execute(() -> {
 				try {
 					onLostPrime.onEvent();
-				} catch (Exception e) {
+				} catch (Throwable e) {
 					logger.error("Exception onLostPrime handler", e);
 				}
 			});

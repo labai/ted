@@ -205,7 +205,7 @@ public class I07BatchTest extends TestBase {
 	private void setTaskNextTsNow(Long taskId) {
 		String sql = "update tedtask set nextts = $now where taskId=" + taskId
 			+ " and status in ('NEW', 'RETRY')";
-		sql = sql.replace("$now", tedDao.getDbType().sql.now());
+		sql = sql.replace("$now", tedDao.getDbType().sql().now());
 		((TedDaoAbstract)tedDao).execute("setTaskNextTsNow", sql, Collections.emptyList());
 	}
 

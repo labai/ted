@@ -6,6 +6,7 @@ import ted.driver.Ted.TedStatus;
 import ted.driver.sys.JdbcSelectTed.JetJdbcParamType;
 import ted.driver.sys.JdbcSelectTed.SqlParam;
 import ted.driver.sys.Model.TaskRec;
+import ted.driver.sys.SqlUtils.DbType;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -37,11 +38,11 @@ class TedDaoOracle extends TedDaoAbstract {
 		Long nextId = getSequenceNextValue("SEQ_TEDTASK_ID");
 		if (status == null)
 			status = TedStatus.NEW;
-		String nextts = (status == TedStatus.NEW ? dbType.sql.now() + " + " + dbType.sql.intervalSeconds(postponeSec) : "null");
+		String nextts = (status == TedStatus.NEW ? dbType.sql().now() + " + " + dbType.sql().intervalSeconds(postponeSec) : "null");
 
 		String sql = " insert into tedtask (taskId, system, name, channel, bno, status, createTs, nextTs, retries, data, key1, key2, batchId)" +
 				" values(?, '$sys', ?, ?, null, '$status', $now, $nextts, 0, ?, ?, ?, ?)";
-		sql = sql.replace("$now", dbType.sql.now());
+		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$nextts", nextts);
 		sql = sql.replace("$status", status.toString());

@@ -2,24 +2,19 @@ package ted.scheduler
 
 import org.awaitility.Awaitility
 import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.slf4j.LoggerFactory
 import ted.driver.Ted.TedStatus
 import ted.driver.TedDriver
-import ted.scheduler.impl.TedSchedulerImpl.CronRetry
-import ted.scheduler.impl.TedSchedulerImpl.Factory
-
-import java.io.IOException
-
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Ignore
+import ted.driver.sys._TedSchdDriverExt
 import ted.scheduler.TestUtils.sleepMs
-import ted.scheduler.impl.DaoPostgres
+import ted.scheduler.impl.AbstractDao
 import ted.scheduler.impl.TedSchedulerImpl
-import ted.scheduler.utils.CronExpression
-import java.time.*
+import ted.scheduler.impl.TedSchedulerImpl.*
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 class I01SimpleTest {
@@ -28,23 +23,29 @@ class I01SimpleTest {
     private lateinit var driver: TedDriver
     private lateinit var scheduler: TedScheduler
     private lateinit var schedulerImpl: TedSchedulerImpl
-    private lateinit var dao: DaoPostgres
     private lateinit var systemId: String
 
+    private lateinit var context: Context
 
     @Before
     @Throws(IOException::class)
     fun init() {
         val properties = TestUtils.readPropertiesFile("ted-I01.properties")
         driver = TedDriver(TestConfig.testDbType, TestConfig.getDataSource(), properties)
-        systemId = properties.getProperty("ted.systemId")
-        dao = DaoPostgres(TestConfig.getDataSource(), systemId)
         driver.enablePrime()
-        driver.start()
         scheduler = TedScheduler(driver)
         schedulerImpl = TedSchedulerImpl(driver)
-        //this.context = driver.getContext();
 
+        systemId = properties.getProperty("ted.systemId")
+
+        val tedSchdDriverExt = _TedSchdDriverExt(driver)
+        context = Context()
+        context.thisSystem = tedSchdDriverExt.systemId()
+        context.dataSource = tedSchdDriverExt.dataSource()
+        context.dbType = tedSchdDriverExt.dbType()
+
+
+        driver.start()
     }
 
     @After
@@ -125,7 +126,7 @@ class I01SimpleTest {
     }
 
     private fun dao_execSql(sql: String) {
-        dao.selectData("test", sql, Void::class, listOf())
+        (context.dao as AbstractDao).selectData("test", sql, Void::class, listOf())
     }
 
     fun print(msg: String) {

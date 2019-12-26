@@ -12,9 +12,12 @@ import ted.driver.TedDriverApi.TedDriverPrime;
 import ted.driver.TedDriverApi.TedDriverService;
 import ted.driver.TedDriverApi.TedDriverTask;
 import ted.driver.TedDriverApi.TedDriverTaskConfig;
+import ted.driver.sys.SqlUtils.DbType;
 import ted.driver.sys.TedDriverImpl;
 
 import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.Properties;
 
 /**
@@ -34,10 +37,13 @@ public class TedDriver implements
 		TedDriverNotification,
 		TedDriverPrime {
 
-	final TedDriverImpl tedDriverImpl; // for Ted-ext, do not use in app
-	private final TedDbType dbType;
-	private final DataSource dataSource;
-	private final TedDriverConfig driverConfig; /* some info about driver configuration */
+	TedDriverImpl tedDriverImpl; // for Ted-ext, do not use in app
+	private TedDbType dbType;
+	private DataSource dataSource;
+	private TedDriverConfig driverConfig; /* some info about driver configuration */
+
+	private boolean isStartedInitialize = false;
+
 
 	/**
 	 *  dataSource - provides oracle db (with tedtask table) connection dataSource;
@@ -48,6 +54,39 @@ public class TedDriver implements
 		this.dataSource = dataSource;
 		this.dbType = dbType;
 		this.driverConfig = tedDriverImpl.getTedDriverConfig();
+		this.isStartedInitialize = true;
+	}
+
+	public TedDriver(DataSource dataSource, Properties properties) {
+		// will connect to db to recognize its type
+		this(resolveDbType(dataSource), dataSource, properties);
+	}
+
+	private static TedDbType resolveDbType(DataSource dataSource) {
+		try (Connection conn = dataSource.getConnection()) {
+			String sdbtype = conn.getMetaData().getDatabaseProductName();
+			switch (sdbtype) {
+				case "PostgreSQL": return TedDbType.POSTGRES;
+				case "Oracle": return TedDbType.ORACLE;
+				case "MySQL": return TedDbType.MYSQL;
+				case "HSQL Database Engine": return TedDbType.HSQLDB;
+				default: throw new IllegalStateException("Cannot recognize db type or it is not supported by TED ("+ sdbtype +")");
+			}
+		} catch (SQLException e) {
+			throw new IllegalStateException("Connection error while trying to recognize db type", e);
+		}
+
+	}
+
+	public TedDriver() {
+	}
+
+	public void init(TedDbType dbType, DataSource dataSource, Properties properties) {
+		this.tedDriverImpl = new TedDriverImpl(dbType, dataSource, properties);
+		this.dataSource = dataSource;
+		this.dbType = dbType;
+		this.driverConfig = tedDriverImpl.getTedDriverConfig();
+		this.isStartedInitialize = true;
 	}
 
 

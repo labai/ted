@@ -3,6 +3,7 @@ package ted.driver.sys
 
 import ted.driver.TedDriver
 import ted.driver._TedSchdHck
+import ted.driver.sys.SqlUtils.DbType
 import javax.sql.DataSource
 
 /**
@@ -20,6 +21,7 @@ class _TedSchdDriverExt(private val tedDriver: TedDriver) {
 
     init {
         this.tedDriverImpl = _TedSchdHck.getTedDriverImpl(tedDriver)
+
     }
 
     fun systemId(): String {
@@ -36,5 +38,9 @@ class _TedSchdDriverExt(private val tedDriver: TedDriver) {
 
     fun dataSource(): DataSource {
         return tedDriverImpl.dataSource
+    }
+
+    fun dbType() : DbType {
+        return tedDriverImpl.context.tedDao.dbType;
     }
 }

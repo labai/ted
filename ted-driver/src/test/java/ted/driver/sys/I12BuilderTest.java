@@ -4,9 +4,11 @@ import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ted.driver.Ted.TedDbType;
 import ted.driver.TedDriver;
 import ted.driver.TedTaskHelper;
 import ted.driver.sys.Model.TaskRec;
+import ted.driver.sys.SqlUtils.DbType;
 import ted.driver.sys.TedDriverImpl.TedContext;
 import ted.driver.sys.TestTedProcessors.TestProcessorOk;
 
@@ -51,7 +53,7 @@ public class I12BuilderTest extends TestBase {
 		String taskName = "TEST01-01";
 		driver2.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class));
 
-		Long taskId = taskHelper2.taskBuilder(taskName)
+		Long taskId = taskHelper2.getTaskFactory().taskBuilder(taskName)
 			.data("test-data")
 			.key1("test-key1")
 			.key2("test-key2")
@@ -79,6 +81,8 @@ public class I12BuilderTest extends TestBase {
 
 	@Test
 	public void test02CreateInConn() throws SQLException {
+		if (TestConfig.testDbType == TedDbType.HSQLDB)
+			return;
 
 		String taskName = "TEST01-01";
 		driver2.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class));
@@ -87,7 +91,7 @@ public class I12BuilderTest extends TestBase {
 			logger.debug("conn.autoCommit is {}", connection.getAutoCommit());
 			connection.setAutoCommit(false);
 
-			Long taskId = taskHelper2.taskBuilder(taskName)
+			Long taskId = taskHelper2.getTaskFactory().taskBuilder(taskName)
 					.data("test-data")
 					.key1("test-key1")
 					.key2("test-key2")
@@ -97,6 +101,7 @@ public class I12BuilderTest extends TestBase {
 			logger.info("Created task {}", taskId);
 
 			TaskRec taskRec = driver1impl.getContext().tedDao.getTask(taskId);
+
 			assertNull("Task should not be visible until commit", taskRec);
 
 			connection.rollback();

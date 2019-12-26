@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedDbType;
 import ted.driver.sys.PrimeInstance.CheckPrimeParams;
 import ted.driver.sys.QuickCheck.CheckResult;
-import ted.driver.sys.TedDaoAbstract.DbType;
+import ted.driver.sys.SqlUtils.DbType;
 
 import java.io.IOException;
 import java.util.Collections;

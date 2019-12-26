@@ -5,6 +5,8 @@ import ted.driver.Ted.*
 import ted.driver.TedDriver
 import ted.driver.TedResult
 import ted.driver.TedTask
+import ted.driver.sys.SqlUtils.DbType
+import ted.driver.sys.SqlUtils.DbType.*
 import ted.driver.sys._TedSchdDriverExt
 import ted.scheduler.TedScheduler
 import ted.scheduler.TedScheduler.TedSchedulerNextTime
@@ -17,7 +19,7 @@ import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.TimeUnit
 import javax.sql.DataSource
-import kotlin.streams.toList
+
 
 /**
  * @author Augustus
@@ -27,22 +29,47 @@ import kotlin.streams.toList
  */
 internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
     private val tedSchdDriverExt: _TedSchdDriverExt
-    private val dataSource: DataSource
-    private val dao: DaoPostgres
     private val maintenanceExecutor: ScheduledExecutorService
 
     private val schedulerTasks = mutableMapOf<String, SchedulerInfo>()
 
+    private val context : Context
+
+    internal class Context {
+        internal lateinit var tedDriver: TedDriver
+        internal lateinit var taskRecService: TaskRecService
+        internal lateinit var thisSystem: String
+        internal lateinit var dbType: DbType
+        internal lateinit var dataSource: DataSource
+        internal lateinit var dao: ISchedulerDao
+        internal lateinit var primeTaskIdProvider: () -> Long?
+    }
 
     private class SchedulerInfo(
             internal val name: String,
-            internal val taskId: Long?,
-            internal val retryScheduler: TedRetryScheduler)
+            internal val taskId: Long,
+            internal val retryScheduler: TedRetryScheduler
+    )
 
     init {
+
         this.tedSchdDriverExt = _TedSchdDriverExt(tedDriver)
-        this.dataSource = tedSchdDriverExt.dataSource()
-        this.dao = DaoPostgres(dataSource, tedSchdDriverExt.systemId())
+
+        this.context = Context()
+        this.context.tedDriver = tedDriver
+        this.context.thisSystem = tedSchdDriverExt.systemId()
+        this.context.dataSource = tedSchdDriverExt.dataSource()
+        this.context.dbType = tedSchdDriverExt.dbType()
+        this.context.primeTaskIdProvider = { tedSchdDriverExt.primeTaskId() }
+        this.context.taskRecService = TaskRecService(context)
+
+
+        this.context.dao = when(context.dbType) {
+            ORACLE -> DaoOracle(context)
+            POSTGRES -> DaoPostgres(context)
+            MYSQL -> DaoMysql(context)
+            HSQLDB -> DaoHsqldb(context)
+        }
 
         maintenanceExecutor = createSchedulerExecutor("TedSchd-")
         maintenanceExecutor.scheduleAtFixedRate({
@@ -58,15 +85,14 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
         maintenanceExecutor.shutdown()
     }
 
+
     fun registerScheduler(taskName: String, data: String?, processorFactory: TedProcessorFactory, retryScheduler: TedRetryScheduler): Long {
-        if (! tedSchdDriverExt.isPrimeEnabled)
-            throw IllegalStateException("Prime-instance functionality must be enabled!")
 
         tedDriver.registerTaskConfig(taskName, processorFactory, retryScheduler)
 
         // create task is not exists
         val postponeSec = getPostponeSec(retryScheduler)
-        val taskId = createUniqueTask(taskName, data, "", null, postponeSec) ?: throw IllegalStateException("taskId == null for task $taskName")
+        val taskId = context.taskRecService.createUniqueTask(taskName, data, "", null, postponeSec) ?: throw IllegalStateException("taskId == null for task $taskName")
 
         schedulerTasks[taskName] = SchedulerInfo(taskName, taskId, retryScheduler)
 
@@ -74,46 +100,18 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
     }
 
     fun checkForErrorStatus() {
-        val schdTaskIds = schedulerTasks.values.stream().map<Long> { sch -> sch.taskId }.toList()
-        val badTaskIds = dao.checkForErrorStatus(schdTaskIds)
+        val schdTaskIds = schedulerTasks.values.map { it.taskId }
+        val badTaskIds = context.dao.checkForErrorStatus(schdTaskIds)
         for (taskId in badTaskIds) {
-            val schInfo = schedulerTasks.values.firstOrNull { sch -> sch.taskId == taskId }
+            val schInfo = schedulerTasks.values.firstOrNull { it.taskId == taskId }
             logger.warn("Restore schedule task {} {} from ERROR to RETRY", taskId, schInfo?.name ?: "null")
 
             val task = tedDriver.getTask(taskId)
 
             val postponeSec = if (schInfo == null) 0 else getPostponeSec(schInfo.retryScheduler)
-            dao.restoreFromError(taskId, task.name, postponeSec)
+            context.dao.restoreFromError(taskId, task.name, postponeSec)
         }
 
-    }
-
-
-    /* creates task only if does not exists (task + activeStatus).
-	   While there are not 100% guarantee, but will try to ensure, that 2 processes will not create same task twice (using this method).
-	   If task with ERROR status will be found, then it will be converted to RETRY
-	*/
-    private fun createUniqueTask(name: String, data: String?, key1: String?, key2: String?, postponeSec: Int): Long? {
-        val primeTaskId = tedSchdDriverExt.primeTaskId() ?: throw java.lang.IllegalStateException("primeTaskId not found")
-
-        return dao.execWithLockedPrimeTaskId(dataSource, primeTaskId) fn@ {
-            val taskIds = dao.get2ActiveTasks(name, true)
-            if (taskIds.size > 1)
-                throw IllegalStateException("Exists more than one $name active scheduler task (statuses NEW, RETRY, WORK or ERROR) $taskIds, skipping")
-            if (taskIds.size == 1) { // exists exactly one task
-                val taskId = taskIds[0]
-                val tedTask = tedDriver.getTask(taskId)
-                if (tedTask!!.status == TedStatus.ERROR) {
-                    logger.info("Restore scheduler task {} {} from error", name, taskId)
-                    dao.restoreFromError(taskId, name, postponeSec)
-                    return@fn taskId
-                }
-                logger.debug("Exists scheduler task {} with active status (NEW, RETRY or WORK)", name)
-                return@fn taskIds[0]
-            }
-            logger.debug("No active scheduler tasks {} exists, will create new", name)
-            tedDriver.createTaskPostponed(name, data, key1, key2, postponeSec)
-        }
     }
 
     // wrap original processor and on error return retry
@@ -177,7 +175,7 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
     object Factory {
         @JvmStatic
         fun single(runnable: Runnable): TedProcessorFactory {
-            return SchedulerProcessorFactory(SingeInstanceFactory(TedProcessor() { _ ->
+            return SchedulerProcessorFactory(SingeInstanceFactory(TedProcessor {
                 runnable.run()
                 TedResult.done()
             }))

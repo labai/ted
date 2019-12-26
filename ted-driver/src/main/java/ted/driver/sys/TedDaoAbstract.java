@@ -12,6 +12,7 @@ import ted.driver.sys.Model.TaskParam;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.PrimeInstance.CheckPrimeParams;
 import ted.driver.sys.QuickCheck.CheckResult;
+import ted.driver.sys.SqlUtils.DbType;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -41,64 +42,6 @@ abstract class TedDaoAbstract implements TedDao {
 
 	private Random random = new Random();
 
-	protected interface SqlDbExt {
-		String now();
-		String intervalSeconds(int secCount);
-		String intervalDays(int dayCount);
-		String rownum(String rowNum);
-		String sequenceSql(String seqName);
-		String sequenceSelect(String seqName);
-		String systemColumn();
-		String forUpdateSkipLocked();
-	}
-
-	protected enum DbType {
-		ORACLE(new SqlDbExt() {
-			public String now() { return "cast(systimestamp as timestamp(3))"; }
-			public String intervalSeconds(int secCount) { return secCount + " / 86400"; }
-			public String intervalDays(int dayCount) { return "" + dayCount; }
-			public String rownum(String rowNum) { return " and rownum <= " + rowNum; } // must be last of conditions
-			public String sequenceSql(String seqName) { return seqName + ".nextval"; }
-			public String sequenceSelect(String seqName) { return "select " + seqName + ".nextval from dual"; }
-			public String systemColumn() { return "system"; }
-			public String forUpdateSkipLocked() { return "for update skip locked"; }
-		}),
-		POSTGRES(new SqlDbExt() {
-			public String now() { return "now()"; }
-			public String intervalSeconds(int secCount) { return "interval '" + secCount + "' second"; }
-			public String intervalDays(int dayCount) { return "interval '" + dayCount + "' day";}
-			public String rownum(String rowNum) { return " limit " + rowNum; }
-			public String sequenceSql(String seqName) { return "nextval('" + seqName + "')"; }
-			public String sequenceSelect(String seqName) { return "select nextval('" + seqName + "')"; }
-			public String systemColumn() { return "system"; }
-			public String forUpdateSkipLocked() { return "for update skip locked"; }
-		}),
-		MYSQL(new SqlDbExt() {
-			public String now() { return "now(3)"; }
-			public String intervalSeconds(int secCount) { return "interval " + secCount + " second"; }
-			public String intervalDays(int dayCount) { return "interval " + dayCount + " day";}
-			public String rownum(String rowNum) { return " limit " + rowNum; }
-			public String sequenceSql(String seqName) { return "nextval('" + seqName + "')"; }
-			public String sequenceSelect(String seqName) { return "select nextval('" + seqName + "')"; }
-			public String systemColumn() { return "`system`"; } // in MySql it is reserved
-			public String forUpdateSkipLocked() { return "for update skip locked"; }
-		}),
-		HSQLDB(new SqlDbExt() { // use PostgreSQL dialect
-			public String now() { return "now()"; }
-			public String intervalSeconds(int secCount) { return "interval '" + secCount + "' second"; }
-			public String intervalDays(int dayCount) { return "interval '" + dayCount + "' day";}
-			public String rownum(String rowNum) { return " limit " + rowNum; }
-			public String sequenceSql(String seqName) { return "nextval('" + seqName + "')"; }
-			public String sequenceSelect(String seqName) { return "select nextval('" + seqName + "')"; }
-			public String systemColumn() { return "system"; }
-			public String forUpdateSkipLocked() { return ""; } // no locks here
-		});
-		protected final SqlDbExt sql;
-
-		DbType(SqlDbExt sql) {
-			this.sql = sql;
-		}
-	}
 
 	protected final String thisSystem;
 	protected final DataSource dataSource;
@@ -111,7 +54,7 @@ abstract class TedDaoAbstract implements TedDao {
 		this.dataSource = dataSource;
 		this.dbType = dbType;
 		this.stats = stats;
-		this.systemCheck = dbType.sql.systemColumn() + " = '" + thisSystem + "'"; // add to queries [system = 'thisSystem']
+		this.systemCheck = dbType.sql().systemColumn() + " = '" + thisSystem + "'"; // add to queries [system = 'thisSystem']
 	}
 
 	@Override
@@ -144,7 +87,7 @@ abstract class TedDaoAbstract implements TedDao {
 	public List<String> getWaitChannels() {
 		String sqlLogId = "get_wait_chan";
 		String sql = "select distinct channel from tedtask where $systemCheck and nextTs <= $now";
-		sql = sql.replace("$now", dbType.sql.now());
+		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$systemCheck", systemCheck);
 		List<ChannelRes> chans = selectData(sqlLogId, sql, ChannelRes.class, Collections.<SqlParam>emptyList());
 		List<String> result = new ArrayList<String>();
@@ -178,7 +121,7 @@ abstract class TedDaoAbstract implements TedDao {
 					" set status = ?, msg = ?," +
 					"     nextTs = null, finishTs = $now" +
 					" where $systemCheck and taskId = ?";
-			sql = sql.replace("$now", dbType.sql.now());
+			sql = sql.replace("$now", dbType.sql().now());
 			sql = sql.replace("$systemCheck", systemCheck);
 			execute(sqlLogId, sql, asList(
 					sqlParam(status.toString(), JetJdbcParamType.STRING),
@@ -194,7 +137,7 @@ abstract class TedDaoAbstract implements TedDao {
 					(status == TedStatus.RETRY ? " retries = retries + 1," : "") +
 					" 	nextTs = ?" +
 					" where $systemCheck and taskId = ?";
-			sql = sql.replace("$now", dbType.sql.now());
+			sql = sql.replace("$now", dbType.sql().now());
 			sql = sql.replace("$systemCheck", systemCheck);
 			execute(sqlLogId, sql, asList(
 					sqlParam(status.toString(), JetJdbcParamType.STRING),
@@ -247,9 +190,9 @@ abstract class TedDaoAbstract implements TedDao {
 				// + dbType.sql.rownum("" + rowLimit)
 				+ ")"
 				;
-		sql = sql.replace("$now", dbType.sql.now());
+		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$systemCheck", systemCheck);
-		sql = sql.replace("$FOR_UPDATE_SKIP_LOCKED", dbType.sql.forUpdateSkipLocked());
+		sql = sql.replace("$FOR_UPDATE_SKIP_LOCKED", dbType.sql().forUpdateSkipLocked());
 
 		execute(sqlLogId, sql, asList(
 				sqlParam(bno, JetJdbcParamType.LONG),
@@ -280,7 +223,7 @@ abstract class TedDaoAbstract implements TedDao {
 
 		//  update channel null to MAIN (is it necessary?)
 		sql = "update tedtask set channel = 'MAIN' where channel is null and $systemCheck and status = 'NEW'";
-		sql = sql.replace("$now", dbType.sql.now());
+		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$systemCheck", systemCheck);
 		execute("maint03", sql, Collections.emptyList());
 
@@ -288,9 +231,9 @@ abstract class TedDaoAbstract implements TedDao {
 			// delete finished tasks > 35 days old
 			sql = "delete from tedtask where $systemCheck and status in ('ERROR', 'DONE')" +
 					" and createTs < ($now - $days35) and finishTs < ($now - $days35)";
-			sql = sql.replace("$now", dbType.sql.now());
+			sql = sql.replace("$now", dbType.sql().now());
 			sql = sql.replace("$systemCheck", systemCheck);
-			sql = sql.replace("$days35", dbType.sql.intervalDays(deleteAfterDays));
+			sql = sql.replace("$days35", dbType.sql().intervalDays(deleteAfterDays));
 			execute("delold", sql, Collections.emptyList());
 		}
 	}
@@ -302,14 +245,14 @@ abstract class TedDaoAbstract implements TedDao {
 		String sql = "update tedtask" +
 				" set status = 'RETRY', finishTs = null, nextTs = $now, msg = '" + Model.TIMEOUT_MSG + "(2)', retries = retries + 1" +
 				" where status = 'WORK' and startTs < ($now - $seconds60) and (finishTs is not null and finishTs < $now)";
-		sql = sql.replace("$now", dbType.sql.now());
+		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$systemCheck", systemCheck);
-		sql = sql.replace("$seconds60", dbType.sql.intervalSeconds(60));
+		sql = sql.replace("$seconds60", dbType.sql().intervalSeconds(60));
 		execute("maint01", sql, Collections.emptyList());
 
 		//  update NEW w/o nextTs
 		sql = "update tedtask set nextTs = $now where status in ('NEW', 'RETRY') and $systemCheck and nextTs is null";
-		sql = sql.replace("$now", dbType.sql.now());
+		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$systemCheck", systemCheck);
 		execute("maint02", sql, Collections.emptyList());
 
@@ -324,17 +267,17 @@ abstract class TedDaoAbstract implements TedDao {
 					")" +
 					" update tedtask set status = 'NEW', nextTs = $now " +
 					" where taskid in (select min(taskid) taskid from headless group by key1)";
-			sql = sql.replace("$now", dbType.sql.now());
+			sql = sql.replace("$now", dbType.sql().now());
 			sql = sql.replace("$systemCheck", systemCheck);
-			sql = sql.replace("$seconds10", dbType.sql.intervalSeconds(10));
+			sql = sql.replace("$seconds10", dbType.sql().intervalSeconds(10));
 			execute("maint04", sql, Collections.emptyList());
 		}
 
 		//  update finished statuses (DONE, ERROR) with nextTs (should not happen, may occurs during dev)
 		sql = "update tedtask set nextTs = null where status in ('DONE', 'ERROR') and $systemCheck and nextTs < $now - $delta";
-		sql = sql.replace("$now", dbType.sql.now());
+		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$systemCheck", systemCheck);
-		sql = sql.replace("$delta", dbType.sql.intervalSeconds(120));
+		sql = sql.replace("$delta", dbType.sql().intervalSeconds(120));
 		execute("maint05", sql, Collections.emptyList());
 	}
 
@@ -343,9 +286,9 @@ abstract class TedDaoAbstract implements TedDao {
 		// get all working tasks with more than 1min for further analysis (except those, with planed finishTs > now)
 		String sql = "select * from tedtask where $systemCheck and status = 'WORK'" +
 				" and startTs < ($now - $seconds60) and (finishTs is null or finishTs <= $now)";
-		sql = sql.replace("$now", dbType.sql.now());
+		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$systemCheck", systemCheck);
-		sql = sql.replace("$seconds60", dbType.sql.intervalSeconds(60));
+		sql = sql.replace("$seconds60", dbType.sql().intervalSeconds(60));
 		List<TaskRec> tasks = selectData("get_working_too_long", sql, TaskRec.class, Collections.<SqlParam>emptyList());
 		return tasks;
 	}
@@ -390,7 +333,7 @@ abstract class TedDaoAbstract implements TedDao {
 		String sql = "select taskid from tedtask where $systemCheck"
 				+ " and status in ('NEW', 'RETRY', 'WORK')"
 				+ " and batchid = ?"
-				+ dbType.sql.rownum("1")
+				+ dbType.sql().rownum(1)
 				;
 		sql = sql.replace("$systemCheck", systemCheck);
 		List<TaskRec> results = selectData(sqlLogId, sql, TaskRec.class, asList(
@@ -412,7 +355,7 @@ abstract class TedDaoAbstract implements TedDao {
 
 
 	protected Long getSequenceNextValue(String seqName) {
-		return selectSingleLong("get_sequence", dbType.sql.sequenceSelect(seqName));
+		return selectSingleLong("get_sequence", dbType.sql().sequenceSelect(seqName));
 	}
 
 	//

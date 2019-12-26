@@ -12,6 +12,7 @@ import ted.driver.sys.Model.TaskParam;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.PrimeInstance.CheckPrimeParams;
 import ted.driver.sys.QuickCheck.CheckResult;
+import ted.driver.sys.SqlUtils.DbType;
 
 import javax.sql.DataSource;
 import java.io.IOException;
@@ -69,7 +70,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 						+ " where taskid = $primeTaskId and system = '$sys'";
 				logId = "c";
 			}
-			sqlPrime = sqlPrime.replace("$intervalSec", dbType.sql.intervalSeconds(checkPrimeParams.postponeSec()));
+			sqlPrime = sqlPrime.replace("$intervalSec", dbType.sql().intervalSeconds(checkPrimeParams.postponeSec()));
 			sqlPrime = sqlPrime.replace("$instanceId", checkPrimeParams.instanceId());
 			sqlPrime = sqlPrime.replace("$primeTaskId", Long.toString(checkPrimeParams.primeTaskId()));
 			sql += sqlPrime;
@@ -86,7 +87,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 		}
 
 		sql = sql.replace("$sys", thisSystem);
-		sql = sql.replace("$now", dbType.sql.now());
+		sql = sql.replace("$now", dbType.sql().now());
 
 		if (sql.isEmpty())
 			return Collections.emptyList();
@@ -129,7 +130,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 					+ " for update skip locked"
 				+ ") returning tedtask.*"
 				;
-		sql = sql.replace("$now", dbType.sql.now());
+		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$sys", thisSystem);
 		List<TaskRec> tasks = selectData(sqlLogId, sql, TaskRec.class, asList(
 				sqlParam(taskId, JetJdbcParamType.LONG)
@@ -166,9 +167,9 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 		sql = "insert into tedtask(taskid, system, name, status, channel, startts, nextts, msg)"
 				+ " values (" + sqlNextId + ", '$sys', 'TED_PRIME', 'SLEEP', '$channel', $now, null, 'This is internal TED pseudo-task for prime check')";
 		sql = sql.replace("$sys", thisSystem);
-		sql = sql.replace("$now", dbType.sql.now());
+		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$channel", Model.CHANNEL_PRIME);
-		sql = sql.replace("$sequenceTedTask", dbType.sql.sequenceSql("SEQ_TEDTASK_ID"));
+		sql = sql.replace("$sequenceTedTask", dbType.sql().sequenceSql("SEQ_TEDTASK_ID"));
 
 		execute("insert_prime", sql, Collections.emptyList());
 
@@ -400,13 +401,13 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 		String sqlLogId = "create_task";
 		if (status == null)
 			status = TedStatus.NEW;
-		String nextts = (status == TedStatus.NEW ? dbType.sql.now() + " + " + dbType.sql.intervalSeconds(postponeSec) : "null");
+		String nextts = (status == TedStatus.NEW ? dbType.sql().now() + " + " + dbType.sql().intervalSeconds(postponeSec) : "null");
 
 		String sql = " insert into tedtask (taskId, system, name, channel, bno, status, createTs, nextTs, retries, data, key1, key2, batchId)" +
 				" values($nextTaskId, '$sys', ?, ?, null, '$status', $now, $nextts, 0, ?, ?, ?, ?)" +
 				" returning taskId";
-		sql = sql.replace("$nextTaskId", dbType.sql.sequenceSql("SEQ_TEDTASK_ID"));
-		sql = sql.replace("$now", dbType.sql.now());
+		sql = sql.replace("$nextTaskId", dbType.sql().sequenceSql("SEQ_TEDTASK_ID"));
+		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$nextts", nextts);
 		sql = sql.replace("$status", status.toString());

@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedStatus;
 import ted.driver.sys.JdbcSelectTed.JetJdbcParamType;
+import ted.driver.sys.SqlUtils.DbType;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -35,13 +36,13 @@ class TedDaoMysql extends TedDaoAbstract {
 		final String sqlLogId = "create_task";
 		if (status == null)
 			status = TedStatus.NEW;
-		String nextts = (status == TedStatus.NEW ? dbType.sql.now() + " + " + dbType.sql.intervalSeconds(postponeSec) : "null");
+		String nextts = (status == TedStatus.NEW ? dbType.sql().now() + " + " + dbType.sql().intervalSeconds(postponeSec) : "null");
 
 		String sql = " insert into tedtask (taskId, `system`, name, channel, bno, status, createTs, nextTs, retries, data, key1, key2, batchId)" +
 				" values(null, '$sys', ?, ?, null, '$status', $now, $nextts, 0, ?, ?, ?, ?)" +
 				" ";
-		sql = sql.replace("$nextTaskId", dbType.sql.sequenceSql("SEQ_TEDTASK_ID"));
-		sql = sql.replace("$now", dbType.sql.now());
+		sql = sql.replace("$nextTaskId", dbType.sql().sequenceSql("SEQ_TEDTASK_ID"));
+		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$nextts", nextts);
 		sql = sql.replace("$status", status.toString());

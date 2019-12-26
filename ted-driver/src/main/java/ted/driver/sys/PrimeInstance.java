@@ -1,8 +1,8 @@
 package ted.driver.sys;
 
 import ted.driver.Ted.PrimeChangeEvent;
+import ted.driver.sys.SqlUtils.DbType;
 import ted.driver.sys.TedDriverImpl.TedContext;
-import ted.driver.sys.TedDaoAbstract.DbType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

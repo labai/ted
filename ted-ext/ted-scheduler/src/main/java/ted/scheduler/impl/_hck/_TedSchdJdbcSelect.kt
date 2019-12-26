@@ -48,6 +48,12 @@ object _TedSchdJdbcSelect {
         }
     }
 
+    internal fun executeUpdate(dataSource: DataSource, sql: String, sqlParams: List<JdbcSelectTed.SqlParam>): Int {
+        return JdbcSelectTed.runInConn(dataSource) {
+            connection -> JdbcSelectTedImpl.executeUpdate(connection, sql, sqlParams)
+        }
+    }
+
     @Throws(SQLException::class)
     internal fun <T> selectData(connection: Connection, sql: String, clazz: Class<T>, sqlParams: List<JdbcSelectTed.SqlParam>): List<T> {
         return JdbcSelectTedImpl.selectData(connection, sql, clazz, sqlParams)

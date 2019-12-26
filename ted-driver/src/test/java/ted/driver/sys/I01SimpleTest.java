@@ -10,7 +10,7 @@ import ted.driver.Ted.TedStatus;
 import ted.driver.TedResult;
 import ted.driver.TedTask;
 import ted.driver.sys.Model.TaskRec;
-import ted.driver.sys.TedDaoAbstract.DbType;
+import ted.driver.sys.SqlUtils.DbType;
 import ted.driver.sys.TedDriverImpl.TedContext;
 import ted.driver.sys.TestTedProcessors.OnTaskFinishListener;
 import ted.driver.sys.TestTedProcessors.TestProcessorException;
@@ -60,7 +60,7 @@ public class I01SimpleTest extends TestBase {
 	@Test
 	public void testCompareNows() {
 		String sql = "select $now as dateVal";
-		sql = sql.replace("$now", context.tedDao.getDbType().sql.now());
+		sql = sql.replace("$now", context.tedDao.getDbType().sql().now());
 		if (context.tedDao.getDbType() == DbType.ORACLE)
 			sql += " from dual";
 		Date before = new Date();

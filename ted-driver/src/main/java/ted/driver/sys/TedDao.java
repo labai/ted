@@ -5,7 +5,7 @@ import ted.driver.sys.Model.TaskParam;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.PrimeInstance.CheckPrimeParams;
 import ted.driver.sys.QuickCheck.CheckResult;
-import ted.driver.sys.TedDaoAbstract.DbType;
+import ted.driver.sys.SqlUtils.DbType;
 
 import java.sql.Connection;
 import java.util.Date;

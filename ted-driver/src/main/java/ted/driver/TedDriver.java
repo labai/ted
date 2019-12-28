@@ -12,7 +12,6 @@ import ted.driver.TedDriverApi.TedDriverPrime;
 import ted.driver.TedDriverApi.TedDriverService;
 import ted.driver.TedDriverApi.TedDriverTask;
 import ted.driver.TedDriverApi.TedDriverTaskConfig;
-import ted.driver.sys.SqlUtils.DbType;
 import ted.driver.sys.TedDriverImpl;
 
 import javax.sql.DataSource;
@@ -75,7 +74,6 @@ public class TedDriver implements
 		} catch (SQLException e) {
 			throw new IllegalStateException("Connection error while trying to recognize db type", e);
 		}
-
 	}
 
 	public TedDriver() {

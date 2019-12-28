@@ -3,10 +3,10 @@
 
 	<groupId>com.github.labai</groupId>
 	<artifactId>ted-driver</artifactId>
-	<version>0.3.0-SNAPSHOT</version>
+	<version>0.3.2-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
-	<name>${project.groupId}:${project.artifactId}</name>
+	<name>Ted driver</name>
 	<description>TED - Task Execution Driver</description>
 	<url>https://github.com/labai/ted</url>
 

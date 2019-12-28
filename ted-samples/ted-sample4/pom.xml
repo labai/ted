@@ -12,7 +12,7 @@
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
-	<name>ted sample4 - with SpringBoot</name>
+	<name>Sample4 - @EnableTedTask</name>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -26,7 +26,7 @@
 		<dependency>
 			<groupId>com.github.labai</groupId>
 			<artifactId>ted-spring-support</artifactId>
-			<version>0.0.1-SNAPSHOT</version>
+			<version>0.3.2-SNAPSHOT</version>
 		</dependency>
 
         <dependency>
@@ -39,12 +39,13 @@
 			<artifactId>spring-boot-starter-jdbc</artifactId>
 		</dependency>
 
-		<!--
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
 			<version>42.2.5</version>
 		</dependency>
+
+		<!--
 
 		<dependency>
 			<groupId>com.oracle</groupId>
@@ -77,7 +78,7 @@
 		</dependency>
 
 	</dependencies>
-	
+
 	<build>
 		<sourceDirectory>${basedir}/src/main/java</sourceDirectory>
 		<resources>

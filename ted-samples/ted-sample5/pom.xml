@@ -4,15 +4,15 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>2.0.3.RELEASE</version>
+		<version>2.2.2.RELEASE</version>
 	</parent>
 
 	<groupId>com.github.labai</groupId>
-	<artifactId>ted-sample3</artifactId>
+	<artifactId>ted-sample5</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
-	<name>Sample3 - SpringBoot</name>
+	<name>Sample5 - 2 DataSources</name>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -22,11 +22,12 @@
 
 
 	<dependencies>
-        <dependency>
-            <groupId>com.github.labai</groupId>
-            <artifactId>ted-driver</artifactId>
-            <version>0.3.2-SNAPSHOT</version>
-        </dependency>
+
+		<dependency>
+			<groupId>com.github.labai</groupId>
+			<artifactId>ted-spring-support</artifactId>
+			<version>0.3.2-SNAPSHOT</version>
+		</dependency>
 
         <dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -35,7 +36,7 @@
 
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-data-jpa</artifactId>
+			<artifactId>spring-boot-starter-jdbc</artifactId>
 		</dependency>
 
 		<dependency>
@@ -43,13 +44,26 @@
 			<artifactId>postgresql</artifactId>
 			<version>42.2.5</version>
 		</dependency>
-<!--
+
+		<!--
+
 		<dependency>
 			<groupId>com.oracle</groupId>
 			<artifactId>ojdbc6</artifactId>
 			<version>11.2.0.3.0</version>
 		</dependency>
--->
+
+		<dependency>
+			<groupId>mysql</groupId>
+			<artifactId>mysql-connector-java</artifactId>
+			<version>8.0.12</version>
+		</dependency>
+        -->
+		<dependency>
+			<groupId>org.hsqldb</groupId>
+			<artifactId>hsqldb</artifactId>
+			<version>2.4.1</version>
+		</dependency>
 
 		<dependency>
 			<groupId>commons-io</groupId>

@@ -1,6 +1,5 @@
-package sample3;
+package sample5;
 
-import com.google.gson.Gson;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,9 +8,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.core.io.ClassPathResource;
-import sample3.configuration.TedConfig;
-import sample3.job.ProcessLineTask.TaskParam;
-import ted.driver.TedDriver;
+import ted.driver.task.TedTaskFactory;
 
 import java.io.IOException;
 import java.util.List;
@@ -20,31 +17,28 @@ import static java.lang.Thread.sleep;
 
 /**
  * @author Augustus
- *         created on 2018.08.25
+ *         created on 2019.12.04
  */
 @SpringBootApplication
-public class SpringBootConsoleApplication implements CommandLineRunner {
-	private static final Logger logger = LoggerFactory.getLogger(SpringBootConsoleApplication.class);
+public class SpringBootConsoleApplication5 implements CommandLineRunner {
+	private static final Logger logger = LoggerFactory.getLogger(SpringBootConsoleApplication5.class);
 
 	@Autowired
-	private TedDriver tedDriver;
-
-	@Autowired
-	private Gson gson;
+	private TedTaskFactory tedTaskFactory;
 
 	public static void main(String[] args) {
-		logger.info("Starting TedSample3");
+		logger.info("Starting TedSample4");
 		SpringApplication
-				.run(SpringBootConsoleApplication.class, args)
+				.run(SpringBootConsoleApplication5.class, args)
 				.close();
-		logger.info("Finish TedSample3");
+		logger.info("Finish TedSample4");
 	}
 
 	@Override
 	public void run(String... args) throws Exception {
 		logger.info("Create few tasks and wait for execution");
 		createTasks();
-		sleep(5000);
+		sleep(10000);
 	}
 
 	private void createTasks() throws IOException {
@@ -52,15 +46,11 @@ public class SpringBootConsoleApplication implements CommandLineRunner {
 		ClassPathResource dataFile = new ClassPathResource(fileName);
 		List<String> lines = FileUtils.readLines(dataFile.getFile(), "UTF-8");
 
-		// create tasks for each line
-		//
+		// create task for each line
 		int inum = 0;
 		for (String line : lines) {
-			TaskParam param = new TaskParam();
-			param.lineNumber = inum++;
-			param.line = line;
-			tedDriver.createTask(TedConfig.TASK_PROCESS_LINE, gson.toJson(param));
+			tedTaskFactory.createTask("TASK1", line);
 		}
-
 	}
+
 }

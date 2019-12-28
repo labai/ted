@@ -21,10 +21,12 @@ import ted.driver.TedTaskHelper;
 import ted.driver.task.TedTaskFactory;
 import ted.scheduler.TedScheduler;
 import ted.spring.annotation.EnableTedTask;
+import ted.spring.annotation.TedDataSource;
 
 import javax.sql.DataSource;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 
 /**
@@ -57,7 +59,8 @@ public class TedDriverConfiguration implements ImportAware, ApplicationContextAw
 	TedDriver tedDriver(ApplicationContext applicationContext, Environment environment) {
 		logger.trace("Create TedDriver");
 
-		DataSource dataSource = applicationContext.getBean(DataSource.class);
+		DataSource dataSource = resolveDataSource(applicationContext);
+
 		Map<String, String> props = getAllKnownProperties(environment, "ted.");
 
 		if (isEmpty(props.get("ted.systemId"))) {
@@ -70,6 +73,22 @@ public class TedDriverConfiguration implements ImportAware, ApplicationContextAw
 		return tedDriver;
 	}
 
+	private static DataSource resolveDataSource(ApplicationContext applicationContext) {
+		Map<String, DataSource> dataSourceMap = applicationContext.getBeansOfType(DataSource.class);
+		if (dataSourceMap.isEmpty())
+			throw new IllegalStateException("DataSource is required for TedDriver, but can't be acquired from spring context");
+		if (dataSourceMap.size() == 1)
+			return dataSourceMap.values().iterator().next();
+
+		// 1) try get with @TedDataSource
+		for (Entry<String, DataSource> e : dataSourceMap.entrySet()) {
+			TedDataSource an = applicationContext.findAnnotationOnBean(e.getKey(), TedDataSource.class);
+			if (an != null)
+				return e.getValue();
+		}
+		// 2) choose @Primary or fail with NoUniqueBeanDefinitionException
+		return applicationContext.getBean(DataSource.class);
+	}
 
 	@Bean(destroyMethod = "shutdown")
 	TedScheduler tedScheduler(TedDriver tedDriver, Environment environment) {

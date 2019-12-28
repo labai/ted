@@ -15,6 +15,7 @@
 		<module>ted-samples/ted-sample1</module>
 		<module>ted-samples/ted-sample3</module>
 		<module>ted-samples/ted-sample4</module>
+		<module>ted-samples/ted-sample5</module>
 	</modules>
 
 </project>

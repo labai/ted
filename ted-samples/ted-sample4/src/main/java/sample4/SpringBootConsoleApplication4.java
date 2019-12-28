@@ -8,14 +8,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.core.io.ClassPathResource;
 import sample4.task.TaskSamples.TaskParam;
-import ted.driver.TedDriver;
 import ted.driver.TedTask;
 import ted.driver.task.TedTaskFactory;
 import ted.spring.annotation.TedTaskProcessor;
-import ted.spring.conf.TedTaskService;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
@@ -52,8 +50,8 @@ public class SpringBootConsoleApplication4 implements CommandLineRunner {
 
 	private void createTasks() throws IOException {
 		String fileName = "input.txt";
-		File file = new File(SpringBootConsoleApplication4.class.getClassLoader().getResource(fileName).getPath());
-		List<String> lines = FileUtils.readLines(file, "UTF-8");
+		ClassPathResource dataFile = new ClassPathResource(fileName);
+		List<String> lines = FileUtils.readLines(dataFile.getFile(), "UTF-8");
 
 		// create few tasks for each line
 		//

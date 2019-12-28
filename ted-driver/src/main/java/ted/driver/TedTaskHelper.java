@@ -21,8 +21,8 @@ public class TedTaskHelper {
 
 	private TedDriverImpl tedDriverImpl; // for internal, not for in apps
 
-	private TedTaskFactory taskFactory;
-	private TedBatchFactory batchFactory;
+	private final TedTaskFactory taskFactory;
+	private final TedBatchFactory batchFactory;
 
 	public TedTaskHelper(TedDriver tedDriver) {
 		this.tedDriverImpl = tedDriver.tedDriverImpl;
@@ -32,6 +32,7 @@ public class TedTaskHelper {
 
 	public TedTaskHelper() {
 		this.taskFactory = new TedTaskFactory(() -> tedDriverImpl);
+		this.batchFactory = new TedBatchFactory(() -> tedDriverImpl);
 	}
 
 	public void setTedDriver(TedDriver tedDriver) {
@@ -42,7 +43,7 @@ public class TedTaskHelper {
 		return taskFactory;
 	}
 
-//	public TedBatchFactory getBatchFactory() {
-//		return batchFactory;
-//	}
+	public TedBatchFactory getBatchFactory() {
+		return batchFactory;
+	}
 }

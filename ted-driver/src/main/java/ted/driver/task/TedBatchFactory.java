@@ -10,10 +10,10 @@ import java.util.function.Supplier;
 /**
  * @author Augustus
  * created on 2019.12.26
- * <p>
+ *
  * Helper class to create batch tasks
  * get instance using TedTaskHelper
- * <p>
+ *
  * not used yet
  */
 public class TedBatchFactory {
@@ -36,8 +36,8 @@ public class TedBatchFactory {
 	 * Get builder for simple tasks.
 	 * Task name is required.
 	 */
-	public BatchBuilder batchBuilder(String name) {
-		return new BatchBuilder(name);
+	public BatchBuilder batchBuilder(String batchTaskName) {
+		return new BatchBuilder(batchTaskName);
 	}
 
 

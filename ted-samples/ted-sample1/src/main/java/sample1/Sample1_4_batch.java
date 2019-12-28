@@ -3,17 +3,23 @@ package sample1;
 import com.zaxxer.hikari.HikariDataSource;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.RandomUtils;
+import org.hsqldb.cmdline.SqlFile;
+import org.hsqldb.cmdline.SqlToolError;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ted.driver.Ted.TedDbType;
 import ted.driver.TedDriver;
 import ted.driver.TedResult;
 import ted.driver.TedTask;
+import ted.driver.TedTaskHelper;
+import ted.driver.task.TedBatchFactory.BatchBuilder;
 
 import javax.sql.DataSource;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -34,12 +40,18 @@ public class Sample1_4_batch {
 	//
 	private static DataSource dataSource() {
 		HikariDataSource dataSource = new HikariDataSource();
-		dataSource.setDriverClassName("org.postgresql.Driver");
-		dataSource.setJdbcUrl("jdbc:postgresql://localhost:5433/ted");
-//		dataSource.setDriverClass("oracle.jdbc.OracleDriver");
-//		dataSource.setJdbcUrl("jdbc:oracle:thin:@localhost:1521:XE");
+		dataSource.setDriverClassName("org.hsqldb.jdbc.JDBCDriver");
+		dataSource.setJdbcUrl("jdbc:hsqldb:mem:tedtest;sql.syntax_pgs=true");
+//		dataSource.setDriverClassName("org.postgresql.Driver");
+//		dataSource.setJdbcUrl("jdbc:postgresql://localhost:5433/ted");
 		dataSource.setUsername("ted");
 		dataSource.setPassword("ted");
+
+		// init in-memo db
+		if ("org.hsqldb.jdbc.JDBCDriver".equals(dataSource.getDriverClassName())) {
+			executeInitScript("schema-hsqldb.sql", dataSource);
+		}
+
 		return dataSource;
 	}
 
@@ -56,7 +68,7 @@ public class Sample1_4_batch {
 			throw new RuntimeException("Cannot read property file '" + propFileName + "'", e);
 		}
 		DataSource dataSource = dataSource();
-		TedDriver tedDriver = new TedDriver(TedDbType.POSTGRES, dataSource, properties);
+		TedDriver tedDriver = new TedDriver(dataSource, properties);
 		return tedDriver;
 
 
@@ -73,6 +85,8 @@ public class Sample1_4_batch {
 		tedDriver.registerTaskConfig(BATCH_TASK, s -> Sample1_4_batch::processBatch) ;
 		tedDriver.start();
 
+		TedTaskHelper taskHelper = new TedTaskHelper(tedDriver);
+
 		// read some big file for processing
 		//
 		File file = new File(Sample1_4_batch.class.getClassLoader().getResource(fileName).getPath());
@@ -81,10 +95,14 @@ public class Sample1_4_batch {
 		// create tasks for each line
 		//
 		List<TedTask> tasks = new ArrayList<>();
+
+		BatchBuilder bbuilder = taskHelper.getBatchFactory().batchBuilder(BATCH_TASK);
 		for (String line : lines) {
-			tasks.add(TedDriver.newTedTask(TASK_NAME, line, null, null));
+			bbuilder.addTask(TASK_NAME, line, null, null);
 		}
-		Long batchId = tedDriver.createBatch(BATCH_TASK, "batch task data", null, null, tasks);
+
+//		Long batchId = tedDriver.createBatch(BATCH_TASK, "batch task data", null, null, tasks);
+		Long batchId = bbuilder.create();
 
 		// wait a while, while ted will process tasks. see processing info in logs
 		//
@@ -117,6 +135,17 @@ public class Sample1_4_batch {
 		try {
 			Thread.sleep(milis);
 		} catch (InterruptedException e2) {
+		}
+	}
+
+	private static void executeInitScript(String scriptFile, DataSource dataSource) {
+		try (Connection connection = dataSource.getConnection()){
+			InputStream inputStream = Sample1_4_batch.class.getClassLoader().getResourceAsStream(scriptFile);
+			SqlFile sqlFile = new SqlFile(new InputStreamReader(inputStream), "init", System.out, "UTF-8", false, new File("."));
+			sqlFile.setConnection(connection);
+			sqlFile.execute();
+		} catch (SQLException | SqlToolError | IOException e) {
+			e.printStackTrace();
 		}
 	}
 

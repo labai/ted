@@ -21,7 +21,7 @@ import java.util.Properties;
 class TestConfig {
 	static final boolean INT_TESTS_ENABLED = true;
 	static final String SYSTEM_ID = "ted.test";
-	static final TedDbType testDbType = TedDbType.HSQLDB; // which one we are testing
+	static final TedDbType testDbType = TedDbType.POSTGRES; // which one we are testing
 
 	private static final DataSource dataSource = initDataSource(testDbType);
 

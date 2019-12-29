@@ -1,4 +1,4 @@
-package sample4.configuration;
+package sample5.configuration;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
  *         created on 2019.12.04
  */
 @Configuration
-public class BeansConfiguration {
+public class BeansConfig {
 
 	@Bean
 	public Gson gson() {

@@ -18,8 +18,7 @@ public class TedTaskConfigurationSelector implements ImportSelector {
 	@Override
 	public String[] selectImports(AnnotationMetadata metadata) {
 		return new String[]{
-				TedDriverConfiguration.class.getName(),
-				TedTaskService.class.getName()
+				TedDriverConfiguration.class.getName()
 		};
 
 	}

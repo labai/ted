@@ -14,30 +14,60 @@ in (ted)/docs/init/))
 ```xml
 <dependency>
    <groupId>com.github.labai</groupId>
-   <artifactId>ted</artifactId>
-   <version>0.2.1</version>
+   <artifactId>ted-driver</artifactId>
+   <version>0.3.2</version>
 </dependency>
 ```
-- Configure jdbc connection in java
+- Configure DataSource in java
 - Configure ted driver in java, register tasks processors
 ```java
 @Configuration
 public class TedConfig {
-  ...
-  @Bean
-  public TedDriver tedDriver(){
-    ...
-    properties.load(getClass().getResourceAsStream("ted.properties"));
-    ...
-    TedDriver tedDriver = new TedDriver(TedDbType.POSTGRES, dataSource, properties);
-    // register factories, which returns TedProcessor object
-    tedDriver.registerTaskConfig("DATA_SYN", s -> tedJobs::syncData);
-    tedDriver.start();
-    return tedDriver;
-  }
+
+    @Bean
+    public TedDriver tedDriver(){
+        Properties properties = new Properties(); 
+        properties.load(getClass().getResourceAsStream("ted.properties"));
+        
+        TedDriver tedDriver = new TedDriver(dataSource, properties);
+
+        // register factories, which returns TedProcessor object
+        tedDriver.registerTaskConfig("DATA_SYN", s -> tedJobs::syncData);
+
+        tedDriver.start();
+
+        return tedDriver;
+    }        
+}
 ```
+
+- write task processor logic
+```java
+@Component
+public class TedJobs {
+
+    public TedResult syncData (TedTask task) {
+        if (isEmpty(task.getData()))
+            return TedResult.error("task.data is empty");
+
+        logger.info("start DATA_SYN: {}", task.getData());
+
+        return TedResult.done();
+    }
+
+}
+```
+
+- create tasks for processing
+```java
+    // create TedTask
+    tedDriver.createTask("DATA_SYN", "{\"customerId\" : \"1234\"}");
+```
+
 - Prepare ted.properties file. This file allows to configure tasks externally. 
 See example in [ted-sample.properties](/labai/ted/blob/master/ted-driver/src/test/resources/ted-sample.properties) 
+
+For Spring also see [[Start to use in spring]] 
 
 ## Samples
 

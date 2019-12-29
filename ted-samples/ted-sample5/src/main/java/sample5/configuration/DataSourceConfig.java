@@ -1,4 +1,4 @@
-package sample5.config;
+package sample5.configuration;
 
 import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.boot.context.properties.ConfigurationProperties;

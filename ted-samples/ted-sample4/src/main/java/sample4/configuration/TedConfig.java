@@ -18,8 +18,8 @@ import ted.spring.conf.TedRetryException;
  */
 @EnableTedTask
 @Configuration
-public class TedConfiguration {
-	private static final Logger logger = LoggerFactory.getLogger(TedConfiguration.class);
+public class TedConfig {
+	private static final Logger logger = LoggerFactory.getLogger(TedConfig.class);
 
 	public static class Sample4RetryException extends TedRetryException {
 		public Sample4RetryException(String message) {

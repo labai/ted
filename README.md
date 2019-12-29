@@ -4,111 +4,102 @@
 
 TED is library for Java to handle task execution.
 
-Tasks are created in Oracle/Postgres db (table _tedtask_). 
-TED will check for new tasks in that table, retrieves them, call task processor and after finish will set status (DONE, ERROR or RETRY).
+Tasks are stored in Oracle/Postgres/MySql db (table _tedtask_). 
+TED checks for new tasks in that table, retrieves them, calls task processor and after finish sets status (DONE, ERROR or RETRY).
 
 ##### Main things kept in mind while creating TED
 - simplicity of use;
 - good performance;
 - no jar dependencies;
-- easy support - it is possible to view task history in db, restart task;
-- can be used for short (~50ms) and long (~5h) tasks;
+- easy support - it is easy to view task history in db using any sql browser, restart task;
+- can be used for short (milliseconds) and long (hours) tasks;
 
 ##### Features
 Main features:
-- is a part of war (or other app), there are no needs for separate process;
+- is a part of war (or other app), no needs for separate process;
 - tasks are in db, thus tasks remain after restart of app, it is easy to browse history ann manage using standard sql;  
 - there are _auto cleaning_ after 35 days;
-- task will be executed only by one application instance (any);
-- works with PostgreSQL (9.5+), Oracle DB or MySql (8+); from Java 1.6;
-- _task configuration_ is in separate ted.properties file;
+- task will be executed only by one application instance;
+- works with PostgreSQL (9.5+), Oracle DB or MySql (8+); from Java 1.8;
+- _task configuration_ is in separate ted.properties file, may be tuned without recompile;
 - it is possible to retry task by it's own _retry policy_;
-- _channels_ - allows to assign separate thread pools to different tasks; 
-
-Additionally features:
-- _prime instance_ - managed prime (master) instance between few instances/nodes.
-- _event queue_ - it is possible to execute tasks in strictly the same sequence, as they were created.
+- _channels_ - allows to assign separate thread pools to different types of tasks; 
+- [ted-scheduler](ted-ext/ted-scheduler/readme.md) allows to use ted-driver as scheduler engine
+- [ted-spring-support](ted-ext/ted-spring-support/readme.md) easily integrates into spring
 
 See [Ted features](docs/wiki/Ted-features.md) in wiki.
  
 TED can be helpful when:
 - you need to have task history in db table, easy browse, restart one or few tasks;
-- to be sure task will remain even if app will be shutdown before finish execution;
+- to be sure task will remain even if app shutdowns before task finish;
 - need to balance load between few instances (e.g. tomcats);
 - need retry logic;
 
-There can be many use cases of TED, just few examples:
-- send (or wait for) asynchronous response to external system - task will remain in db even if tomcat will be shutdown, task will be retried until success;
-- generate lot of (say 50k) reports for customers (just create 50k tasks);
-- generate report by request asynchronously;
-- maintenance task (e.g. for cleaning db data) - will ensure only one instance do this task;
-
-
-### Comparision 
-
-Difference from spring-batch
-- spring-batch is designed for big batch processing, while TED approach is to divide big batch into independent small(er) tasks, which will have their own live cycle (e.g. instead of creating 50k reports in one batch, in TED scenario you will need to create 50k separate tasks). While it is possible to execute and long-running tasks in TED, but task's internal logic is not interesting for TED.
-
-Difference from quartz
-- TED is not designed as scheduler, but it is possible to use it as simple scheduler. 
-See [ted-scheduler](ted-ext/ted-scheduler/readme.md).    
  
-## Usage
+## Usage example
+
+### Using ted-spring-support 
 
 ```xml
 <dependency>
    <groupId>com.github.labai</groupId>
-   <artifactId>ted</artifactId>
-   <version>0.2.1</version>
+   <artifactId>ted-spring-support</artifactId>
+   <version>0.3.2</version>
 </dependency>
 ```
 
 ```java
+@EnableTedTask
 @Configuration
 public class TedConfig {
-  ...
-  @Bean
-  public TedDriver tedDriver(){
-  	...
-  	properties.load(getClass().getResourceAsStream("ted.properties"));
-    ... 
-    TedDriver tedDriver = new TedDriver(TedDbType.POSTGRES, dataSource, properties);
-    // register factories, which returns TedProcessor object
-    tedDriver.registerTaskConfig("DATA_SYN", s -> tedJobs::syncData);
-    tedDriver.start();
-    return tedDriver;
-  }
-```
-
-```java
-// implements TedProcessor object
-@Component
-public class TedJobs {
-    ...
-    public TedResult syncData (TedTask task) {
-        if (isEmpty(task.getData()))
-            return TedResult.error("task.data is empty");
-        ...
-        return TedResult.done();
-    }
 }
 ```
 
 ```java
-// create TedTask
-tedDriver.createTask("DATA_SYN", "{\"customerId\" : \"1234\"}");
+@Service   
+public class Tasks {
+
+    @TedTaskProcessor(name = "TASK1")
+    public TedResult task1(TedTask task) {
+        logger.info("start TASK1: {}", task.getData());
+        return TedResult.done();
+    }
+    
+    // scheduler task
+    @TedSchedulerProcessor(name = "SCH_1", cron = "1 * * * * *")
+    public String schedulerTask1() {
+        logger.info("Start schedulerTask1");
+        return "ok";
+    }
+}
 ```
 
-See also [Start-to-use](docs/wiki/Start-to-use.md) in wiki. More samples can be found in [ted-samples](/labai/ted/tree/master/ted-samples).
+and then create tasks 
+
+```java
+@Service   
+public class MyService {
+    @Autowired
+    private TedTaskFactory tedTaskFactory;
+    
+    private void createTasks() {
+        tedTaskFactory.createTask("TASK1", "(task parameters...)");
+    }
+}
+```
+
+See also [Start-to-use](docs/wiki/Start-to-use.md) and 
+[Start-to-use-in-spring](docs/wiki/Start-to-use-in-spring.md) 
+in wiki. More samples can be found in [ted-samples](/labai/ted/tree/master/ted-samples).
 
 
-## Structure
+## DB Structure
 
 #### tedtask table
 
-All tasks are stored into tedtask table, and ted-driver periodically check it for new tasks.
-_tedtask_ table is important part of TED. As it is simple and open, 
-it is possible to use standard sql or some own tools to browse, monitor and manage tasks. 
+All tasks are stored into _tedtask_ table. TED driver periodically checks for new tasks.
+_tedtask_ table is important part of TED. 
+As structure is simple and open, a standard sql or some own tools can be used to browse, monitor and manage tasks. 
 _tedtask_ structure:
 
 - `taskid  ` - Id - primary key
@@ -136,4 +127,3 @@ Task parameters can be serialized into string (e.g. to json), and stored into _d
 - `RETRY` – retryable error while executing, will retry later
 - `DONE` – finished successfully
 - `ERROR` – error occurred, will not retry
-- `SLEEP` - task is created, but will not be taken to processing yet (used for events queue)

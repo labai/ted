@@ -1,4 +1,4 @@
-package sample5.config;
+package sample4.configuration;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;

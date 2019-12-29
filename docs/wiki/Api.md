@@ -1,8 +1,9 @@
 # TedDriver API functions
 
+### Simple api
+
 Constructor
-TedDriver(TedDbType dbType, DataSource dataSource, Properties properties)
-* dbType - POSTGRES or ORACLE
+TedDriver(DataSource dataSource, Properties properties)
 * dataSource - datasource to db with tedtask table
 * properties - TedDriver configuration (e.g., can be read from ted.properties file)
 
@@ -16,15 +17,25 @@ Runtime
 * createTaskPostponed - create future task
 * createAndExecuteTask - create and execute task immediately in the same thread - will wait synchronous for finish
 * createAndStartTask - create task and add to execution queue - will not wait for finish
-* createBatch - create few tasks and additional batch task, which will be executed after all regular tasks will be finished
-* newTedTask - helper to create TedTask for createBatch
 
-With PostgreSQL db only
-* createEvent - create event for queue `queueId` 
-* createAndTryExecuteEvent - create event and try execute it in same thread, if possible
+Builders, helpers
+TedTaskHelper taskHelper = new TedTaskHelper(tedDriver); 
+E.g. taskHelper.getTaskFactory().taskBuilder(TASK_NAME).create();
 
-_Prime instance_ handling (with PostgreSQL db only):
-* enablePrime - enable _prime instance_ handling
-* setOnBecomePrimeHandler - set event handle for becoming prime instance
-* setOnLostPrimeHandler - set event handler for losing prime instance
-* isPrime - returns flag, is current app instance prime
+### Spring api
+
+#### Annotations
+
+@EnableTedTask - annotation on @Configuration class
+
+@TedTaskProcessor - mark method as task processor
+
+@TedSchedulerProcessor - mark method as scheduler processor
+
+@TedDataSource - mark dataSource for TED (in few dataSources in project case)
+
+#### Beans
+TedTaskFactory - task creation helper
+
+#### Exceptions
+TedRetryException - default retry exception (will send task to retry)

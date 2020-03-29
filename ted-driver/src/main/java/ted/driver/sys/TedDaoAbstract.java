@@ -12,6 +12,7 @@ import ted.driver.sys.Model.TaskParam;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.PrimeInstance.CheckPrimeParams;
 import ted.driver.sys.QuickCheck.CheckResult;
+import ted.driver.sys.QuickCheck.GetWaitChannelsResult;
 import ted.driver.sys.SqlUtils.DbType;
 
 import javax.sql.DataSource;
@@ -79,21 +80,14 @@ abstract class TedDaoAbstract implements TedDao {
 
 	abstract protected long createTaskInternal(String name, String channel, String data, String key1, String key2, Long batchId, int postponeSec, TedStatus status, Connection conn);
 
-	private static class ChannelRes {
-		String channel;
-	}
-
 	@Override
-	public List<String> getWaitChannels() {
+	public List<GetWaitChannelsResult> getWaitChannels() {
 		String sqlLogId = "get_wait_chan";
-		String sql = "select distinct channel from tedtask where $systemCheck and nextTs <= $now";
+		String sql = "select channel, count(*) as taskCnt from tedtask where $systemCheck and nextTs <= $now group by channel";
 		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$systemCheck", systemCheck);
-		List<ChannelRes> chans = selectData(sqlLogId, sql, ChannelRes.class, Collections.<SqlParam>emptyList());
-		List<String> result = new ArrayList<String>();
-		for (ChannelRes channelRes : chans)
-			result.add(channelRes.channel);
-		return result;
+		List<GetWaitChannelsResult> chans = selectData(sqlLogId, sql, GetWaitChannelsResult.class, Collections.emptyList());
+		return chans;
 	}
 
 	@Override
@@ -148,20 +142,22 @@ abstract class TedDaoAbstract implements TedDao {
 		}
 	}
 
-	// TODO now it requires minimum 3 calls to db
+	// now it requires minimum 3 calls to db
 	@Override
 	public List<TaskRec> reserveTaskPortion(Map<String, Integer> channelSizes){
 		assert dbType != DbType.ORACLE;
+		assert dbType != DbType.POSTGRES;
+
 		if (channelSizes.isEmpty())
 			return Collections.emptyList();
 
 		long bno;
-		if (dbType == DbType.POSTGRES || dbType == DbType.HSQLDB)
+		if (dbType == DbType.HSQLDB)
 			bno = getSequenceNextValue("SEQ_TEDTASK_BNO");
 		else if (dbType == DbType.MYSQL)
 			bno = Math.abs(random.nextLong()); // we will use random instead of sequences
 		else
-			throw new IllegalStateException("For Oracle should be override");
+			throw new IllegalStateException("For Oracle, PostgreSql should be override");
 
 		for (String channel : channelSizes.keySet()) {
 			int cnt = channelSizes.get(channel);
@@ -209,10 +205,10 @@ abstract class TedDaoAbstract implements TedDao {
 			throw new IllegalStateException("Prime supported only for PostgreSql");
 		if (skipChannelCheck)
 			return Collections.emptyList();
-		List<String> chans = getWaitChannels();
+		List<GetWaitChannelsResult> chans = getWaitChannels();
 		List<CheckResult> res = new ArrayList<>();
-		for (String chan : chans) {
-			res.add(new CheckResult("CHAN", chan));
+		for (GetWaitChannelsResult chan : chans) {
+			res.add(new CheckResult("CHAN", chan.channel, chan.taskCnt));
 		}
 		return res;
 	}

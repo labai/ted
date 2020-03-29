@@ -5,6 +5,7 @@ import ted.driver.sys.Model.TaskParam;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.PrimeInstance.CheckPrimeParams;
 import ted.driver.sys.QuickCheck.CheckResult;
+import ted.driver.sys.QuickCheck.GetWaitChannelsResult;
 import ted.driver.sys.SqlUtils.DbType;
 
 import java.sql.Connection;
@@ -39,7 +40,7 @@ interface TedDao {
 	void setTaskPlannedWorkTimeout(long taskId, Date timeoutTime);
 
 	// quick check, is there any task
-	List<String> getWaitChannels();
+	List<GetWaitChannelsResult> getWaitChannels();
 
 	List<TaskRec> reserveTaskPortion(Map<String, Integer> channelSizes);
 

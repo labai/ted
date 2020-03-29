@@ -147,7 +147,7 @@ public class TedDriver implements
 	/**
 	 * create tasks by list and batch task for them. return batch taskId
 	*/
-// moved to TedTaskHelper
+// moved to TedTaskManager
 //	@Override
 //	public Long createBatch(String batchTaskName, String data, String key1, String key2, List<TedTask> tedTasks) {
 //		return tedDriverImpl.createBatch(batchTaskName, data, key1, key2, tedTasks);

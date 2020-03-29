@@ -11,6 +11,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * @author Augustus
@@ -18,22 +19,24 @@ import java.util.Set;
  *
  * for TED internal usage only!!!
  *
- * quick check in db for tasks. Will be called every 0.7s
+ * quick check in db for tasks. Will be called every ~0.9s
  * (config "ted.driver.intervalDriverMs")
  *
  * we are making assumptions that single call with few selects to db
  * is somehow faster than few separated calls.
  *
+ *
  */
 class QuickCheck {
 	private final static Logger logger = LoggerFactory.getLogger(QuickCheck.class);
-	private final static int SKIP_CHANNEL_THRESHOLD_MS = 100;
+	private final static int SKIP_CHANNEL_THRESHOLD_MS = 70;
+	private final static int SKIP_CHANNEL_THRESHOLD_TASK_COUNT = 500;
 
 	private final TedContext context;
 
 	private long nextPrimeCheckTimeMs = 0;
 	private long checkIteration = 0;
-	private boolean skipNextChannelCheck = false;
+	private boolean skipNextChannelLookup = false;
 
 	QuickCheck(TedContext context) {
 		this.context = context;
@@ -43,15 +46,23 @@ class QuickCheck {
 		String type; // CHAN - waiting channels, PRIM - prime check results
 		String name;
 		Date tillTs;
+		Integer taskCnt;
 
 		public CheckResult() {
 		}
 
-		public CheckResult(String type, String name) {
+		public CheckResult(String type, String name, Integer taskCnt) {
 			this.type = type;
 			this.name = name;
+			this.taskCnt = taskCnt;
 		}
 	}
+
+	static class GetWaitChannelsResult {
+		String channel;
+		Integer taskCnt;
+	}
+
 
 	private static class PrimeResult {
 		private final List<CheckResult> primeResults = new ArrayList<>();
@@ -94,14 +105,17 @@ class QuickCheck {
 
 	}
 
-	private static class ChannelResult {
+	private static class ChannelLookupResult {
 		private final Set<String> channelResults = new HashSet<>();
+		private final List<CheckResult> quickCheckResult;
+		private final Set<String> taskChannels;
 
-		public ChannelResult(List<CheckResult> checkResList) {
-			for (CheckResult cres : checkResList) {
-				if ("CHAN".equals(cres.type))
-					channelResults.add(cres.name);
-			}
+		public ChannelLookupResult(List<CheckResult> checkResList) {
+			quickCheckResult = checkResList.stream().filter(cr -> "CHAN".equals(cr.type)).collect(Collectors.toList());
+			Set<String> channels = quickCheckResult.stream().map(cr -> cr.name).collect(Collectors.toSet());
+			channelResults.addAll(channels);
+			taskChannels = new HashSet<>(channelResults);
+			taskChannels.removeAll(Model.nonTaskChannels);
 		}
 
 		public boolean needProcessTedQueue() {
@@ -117,11 +131,13 @@ class QuickCheck {
 		}
 
 		public Set<String> getTaskChannels() {
-			Set<String> taskChannels = new HashSet<>(channelResults);
-			taskChannels.removeAll(Model.nonTaskChannels);
 			return taskChannels;
 		}
 
+		public List<CheckResult> getTaskCheckResults() {
+			Set<String> taskChannels = getTaskChannels();
+			return quickCheckResult.stream().filter(cr -> taskChannels.contains(cr.name)).collect(Collectors.toList());
+		}
 	}
 
 	public void quickCheck() {
@@ -137,11 +153,11 @@ class QuickCheck {
 		long checkDurationMs = System.currentTimeMillis() - startTs;
 
 		PrimeResult primeResult = new PrimeResult(checkResList);
-		ChannelResult channelResult = new ChannelResult(checkResList);
+		ChannelLookupResult channelLookupResult = new ChannelLookupResult(checkResList);
 
-		handleResultSystemChannels(channelResult);
+		handleResultSystemChannels(channelLookupResult);
 
-		handleResultTaskChannels(channelResult, checkDurationMs);
+		handleResultTaskChannels(channelLookupResult, checkDurationMs);
 
 		handleResultPrime(primeResult);
 
@@ -170,15 +186,15 @@ class QuickCheck {
 		// channels
 		List<CheckResult> checkResList;
 		try {
-			if (skipNextChannelCheck)
+			if (skipNextChannelLookup)
 				logger.debug("skip channels quick check");
 
-			checkResList = context.tedDao.quickCheck(checkPrimeParams, skipNextChannelCheck);
+			checkResList = context.tedDao.quickCheck(checkPrimeParams, skipNextChannelLookup);
 
-			if (skipNextChannelCheck) { // add all channels
+			if (skipNextChannelLookup) { // add all channels
 				checkResList = new ArrayList<>(checkResList);
 				for (Channel chan : context.registry.getChannels()) {
-					checkResList.add(new CheckResult("CHAN", chan.name));
+					checkResList.add(new CheckResult("CHAN", chan.name, null));
 				}
 			}
 		} catch (RuntimeException e) {
@@ -191,8 +207,8 @@ class QuickCheck {
 		return checkResList;
 	}
 
-	private void handleResultTaskChannels(ChannelResult channelResult, long checkDurationMs) {
-		Set<String> allTaskChannels = channelResult.getTaskChannels();
+	private void handleResultTaskChannels(ChannelLookupResult channelLookupResult, long checkDurationMs) {
+		Set<String> allTaskChannels = channelLookupResult.getTaskChannels();
 
 		List<String> taskChannels = new ArrayList<>();
 
@@ -212,20 +228,29 @@ class QuickCheck {
 		//
 		if (! taskChannels.isEmpty()) {
 			boolean wasAnyChannelFull = context.taskManager.processChannelTasks(taskChannels);
-			// in some cases there may be created a lot of new tasks, and simple quick check may take time. Then just skip this quick check and process all channels. 100ms is threshold.
-			this.skipNextChannelCheck = wasAnyChannelFull && (checkDurationMs > SKIP_CHANNEL_THRESHOLD_MS || skipNextChannelCheck);
+
+			// get total waiting task count in db
+			int waitingTaskCount = channelLookupResult.getTaskCheckResults().stream()
+					.map(cr -> cr.taskCnt)
+					.filter(cnt -> cnt != null)
+					.reduce(0, Integer::sum);
+
+			// in some cases there may be a lot of new tasks. Then we will skip channel lookup in next quickCheck
+			this.skipNextChannelLookup = (skipNextChannelLookup && waitingTaskCount == 0 && wasAnyChannelFull) // 0 can be when skipping channelLookup (if skipNextChannelLookup was true)
+					|| (checkDurationMs > SKIP_CHANNEL_THRESHOLD_MS) // if last check was long
+					|| (waitingTaskCount > SKIP_CHANNEL_THRESHOLD_TASK_COUNT); // if there are a lot of waiting tasks
 		}
 
 	}
 
-	private void handleResultSystemChannels(ChannelResult channelResult) {
-		if (channelResult.needProcessTedQueue()) {
+	private void handleResultSystemChannels(ChannelLookupResult channelLookupResult) {
+		if (channelLookupResult.needProcessTedQueue()) {
 			context.eventQueueManager.processTedQueue();
 		}
-		if (channelResult.needProcessTedBatch()) {
+		if (channelLookupResult.needProcessTedBatch()) {
 			context.batchWaitManager.processBatchWaitTasks();
 		}
-		if (channelResult.needProcessTedNotify()) {
+		if (channelLookupResult.needProcessTedNotify()) {
 			context.notificationManager.processNotifications();
 		}
 

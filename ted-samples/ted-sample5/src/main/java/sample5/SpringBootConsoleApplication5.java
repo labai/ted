@@ -27,11 +27,11 @@ public class SpringBootConsoleApplication5 implements CommandLineRunner {
 	private TedTaskFactory tedTaskFactory;
 
 	public static void main(String[] args) {
-		logger.info("Starting TedSample5");
+		logger.info("Starting TedSample4");
 		SpringApplication
 				.run(SpringBootConsoleApplication5.class, args)
 				.close();
-		logger.info("Finish TedSample5");
+		logger.info("Finish TedSample4");
 	}
 
 	@Override
@@ -47,6 +47,7 @@ public class SpringBootConsoleApplication5 implements CommandLineRunner {
 		List<String> lines = FileUtils.readLines(dataFile.getFile(), "UTF-8");
 
 		// create task for each line
+		int inum = 0;
 		for (String line : lines) {
 			tedTaskFactory.createTask("TASK1", line);
 		}

@@ -12,8 +12,10 @@ import ted.driver.sys.TedDriverImpl.TedContext;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadPoolExecutor;
 
@@ -28,6 +30,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 class Registry {
 	private final static Logger logger = LoggerFactory.getLogger(Registry.class);
 	private final static Logger loggerConfig = LoggerFactory.getLogger("ted-config");
+	private final static int MAX_CHANNELS = 10; // limit user channel count to keep performance
 	private final static int CHANNEL_EXTRA_SIZE = 500; // queue size increase - reserved for createAndStart tasks
 
 	private final TedContext context;
@@ -181,6 +184,13 @@ class Registry {
 			logger.warn("Channel '" + channel + "' already exists in registry, skip to register new one");
 			return;
 		}
+		if (! Model.nonTaskChannels.contains(channel)) {
+			Set<String> userChannels = new HashSet<>(channels.keySet());
+			userChannels.removeAll(Model.nonTaskChannels);
+			if (userChannels.size() >= MAX_CHANNELS)
+				throw new IllegalStateException("(TED) Exceeded maximum number of channels (" + MAX_CHANNELS + ")!");
+		}
+
 		Channel ochan = new Channel(context.tedDriver.tedNamePrefix, channel, workerCount, bufferSize, primeOnly);
 		channels.put(channel, ochan);
 		loggerConfig.info("Register channel {} (workerCount={} taskBufferSize={})", ochan.name, ochan.workerCount, ochan.taskBufferSize);

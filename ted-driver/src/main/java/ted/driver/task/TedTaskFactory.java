@@ -11,7 +11,7 @@ import java.util.function.Supplier;
  * created on 2019.12.26
  *
  * Helper class to create tasks
- * get instance using TedTaskHelper
+ * get instance using TedTaskManager
  *
  */
 public class TedTaskFactory {

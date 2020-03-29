@@ -1,16 +1,20 @@
 package ted.driver.sys;
 
-import org.junit.Assert;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ted.driver.sys.Model.FieldValidator;
 import ted.driver.sys.RetryConfig.PeriodPatternConfig;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static ted.driver.sys.TestUtils.print;
 
 /**
@@ -131,4 +135,13 @@ public class T04FunctionsTest {
 		assertEquals("ASJB0", Registry.makeShortName("_ASA;pa ssdp-a"));
 
 	}
+
+	@Test
+	public void testSplitList() {
+		List<String> list = MiscUtils.asList("1", "2", "3", "4", "5");
+		assertEquals("[[1, 2], [3, 4], [5]]", TedDaoPostgres.splitList(list, 2).toString());
+		assertEquals("[[1, 2, 3, 4, 5]]", TedDaoPostgres.splitList(list, 5).toString());
+
+	}
+
 }

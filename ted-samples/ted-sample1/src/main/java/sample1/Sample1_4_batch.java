@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 import ted.driver.TedDriver;
 import ted.driver.TedResult;
 import ted.driver.TedTask;
-import ted.driver.TedTaskHelper;
+import ted.driver.TedTaskManager;
 import ted.driver.task.TedBatchFactory.BatchBuilder;
 
 import javax.sql.DataSource;
@@ -85,7 +85,7 @@ public class Sample1_4_batch {
 		tedDriver.registerTaskConfig(BATCH_TASK, s -> Sample1_4_batch::processBatch) ;
 		tedDriver.start();
 
-		TedTaskHelper taskHelper = new TedTaskHelper(tedDriver);
+		TedTaskManager taskHelper = new TedTaskManager(tedDriver);
 
 		// read some big file for processing
 		//

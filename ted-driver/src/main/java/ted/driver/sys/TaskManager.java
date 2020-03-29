@@ -8,6 +8,7 @@ import ted.driver.Ted.TedStatus;
 import ted.driver.TedResult;
 import ted.driver.sys.Executors.TedRunnable;
 import ted.driver.sys.Model.TaskRec;
+import ted.driver.sys.QuickCheck.GetWaitChannelsResult;
 import ted.driver.sys.Registry.Channel;
 import ted.driver.sys.Registry.TaskConfig;
 import ted.driver.sys.TedDriverImpl.TedContext;
@@ -114,9 +115,12 @@ class TaskManager {
 
 	// tests only
 	void processChannelTasks() {
-		List<String> waitChannelsList = context.tedDao.getWaitChannels();
-		waitChannelsList.removeAll(Model.nonTaskChannels);
-		processChannelTasks(waitChannelsList);
+		List<GetWaitChannelsResult> waitChannelsList = context.tedDao.getWaitChannels();
+		List<String> channels = waitChannelsList.stream()
+				.filter(it -> ! Model.nonTaskChannels.contains(it.channel) )
+				.map(it -> it.channel)
+				.collect(Collectors.toList());
+		processChannelTasks(channels);
 	}
 
 
@@ -176,7 +180,7 @@ class TaskManager {
 		calcChannelsStats(tasks);
 
 		if (tasks.isEmpty()) {
-			logger.debug("no tasks (full check)");
+			logger.debug("no tasks (full check): {}", channelSizes.keySet());
 			return false;
 		}
 

@@ -17,20 +17,20 @@ import ted.driver.task.TedTaskFactory;
  * second one can be used in case when need to break circural dependency
  *
  */
-public class TedTaskHelper {
+public class TedTaskManager {
 
 	private TedDriverImpl tedDriverImpl; // for internal, not for in apps
 
 	private final TedTaskFactory taskFactory;
 	private final TedBatchFactory batchFactory;
 
-	public TedTaskHelper(TedDriver tedDriver) {
+	public TedTaskManager(TedDriver tedDriver) {
 		this.tedDriverImpl = tedDriver.tedDriverImpl;
 		this.taskFactory = new TedTaskFactory(tedDriverImpl);
 		this.batchFactory = new TedBatchFactory(tedDriverImpl);
 	}
 
-	public TedTaskHelper() {
+	public TedTaskManager() {
 		this.taskFactory = new TedTaskFactory(() -> tedDriverImpl);
 		this.batchFactory = new TedBatchFactory(() -> tedDriverImpl);
 	}

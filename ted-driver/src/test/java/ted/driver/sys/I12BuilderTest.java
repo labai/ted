@@ -6,9 +6,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedDbType;
 import ted.driver.TedDriver;
-import ted.driver.TedTaskHelper;
+import ted.driver.TedTaskManager;
 import ted.driver.sys.Model.TaskRec;
-import ted.driver.sys.SqlUtils.DbType;
 import ted.driver.sys.TedDriverImpl.TedContext;
 import ted.driver.sys.TestTedProcessors.TestProcessorOk;
 
@@ -30,7 +29,7 @@ public class I12BuilderTest extends TestBase {
 
 	private TedDriverImpl driver1impl;
 	private TedDriver driver2;
-	private TedTaskHelper taskHelper2;
+	private TedTaskManager taskHelper2;
 	private TedContext context;
 
 	@Override
@@ -42,7 +41,7 @@ public class I12BuilderTest extends TestBase {
 		properties.setProperty("ted.systemId", TestConfig.SYSTEM_ID);
 		driver1impl = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), TestConfig.SYSTEM_ID, properties);
 		driver2 = new TedDriver(TestConfig.testDbType, TestConfig.getDataSource(), properties);
-		taskHelper2 = new TedTaskHelper(driver2);
+		taskHelper2 = new TedTaskManager(driver2);
 
 		this.context = driver1impl.getContext();
 		dao_cleanupAllTasks();

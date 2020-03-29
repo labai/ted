@@ -126,7 +126,7 @@ public class I10NotificationTest extends TestBase {
 		context2.notificationManager = Mockito.mock(NotificationManager.class);
 
 		List<CheckResult> chkres = new ArrayList<>();
-		chkres.add(new CheckResult("CHAN", Model.CHANNEL_NOTIFY));
+		chkres.add(new CheckResult("CHAN", Model.CHANNEL_NOTIFY, null));
 		doReturn(chkres).when(context1.tedDao).quickCheck(isA(CheckPrimeParams.class), anyBoolean());
 		doReturn(chkres).when(context2.tedDao).quickCheck(isA(CheckPrimeParams.class), anyBoolean());
 

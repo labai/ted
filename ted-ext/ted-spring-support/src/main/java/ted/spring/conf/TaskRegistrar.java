@@ -14,6 +14,7 @@ import ted.driver.TedTask;
 import ted.scheduler.TedScheduler;
 import ted.spring.annotation.TedSchedulerProcessor;
 import ted.spring.annotation.TedTaskProcessor;
+import ted.spring.exception.TedRetryException;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;

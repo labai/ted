@@ -1,6 +1,6 @@
 package ted.spring.annotation;
 
-import ted.spring.conf.TedRetryException;
+import ted.spring.exception.TedRetryException;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

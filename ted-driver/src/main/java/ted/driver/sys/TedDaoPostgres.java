@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedStatus;
 import ted.driver.sys.JdbcSelectTed.JetJdbcParamType;
+import ted.driver.sys.JdbcSelectTed.SqlParam;
 import ted.driver.sys.JdbcSelectTed.TedSqlDuplicateException;
 import ted.driver.sys.JdbcSelectTed.TedSqlException;
 import ted.driver.sys.Model.TaskParam;
@@ -21,9 +22,14 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Savepoint;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static ted.driver.sys.JdbcSelectTed.sqlParam;
 import static ted.driver.sys.MiscUtils.asList;
@@ -37,6 +43,8 @@ import static ted.driver.sys.MiscUtils.nvle;
  */
 class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 	private static final Logger logger = LoggerFactory.getLogger(TedDaoPostgres.class);
+
+	private static final int CHANNEL_SUBSELECT_CHUNK = 10;
 
 	public TedDaoPostgres(String system, DataSource dataSource, Stats stats) {
 		super(system, dataSource, DbType.POSTGRES, stats);
@@ -62,10 +70,10 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 						+ "  and data = '$instanceId'"
 						+ "  returning 'PRIME'::text as result"
 						+ ")"
-						+ " select case when exists(select * from updatedPrimeTask) then 'PRIME' else 'LOST_PRIME' end as name, 'PRIM' as type, null::timestamp as tillts";
+						+ " select case when exists(select * from updatedPrimeTask) then 'PRIME' else 'LOST_PRIME' end as name, 'PRIM' as type, null::timestamp as tillts, 0 as taskCnt";
 				logId = "b";
 			} else {
-				sqlPrime = "select case when finishts < $now then 'CAN_PRIME' else 'NEXT_CHECK' end as name, 'PRIM' as type, finishts as tillts"
+				sqlPrime = "select case when finishts < $now then 'CAN_PRIME' else 'NEXT_CHECK' end as name, 'PRIM' as type, finishts as tillts, 0 as taskCnt"
 						+ " from tedtask"
 						+ " where taskid = $primeTaskId and system = '$sys'";
 				logId = "c";
@@ -80,9 +88,10 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 		if (! skipChannelCheck) {
 			if (! sql.isEmpty())
 				sql += " union all ";
-			sql += "select distinct channel as name, 'CHAN' as type, null::timestamp as tillts "
+			sql += "select channel as name, 'CHAN' as type, null::timestamp as tillts, count(*) as taskCnt "
 					+ " from tedtask"
-					+ " where system = '$sys' and nextTs <= $now";
+					+ " where system = '$sys' and nextTs <= $now"
+					+ " group by channel";
 			logId = "a" + logId;
 		}
 
@@ -94,6 +103,68 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 
 		return selectData("qckchk_" + logId, sql, CheckResult.class, Collections.emptyList());
 	}
+
+	@Override
+	public List<TaskRec> reserveTaskPortion(Map<String, Integer> channelSizes) {
+		// limit channel subselect count in one select
+		Collection<List<Entry<String, Integer>>> chunked = splitList(channelSizes.entrySet(), CHANNEL_SUBSELECT_CHUNK);
+		List<TaskRec> reservedTasks = new ArrayList<>();
+		for (List<Entry<String, Integer>> chunk : chunked) {
+			List<TaskRec> res = reserveTaskPortionChunk(chunk);
+			reservedTasks.addAll(res);
+		}
+		return reservedTasks;
+	}
+
+	static <T> Collection<List<T>> splitList(Collection<T> list, int chunkSize) {
+		if (chunkSize <= 0)
+			throw new IllegalArgumentException("Chunk size must be > 0");
+		final AtomicInteger counter = new AtomicInteger();
+		return list.stream()
+				.collect(Collectors.groupingBy(it -> counter.getAndIncrement() / chunkSize))
+				.values();
+	}
+
+	private List<TaskRec> reserveTaskPortionChunk(List<Entry<String, Integer>> channelSizes) {
+		// create as many subselects as there are channels
+		String ptr = " select taskid from ("
+				+ " select taskid from tedtask "
+				+ " where status in ('NEW','RETRY') and $systemCheck and channel = ?"
+				+ " and nextTs < $now"
+				+ " limit ?"
+				+ " $FOR_UPDATE_SKIP_LOCKED"
+				+ ") ";
+		ptr = ptr.replace("$now", dbType.sql().now());
+		ptr = ptr.replace("$systemCheck", systemCheck);
+		ptr = ptr.replace("$FOR_UPDATE_SKIP_LOCKED", dbType.sql().forUpdateSkipLocked());
+
+		int i = 0;
+		StringBuilder sb = new StringBuilder();
+		List<SqlParam> params = new ArrayList<>();
+		for (Entry<String, Integer> entry : channelSizes) {
+			i++;
+			if (i > 1)
+				sb.append(" union all ");
+			sb.append(ptr).append(" ss").append(i);
+			params.add(sqlParam(entry.getKey(), JetJdbcParamType.STRING)); // key=channel
+			params.add(sqlParam(entry.getValue(), JetJdbcParamType.INTEGER)); //value=count
+		}
+
+		String sqlLogId = "reserve_chan_pg(" + channelSizes.size() + ")";
+		String sql = "update tedtask set status = 'WORK', startTs = $now, nextTs = null"
+				+ " where status in ('NEW','RETRY') and $systemCheck"
+				+ " and taskid in ("
+				+ " $taskIdSubSelects"
+				+ " )"
+				+ " returning *";
+
+		sql = sql.replace("$now", dbType.sql().now());
+		sql = sql.replace("$systemCheck", systemCheck);
+		sql = sql.replace("$taskIdSubSelects", sb.toString());
+		logger.info(sql);
+		return selectData(sqlLogId, sql, TaskRec.class, params);
+	}
+
 
 	@Override
 	public List<Long> createTasksBulk(List<TaskParam> taskParams) {

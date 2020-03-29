@@ -17,7 +17,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.env.PropertySource;
 import org.springframework.core.type.AnnotationMetadata;
 import ted.driver.TedDriver;
-import ted.driver.TedTaskHelper;
+import ted.driver.TedTaskManager;
 import ted.driver.task.TedTaskFactory;
 import ted.scheduler.TedScheduler;
 import ted.spring.annotation.EnableTedTask;
@@ -45,14 +45,14 @@ public class TedDriverConfiguration implements ImportAware, ApplicationContextAw
 
 	public TedDriverConfiguration() { }
 
-	@Bean
-	TedTaskHelper tedTaskHelper() {
-		return new TedTaskHelper();
+	@Bean(name = "ted.driver.TedTaskManager")
+	TedTaskManager tedTaskManager() {
+		return new TedTaskManager();
 	}
 
 	@Bean
-	TedTaskFactory tedTaskFactory(TedTaskHelper taskHelper) {
-		return taskHelper.getTaskFactory();
+	TedTaskFactory tedTaskFactory(TedTaskManager taskManager) {
+		return taskManager.getTaskFactory();
 	}
 
 	@Bean(destroyMethod = "shutdown")
@@ -65,6 +65,7 @@ public class TedDriverConfiguration implements ImportAware, ApplicationContextAw
 
 		if (isEmpty(props.get("ted.systemId"))) {
 			props.put("ted.systemId", "default");
+			logger.warn("Parameter 'ted.systemId' was not found, value 'default' will be used for systemId");
 		}
 		Properties properties = new Properties();
 		properties.putAll(props);
@@ -100,8 +101,8 @@ public class TedDriverConfiguration implements ImportAware, ApplicationContextAw
 		TedDriver tedDriver = ctx.getBean(TedDriver.class);
 		TedScheduler tedScheduler = ctx.getBean(TedScheduler.class);
 
-		TedTaskHelper tedTaskHelper = ctx.getBean(TedTaskHelper.class);
-		tedTaskHelper.setTedDriver(tedDriver);
+		TedTaskManager tedTaskManager = ctx.getBean(TedTaskManager.class);
+		tedTaskManager.setTedDriver(tedDriver);
 
 		TaskRegistrar registrar = new TaskRegistrar(ctx, tedDriver, tedScheduler);
 		registrar.registerAnnotatedTasks();

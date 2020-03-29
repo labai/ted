@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
 import static ted.driver.sys.TestTedProcessors.forClass;
@@ -241,12 +242,16 @@ public class I01SimpleTest extends TestBase {
 	@Test
 	public void test05GetPortion() {
 		String taskName = "TEST01-05";
+		String taskName2 = "TEST01-05-2";
 		driver.getContext().registry.registerChannel("TEST1", 5, 100);
+		driver.getContext().registry.registerChannel("TEST2", 5, 100);
 		//driver.registerTaskConfig(taskName, forClass(Test01ProcessorRetry.class), 1, null, "TEST1");
 
 		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test01ProcessorRetry.class));
+		driver.registerTaskConfig(taskName2, TestTedProcessors.forClass(Test01ProcessorRetry.class));
 
 		Long taskId = driver.createTask(taskName, null, null, null);
+		Long taskId2 = driver.createTask(taskName2, null, null, null);
 
 		TaskRec taskRec = driver.getContext().tedDao.getTask(taskId);
 		//print(taskRec.toString());
@@ -255,9 +260,22 @@ public class I01SimpleTest extends TestBase {
 
 		Map<String, Integer> channelSizes = new HashMap<>();
 		channelSizes.put("TEST1", 3);
+		channelSizes.put("TEST2", 4);
+		// add few more to check subselect chunks..
+		channelSizes.put("TEST3", 1);
+		channelSizes.put("TEST4", 1);
+		channelSizes.put("TEST5", 1);
+		channelSizes.put("TEST6", 1);
+		channelSizes.put("TEST7", 1);
+		channelSizes.put("TEST8", 1);
+		channelSizes.put("TEST9", 1);
+		channelSizes.put("TST10", 1);
+		channelSizes.put("TST11", 1);
 		List<TaskRec> list = driver.getContext().tedDao.reserveTaskPortion(channelSizes);
-		assertEquals(1, list.size());
-		assertEquals(taskName, list.get(0).name);
+		assertEquals(2, list.size());
+		Map<String, List<TaskRec>> map = list.stream().collect(Collectors.groupingBy(it -> it.name));
+		assertEquals(1, map.get(taskName).size());
+		assertEquals(1, map.get(taskName2).size());
 	}
 
 
@@ -329,7 +347,10 @@ public class I01SimpleTest extends TestBase {
 		} else if (context.tedDao instanceof TedDaoMysql){
 			((TedDaoAbstract) context.tedDao).execute("dao_lockAndSleep",
 					" update tedtask set status = status where taskid = " + taskId + " and sleep(" + sec + ") = 0;", Collections.emptyList());
+		} else {
+			throw new IllegalStateException("TODO (something new?)");
 		}
+
 	}
 
 

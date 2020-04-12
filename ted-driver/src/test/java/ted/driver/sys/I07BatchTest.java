@@ -130,6 +130,7 @@ public class I07BatchTest extends TestBase {
 		print("sleep...");
 
 		await().atMost(2600, TimeUnit.MILLISECONDS).pollInterval(TestUtils.POLL_INTERVAL).until(() -> {
+			driver.getContext().taskManager.flushStatuses();
 			driver.getContext().taskManager.processChannelTasks(); // here all subtask should be finished
 			List<String> finished = asList("DONE", "ERROR");
 			for (TaskRec rec : tasks) {
@@ -154,6 +155,7 @@ public class I07BatchTest extends TestBase {
 
 		print("subtasks finished, waiting for batch tasks own retry");
 		await().atMost(2600, TimeUnit.MILLISECONDS).pollInterval(TestUtils.POLL_INTERVAL).until(() -> {
+			driver.getContext().taskManager.flushStatuses();
 			driver.getContext().taskManager.processChannelTasks();
 			TaskRec rec = driver.getContext().tedDao.getTask(batchId);
 			return asList("DONE", "ERROR").contains(rec.status);

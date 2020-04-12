@@ -183,7 +183,7 @@ public class I01SimpleTest extends TestBase {
 		print(taskRec.toString());
 		assertEquals("WORK", taskRec.status);
 
-		awaitUntilTaskFinish(driver, taskId, 100);
+		awaitUntilTaskFinish(driver, taskId, 200);
 
 		taskRec = driver.getContext().tedDao.getTask(taskId);
 		assertEquals("ERROR", taskRec.status);
@@ -228,6 +228,7 @@ public class I01SimpleTest extends TestBase {
 		assertEquals("WORK", taskRec.status);
 
 		latch.await(200, TimeUnit.MILLISECONDS);
+		driver.getContext().taskManager.flushStatuses();
 
 		taskRec = driver.getContext().tedDao.getTask(taskId);
 		long deltaMs = taskRec.nextTs.getTime() - System.currentTimeMillis();

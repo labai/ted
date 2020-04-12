@@ -76,6 +76,7 @@ class TestUtils {
 	public static void awaitUntilTaskFinish(final TedDriverImpl driver, final long taskId, int maxMs) {
 		awaitTask(maxMs, () -> {
 			//driver.getContext().taskManager.processChannelTasks();
+			driver.getContext().taskManager.flushStatuses();
 			TaskRec rec = driver.getContext().tedDao.getTask(taskId);
 			return ! asList("WORK", "NEW").contains(rec.status);
 		});

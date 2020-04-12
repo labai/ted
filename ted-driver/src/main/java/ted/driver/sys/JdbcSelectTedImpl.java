@@ -1,9 +1,9 @@
 package ted.driver.sys;
 
-import ted.driver.sys.JdbcSelectTed.JetJdbcParamType;
-import ted.driver.sys.JdbcSelectTed.SqlParam;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ted.driver.sys.JdbcSelectTed.JetJdbcParamType;
+import ted.driver.sys.JdbcSelectTed.SqlParam;
 
 import java.io.ByteArrayInputStream;
 import java.io.Serializable;
@@ -21,8 +21,11 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static java.util.Arrays.asList;
 
@@ -310,6 +313,33 @@ class JdbcSelectTedImpl {
 			try { if (stmt != null) stmt.close(); } catch (Exception e) {logger.error("Cannot close statement", e);};
 		}
 		return res;
+	}
+
+	static List<Integer> executeBatchUpdate(Connection connection, String sql, List<List<SqlParam>> sqlParamPacks) throws SQLException {
+		PreparedStatement stmt = null;
+		boolean origAutoCommit = connection.getAutoCommit();
+		int[] res;
+		try {
+			if (origAutoCommit == true)
+				connection.setAutoCommit(false);
+
+			stmt = connection.prepareStatement(sql);
+
+			for (List<SqlParam> params : sqlParamPacks) {
+				stmtAssignSqlParams(stmt, params);
+				stmt.addBatch();
+			}
+
+			res = stmt.executeBatch();
+
+			connection.commit();
+
+		} finally {
+			try { if (stmt != null) stmt.close(); } catch (Exception e) {logger.error("Cannot close statement", e);};
+			if (origAutoCommit == true)
+				connection.setAutoCommit(origAutoCommit);
+		}
+		return res == null ? Collections.emptyList() : Arrays.stream(res).boxed().collect(Collectors.toList());
 	}
 
 	/**

@@ -19,6 +19,7 @@ import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.Model.TedTaskImpl;
 import ted.driver.sys.Registry.Channel;
 import ted.driver.sys.Registry.TaskConfig;
+import ted.driver.sys.TedDao.SetTaskStatus;
 import ted.driver.sys.Trash.TedMetricsEvents;
 
 import javax.sql.DataSource;
@@ -34,6 +35,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import static ted.driver.sys.MiscUtils.asList;
 
 /**
  * @author Augustus
@@ -95,8 +98,7 @@ public final class TedDriverImpl {
 		context.config = new TedConfig(system);
 		context.executors = new Executors(context);
 
-		this.statsEventExecutor = context.executors.createExecutor(
-				tedNamePrefix + "Stats" , 1, 2000);
+		this.statsEventExecutor = context.executors.createExecutor(tedNamePrefix + "Stats" , 1, 2000);
 		context.stats = new Stats(statsEventExecutor);
 
 		switch (dbType) {
@@ -145,6 +147,14 @@ public final class TedDriverImpl {
 		for (String channel : context.config.channelMap().keySet()) {
 			context.registry.registerChannel(channel, context.config.channelMap().get(channel));
 		}
+
+		// if something is wrong with batch updates, then can disable them by config. Will remove this later.
+		if (context.config.isDisabledSqlBatchUpdate()) {
+			context.taskManager.enableResultStatusPacking(false);
+			if (context.tedDao instanceof TedDaoAbstract)
+				((TedDaoAbstract) context.tedDao).setSqlBatchUpdateDisabled(true);
+		}
+
 	}
 
 	public void start() {
@@ -161,7 +171,11 @@ public final class TedDriverImpl {
 		// driver
 		driverExecutor = context.executors.createSchedulerExecutor(tedNamePrefix + "Driver-");;
 		driverExecutor.scheduleAtFixedRate(() -> {
+			if (context.config.isDisabledProcessing()) {
+				return;
+			}
 			try {
+				context.taskManager.flushStatuses();
 				context.quickCheck.quickCheck();
 			} catch (Throwable e) {
 				logger.error("Error while executing driver task", e);
@@ -171,6 +185,10 @@ public final class TedDriverImpl {
 		// maintenance tasks processor
 		maintenanceExecutor = context.executors.createSchedulerExecutor(tedNamePrefix + "Maint-");
 		maintenanceExecutor.scheduleAtFixedRate(() -> {
+			if (context.config.isDisabledProcessing()) {
+				logger.info("Processing is disabled");
+				return;
+			}
 			try {
 				context.taskManager.processMaintenanceTasks();
 			} catch (Throwable e) {
@@ -202,13 +220,19 @@ public final class TedDriverImpl {
 				tasksToReturn.add((TedRunnable) r);
 			}
 		}
+
 		// return back not started tasks to status NEW
+		List<SetTaskStatus> statuses = new ArrayList<>();
 		for (TedRunnable tedr : tasksToReturn) {
 			for (TaskRec task : tedr.getTasks()) {
 				logger.info("return back task {} (taskId={}) to status NEW", task.name, task.taskId);
-				context.tedDao.setStatusPostponed(task.taskId, TedStatus.NEW, "return on shutdown", new Date());
+				statuses.add(new SetTaskStatus(task.taskId, TedStatus.NEW, "return on shutdown", new Date()));
 			}
 		}
+		context.tedDao.setStatuses(statuses);
+
+		context.taskManager.enableResultStatusPacking(false);
+		context.taskManager.flushStatuses();
 
 		// wait for finish
 		logger.debug("waiting for finish TED tasks...");
@@ -343,7 +367,7 @@ public final class TedDriverImpl {
 
 		Long batchId = context.tedDao.createTaskPostponed(batchTC.taskName, Model.CHANNEL_BATCH, data, key1, key2, 30 * 60, null);
 		createTasksBulk(tedTasks, batchId);
-		context.tedDao.setStatusPostponed(batchId, TedStatus.NEW, Model.BATCH_MSG, new Date());
+		context.tedDao.setStatuses(asList(new SetTaskStatus(batchId, TedStatus.NEW, Model.BATCH_MSG, new Date())));
 
 		return batchId;
 	}

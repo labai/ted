@@ -161,7 +161,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$systemCheck", systemCheck);
 		sql = sql.replace("$taskIdSubSelects", sb.toString());
-		logger.info(sql);
+
 		return selectData(sqlLogId, sql, TaskRec.class, params);
 	}
 

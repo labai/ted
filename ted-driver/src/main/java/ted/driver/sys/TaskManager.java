@@ -11,8 +11,10 @@ import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.QuickCheck.GetWaitChannelsResult;
 import ted.driver.sys.Registry.Channel;
 import ted.driver.sys.Registry.TaskConfig;
+import ted.driver.sys.TedDao.SetTaskStatus;
 import ted.driver.sys.TedDriverImpl.TedContext;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.ConcurrentModificationException;
 import java.util.Date;
@@ -20,7 +22,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
+
+import static ted.driver.sys.MiscUtils.asList;
 
 /**
  * @author Augustus
@@ -40,6 +45,7 @@ class TaskManager {
 	private static final long UNKNOWN_TASK_CANCEL_AFTER_MS = 24 * 3600 * 1000;
 
 	private final TedContext context;
+	private final TaskStatusManager taskStatusManager;
 
 	private class ChannelWorkContext {
 		final String channelName;
@@ -62,19 +68,30 @@ class TaskManager {
 
 	TaskManager(TedContext context) {
 		this.context = context;
+		this.taskStatusManager = new TaskStatusManager(context.tedDao);
 	}
 
 	void changeTaskStatusPostponed(long taskId, TedStatus status, String msg, Date nextTs){
-		context.tedDao.setStatusPostponed(taskId, status, msg, nextTs);
+		taskStatusManager.saveTaskStatus(taskId, status, msg, nextTs);
 
 	}
 	void changeTaskStatus(long taskId, TedStatus status, String msg){
-		changeTaskStatusPostponed(taskId, status, msg, null);
+		taskStatusManager.saveTaskStatus(taskId, status, msg, null);
+	}
+
+	// flush statuses
+	public void flushStatuses() {
+		taskStatusManager.flush();
+	}
+
+	// enable/disable tasks status packing/batching
+	public void enableResultStatusPacking(boolean enable) {
+		taskStatusManager.setIsPackingEnabled(enable);
 	}
 
 	// process maintenance tasks
 	//
-	void processMaintenanceTasks() {
+	public void processMaintenanceTasks() {
 		if (context.prime.isEnabled()) {
 			if (! context.prime.isPrime()) {
 				logger.debug("Skip ted-maint as is not prime instance");
@@ -103,7 +120,7 @@ class TaskManager {
 			if (tc.workTimeoutMinutes <= workingTimeMn) {
 				if (logger.isDebugEnabled())
 					logger.debug("Work timeout for taskId=" + task.taskId + " name=" + task.name + " startTs=" + task.startTs+ " now=" + MiscUtils.dateToStrTs(nowTime) + " ttl-minutes=" + tc.workTimeoutMinutes);
-				changeTaskStatusPostponed(task.taskId, TedStatus.RETRY, Model.TIMEOUT_MSG + "(3)", new Date());
+				context.tedDao.setStatusPostponed(task.taskId, TedStatus.RETRY, Model.TIMEOUT_MSG + "(3)", new Date());
 			} else {
 				if (logger.isDebugEnabled())
 					logger.debug("Set finishTs for taskId=" + task.taskId + " name=" + task.name + " startTs=" + task.startTs+ " now=" + MiscUtils.dateToStrTs(nowTime) + " ttl-minutes=" + tc.workTimeoutMinutes);
@@ -239,10 +256,10 @@ class TaskManager {
 		for (TaskRec taskRec : taskRecList) {
 			if (taskRec.createTs.getTime() < nowMs - UNKNOWN_TASK_CANCEL_AFTER_MS) {
 				logger.warn("Task is unknown and was not processed during 24 hours, mark as error: {}", taskRec);
-				changeTaskStatus(taskRec.taskId, TedStatus.ERROR, "unknown task");
+				context.tedDao.setStatus(taskRec.taskId, TedStatus.ERROR, "unknown task");
 			} else {
 				logger.warn("Task is unknown, mark as new, postpone: {}", taskRec);
-				changeTaskStatusPostponed(taskRec.taskId, TedStatus.NEW, "unknown task. postpone", new Date(nowMs + UNKNOWN_TASK_POSTPONE_MS));
+				context.tedDao.setStatusPostponed(taskRec.taskId, TedStatus.NEW, "unknown task. postpone", new Date(nowMs + UNKNOWN_TASK_POSTPONE_MS));
 			}
 		}
 	}
@@ -278,7 +295,7 @@ class TaskManager {
 				if (nextTm == null) {
 					changeTaskStatus(taskRec.taskId, TedStatus.ERROR, "max retries. " + result.message());
 				} else {
-					tedDao.setStatusPostponed(taskRec.taskId, result.status(), result.message(), nextTm);
+					changeTaskStatusPostponed(taskRec.taskId, result.status(), result.message(), nextTm);
 				}
 			} else if (result.status() == TedStatus.DONE || result.status() == TedStatus.ERROR) {
 				changeTaskStatus(taskRec.taskId, result.status(), result.message());
@@ -357,4 +374,53 @@ class TaskManager {
 		return sum;
 	}
 
+	/*
+	 * will gather task results till next tick
+	 */
+	static class TaskStatusManager {
+		private final TedDao tedDao;
+
+		private final List<SetTaskStatus> resultsToSave = new ArrayList<>();
+
+		private AtomicBoolean isPackingEnabled = new AtomicBoolean(true);
+
+
+		TaskStatusManager(TedDao tedDao) {
+			this.tedDao = tedDao;
+		}
+
+		void saveTaskStatus(long taskId, TedStatus status, String msg, Date nextTs){
+			SetTaskStatus sta = new SetTaskStatus(taskId, status, msg, nextTs);
+			if (isPackingEnabled.get() == true) {
+				resultsToSave.add(sta);
+			} else {
+				tedDao.setStatuses(asList(sta));
+			}
+		}
+
+		void saveTaskStatus(long taskId, TedStatus status, String msg){
+			saveTaskStatus(taskId, status, msg, null);
+		}
+
+		void flush() {
+			List<SetTaskStatus> res = new ArrayList<>();
+			synchronized (resultsToSave) {
+				res.addAll(resultsToSave);
+				resultsToSave.clear();
+			}
+			if (res.isEmpty())
+				return;
+			logger.debug("Flush {} statuses", res.size());
+			tedDao.setStatuses(res);
+		}
+
+		public void setIsPackingEnabled(boolean enabled) {
+			this.isPackingEnabled.set(enabled);
+			if (enabled == false) {
+				flush();
+			}
+		}
+	}
+
 }
+

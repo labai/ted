@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static ted.driver.sys.JdbcSelectTed.sqlParam;
 import static ted.driver.sys.MiscUtils.asList;
@@ -43,12 +44,15 @@ abstract class TedDaoAbstract implements TedDao {
 
 	private Random random = new Random();
 
-
 	protected final String thisSystem;
 	protected final DataSource dataSource;
 	protected final Stats stats;
 	protected final DbType dbType;
 	protected final String systemCheck;
+
+	// if something is wrong with batch updates, then can disable them
+	private boolean isSqlBatchUpdateDisabled = false;
+	public void setSqlBatchUpdateDisabled(boolean sqlBatchUpdateDisabled) { this.isSqlBatchUpdateDisabled = sqlBatchUpdateDisabled; }
 
 	public TedDaoAbstract(String system, DataSource dataSource, DbType dbType, Stats stats) {
 		this.thisSystem = system;
@@ -91,58 +95,31 @@ abstract class TedDaoAbstract implements TedDao {
 	}
 
 	@Override
-	public void setStatus(long taskId, TedStatus status, String msg) {
-		setStatusPostponed(taskId, status, msg, null);
-	}
-
-	@Override
-	public void setStatusPostponed(long taskId, TedStatus status, String msg, Date nextRetryTs) {
-		String sqlLogId = "set_status";
-		String sql;
-/*
-		String sql = "update tedtask" +
-				" set status = :p_status, msg = :p_msg, " +
-				"     retries = (case when p_status = 'RETRY' then retries + 1 else retries end)," +
-				"     nextTs = (case when p_status = 'RETRY' then :p_nextTs else null end)," +
-				"     finishTs = (case when p_status in ('DONE', 'ERROR') then $now else finishTs end)" +
-				" where $systemCheck and taskId = :p_task_id";
-*/
+	public void setStatuses(List<SetTaskStatus> statuses) {
+		if (statuses.isEmpty())
+			return;
 
 		// Final status - DONE, ERROR
-		if (status == TedStatus.DONE || status == TedStatus.ERROR) {
+		// NonFinal - RETRY, NEW, WORK
+		String sql = "update tedtask" +
+				" set status = ?, msg = ?," +
+				" retries = retries + ?," +
+				" nextTs = ?" +
+				" where $systemCheck and taskId = ?";
+		sql = sql.replace("$now", dbType.sql().now());
+		sql = sql.replace("$systemCheck", systemCheck);
 
-			sql = "update tedtask" +
-					" set status = ?, msg = ?," +
-					"     nextTs = null, finishTs = $now" +
-					" where $systemCheck and taskId = ?";
-			sql = sql.replace("$now", dbType.sql().now());
-			sql = sql.replace("$systemCheck", systemCheck);
-			execute(sqlLogId, sql, asList(
-					sqlParam(status.toString(), JetJdbcParamType.STRING),
-					sqlParam(msg, JetJdbcParamType.STRING),
-					sqlParam(taskId, JetJdbcParamType.LONG)
-			));
+		List<List<SqlParam>> params = statuses.stream().map(it -> asList(
+				sqlParam(it.status.toString(), JetJdbcParamType.STRING),
+				sqlParam(it.msg, JetJdbcParamType.STRING),
+				sqlParam((it.status == TedStatus.RETRY ? 1 : 0), JetJdbcParamType.LONG),
+				sqlParam((it.status == TedStatus.DONE || it.status == TedStatus.ERROR ? null : it.nextRetryTs), JetJdbcParamType.TIMESTAMP),
+				sqlParam(it.taskId, JetJdbcParamType.LONG)
+				)).collect(Collectors.toList());
 
-		// RETRY, NEW, WORK
-		} else {
-
-			sql = "update tedtask" +
-					" set status = ?, msg = ?, " +
-					(status == TedStatus.RETRY ? " retries = retries + 1," : "") +
-					" 	nextTs = ?" +
-					" where $systemCheck and taskId = ?";
-			sql = sql.replace("$now", dbType.sql().now());
-			sql = sql.replace("$systemCheck", systemCheck);
-			execute(sqlLogId, sql, asList(
-					sqlParam(status.toString(), JetJdbcParamType.STRING),
-					sqlParam(msg, JetJdbcParamType.STRING),
-					sqlParam(nextRetryTs, JetJdbcParamType.TIMESTAMP),
-					sqlParam(taskId, JetJdbcParamType.LONG)
-			));
-		}
+		executeBatch(null, "set_status", sql, params);
 	}
 
-	// now it requires minimum 3 calls to db
 	@Override
 	public List<TaskRec> reserveTaskPortion(Map<String, Integer> channelSizes){
 		assert dbType != DbType.ORACLE;
@@ -366,6 +343,25 @@ abstract class TedDaoAbstract implements TedDao {
 		smartRunWithLog(conn, sqlLogId, conn1 -> {
 			JdbcSelectTedImpl.executeUpdate(conn1, sql, params);
 			return true;
+		});
+	}
+
+	protected void executeBatch(Connection conn, String sqlLogId, final String sql, final List<List<SqlParam>> params) {
+		smartRunWithLog(conn, sqlLogId, conn1 -> {
+			if (params.size() == 1) {
+				int res = JdbcSelectTedImpl.executeUpdate(conn1, sql, params.get(0));
+				return asList(res);
+			} else if (this.isSqlBatchUpdateDisabled) {
+				List<Integer> res = new ArrayList<>();
+				logger.debug("sqlBatchUpdate is disabled, executing in loop");
+				for (List<SqlParam> par : params) {
+					int res1 = JdbcSelectTedImpl.executeUpdate(conn1, sql, par);
+					res.add(res1);
+				}
+				return res;
+			} else {
+				return JdbcSelectTedImpl.executeBatchUpdate(conn1, sql, params);
+			}
 		});
 	}
 

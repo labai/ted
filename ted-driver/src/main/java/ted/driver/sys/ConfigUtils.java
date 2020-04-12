@@ -40,12 +40,14 @@ class ConfigUtils {
 		public static final String DRIVER_INIT_DELAY_MS 			= "ted.driver.initDelayMs";
 		public static final String DRIVER_INTERVAL_DRIVER_MS 		= "ted.driver.intervalDriverMs";
 		public static final String DRIVER_INTERVAL_MAINTENANCE_MS 	= "ted.driver.intervalMaintenanceMs";
+		public static final String DRIVER_DISABLE_PROCESSING  		= "ted.driver.disableProcessing";
+		public static final String DRIVER_DISABLE_SQL_BATCH_UPDATE  = "ted.driver.disableSqlBatchUpdate";
 		// maintenance
 		public static final String DRIVER_OLD_TASK_ARCHIVE_DAYS	= "ted.maintenance.oldTaskArchiveDays";
 
 		// task defaults
 		public static final String TASKDEF_RETRY_PAUSES 			= "ted.taskDefault.retryPauses";
-		public static final String TASKDEF_TIMEOUT_MINUTES 		= "ted.taskDefault.timeoutMinutes";
+		public static final String TASKDEF_TIMEOUT_MINUTES 			= "ted.taskDefault.timeoutMinutes";
 		public static final String TASKDEF_BATCH_TIMEOUT_MINUTES	= "ted.taskDefault.batchTimeoutMinutes";
 
 		// short channel properties (w/o prefix "ted.channel.<CHANNEL>.")
@@ -55,9 +57,9 @@ class ConfigUtils {
 		public static final String CHANNEL_PRIME_ONLY	 = "primeOnly";
 
 		// short task properties (w/o prefix "ted.task.<TASK>.")
-		public static final String TASK_TIMEOUT_MINUTES		= "timeoutMinutes";
+		public static final String TASK_TIMEOUT_MINUTES			= "timeoutMinutes";
 		public static final String TASK_RETRY_PAUSES			= "retryPauses";
-		public static final String TASK_CHANNEL				= "channel";
+		public static final String TASK_CHANNEL					= "channel";
 		public static final String TASK_TYPE					= "taskType";
 		public static final String TASK_BATCH_TASK				= "batchTask";
 		public static final String TASK_BATCH_TIMEOUT_MINUTES	= "batchTimeoutMinutes";
@@ -69,6 +71,8 @@ class ConfigUtils {
 		private String defaultRetryPauses = "12s,36s,90s,300s,16m,50m,2h,5h,7h*5;dispersion=10";
 		private int defaultTaskTimeoutMn = 30; // 30min
 		private int defaultBatchTaskTimeoutMn = 180; // 3h
+		private boolean disabledProcessing = false;
+		private boolean disabledSqlBatchUpdate = false;
 		private int initDelayMs = 5000;
 		private int intervalDriverMs = 700;
 		private int intervalMaintenanceMs = 10000;
@@ -95,6 +99,8 @@ class ConfigUtils {
 		public Map<String, Properties> taskMap() { return Collections.unmodifiableMap(taskMap); }
 		public String systemId() { return systemId; }
 		public String instanceId() { return instanceId; }
+		public boolean isDisabledSqlBatchUpdate() { return disabledSqlBatchUpdate; }
+		public boolean isDisabledProcessing() { return disabledProcessing; }
 	}
 
 
@@ -105,6 +111,7 @@ class ConfigUtils {
 		}
 		String sv;
 		Integer iv;
+		boolean bv;
 
 		iv = getInteger(properties, TedProperty.DRIVER_INIT_DELAY_MS, null);
 		if (iv != null && iv >= 0)
@@ -115,6 +122,9 @@ class ConfigUtils {
 		iv = getInteger(properties, TedProperty.DRIVER_INTERVAL_MAINTENANCE_MS, null);
 		if (iv != null)
 			config.intervalMaintenanceMs = Math.max(iv, 100);
+
+		config.disabledSqlBatchUpdate = getBoolean(properties, TedProperty.DRIVER_DISABLE_SQL_BATCH_UPDATE, false);
+		config.disabledProcessing = getBoolean(properties, TedProperty.DRIVER_DISABLE_PROCESSING, false);
 
 		iv = getInteger(properties, TedProperty.DRIVER_OLD_TASK_ARCHIVE_DAYS, null);
 		if (iv != null)
@@ -211,6 +221,15 @@ class ConfigUtils {
 		return value;
 	}
 
+	static boolean getBoolean(Properties properties, String key, boolean defaultValue) {
+		if (properties == null)
+			return defaultValue;
+		String value = properties.getProperty(key, null);
+		logger.trace("Read property '" + key + "' value '" + value + "'");
+		if (value == null)
+			return defaultValue;
+		return "yes".equals(value) || "true".equals(value);
+	}
 
 
 }

@@ -56,6 +56,7 @@ public class I11StatsTest extends TestBase {
 		assertEquals("WORK", taskRec.status);
 
 		sleepMs(500);
+		driver.getContext().taskManager.flushStatuses();
 
 		// here we wait for time, not finish event..
 		taskRec = driver.getContext().tedDao.getTask(taskId);

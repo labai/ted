@@ -13,6 +13,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+import static ted.driver.sys.MiscUtils.asList;
+
 /**
  * @author Augustus
  *         created on 2016.09.13
@@ -44,9 +46,7 @@ interface TedDao {
 
 	List<TaskRec> reserveTaskPortion(Map<String, Integer> channelSizes);
 
-	void setStatus(long taskId, TedStatus status, String msg);
-
-	void setStatusPostponed(long taskId, TedStatus status, String msg, Date nextRetryTs);
+	void setStatuses(List<SetTaskStatus> statuses);
 
 	TaskRec getTask(long taskId);
 
@@ -55,5 +55,31 @@ interface TedDao {
 	void cleanupBatchTask(Long taskId, String msg, String chanel);
 
 	List<CheckResult> quickCheck(CheckPrimeParams checkPrimeParams, boolean skipChannelCheck);
+
+	class SetTaskStatus {
+		final long taskId;
+		final TedStatus status;
+		final String msg;
+		final Date nextRetryTs;
+		public SetTaskStatus(long taskId, TedStatus status, String msg, Date nextRetryTs) {
+			this.taskId = taskId;
+			this.status = status;
+			this.msg = msg;
+			this.nextRetryTs = nextRetryTs;
+		}
+		public SetTaskStatus(long taskId, TedStatus status, String msg) {
+			this(taskId, status, msg, null);
+		}
+
+		@Override public String toString() { return "{" + taskId + " " + status + "}"; }
+	}
+
+	default void setStatus(long taskId, TedStatus status, String msg) {
+		setStatuses(asList(new SetTaskStatus(taskId, status, msg)));
+	}
+
+	default void setStatusPostponed(long taskId, TedStatus status, String msg, Date nextTs) {
+		setStatuses(asList(new SetTaskStatus(taskId, status, msg, nextTs)));
+	}
 
 }

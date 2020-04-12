@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedStatus;
 import ted.driver.sys.Model.TaskRec;
+import ted.driver.sys.TedDao.SetTaskStatus;
 import ted.driver.sys.TedDriverImpl.TedContext;
 
 import java.util.ArrayList;
@@ -109,10 +110,12 @@ class Executors {
 		public void handleWorkingTasksOnShutdown() {
 			int postponeSec = 40;
 			List<TaskRec> tasks = getWorkingTasks();
+			List<SetTaskStatus> statuses = new ArrayList<>();
 			for (TaskRec task : tasks) {
 				logger.info("return back working task {} (taskId={}) to status RETRY", task.name, task.taskId);
-				context.tedDao.setStatusPostponed(task.taskId, TedStatus.RETRY, Model.TIMEOUT_MSG + " (stopped on shutdown)", new Date(System.currentTimeMillis() + postponeSec * 1000));
+				statuses.add(new SetTaskStatus(task.taskId, TedStatus.RETRY, Model.TIMEOUT_MSG + " (stopped on shutdown)", new Date(System.currentTimeMillis() + postponeSec * 1000)));
 			}
+			context.tedDao.setStatuses(statuses);
 		}
 	}
 
@@ -126,10 +129,12 @@ class Executors {
 			if (r instanceof TedRunnable) {
 				TedRunnable tr = (TedRunnable) r;
 				List<TaskRec> tasks = tr.getTasks();
+				List<SetTaskStatus> statuses = new ArrayList<>();
 				for (TaskRec task : tasks) {
 					logger.info("Task {} was rejected by executor, returning to status NEW", task);
-					context.tedDao.setStatusPostponed(task.taskId, TedStatus.NEW, Model.REJECTED_MSG, new Date(System.currentTimeMillis() + 5000));
+					statuses.add(new SetTaskStatus(task.taskId, TedStatus.NEW, Model.REJECTED_MSG, new Date(System.currentTimeMillis() + 5000)));
 				}
+				context.tedDao.setStatuses(statuses);
 			} else {
 				throw new RejectedExecutionException("ThreadPoolExecutor rejected runnable");
 			}

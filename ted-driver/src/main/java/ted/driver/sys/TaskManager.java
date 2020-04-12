@@ -392,7 +392,9 @@ class TaskManager {
 		void saveTaskStatus(long taskId, TedStatus status, String msg, Date nextTs){
 			SetTaskStatus sta = new SetTaskStatus(taskId, status, msg, nextTs);
 			if (isPackingEnabled.get() == true) {
-				resultsToSave.add(sta);
+				synchronized (resultsToSave) {
+					resultsToSave.add(sta);
+				}
 			} else {
 				tedDao.setStatuses(asList(sta));
 			}

@@ -64,4 +64,9 @@ class TedDaoExtNA implements TedDaoExt {
 		throw new IllegalStateException(errorMsg);
 	}
 
+    @Override
+    public boolean maintenanceRebuildIndex() {
+		throw new IllegalStateException(errorMsg);
+    }
+
 }

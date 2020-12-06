@@ -7,7 +7,6 @@ import ted.driver.TedResult
 import ted.driver.TedTask
 import ted.driver.sys.SqlUtils.DbType
 import ted.driver.sys.SqlUtils.DbType.*
-import ted.driver.sys._TedSchdDriverExt
 import ted.scheduler.TedScheduler
 import ted.scheduler.TedScheduler.TedSchedulerNextTime
 import ted.scheduler.utils.CronExpression
@@ -28,21 +27,25 @@ import javax.sql.DataSource
  * for TED internal usage only!!!
  */
 internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
-    private val tedSchdDriverExt: _TedSchdDriverExt
+    private val tedSchdDriverExt: TedSchdDriverExt
     private val maintenanceExecutor: ScheduledExecutorService
 
     private val schedulerTasks = mutableMapOf<String, SchedulerInfo>()
 
-    private val context : Context
+    // internal for tests
+    internal val context : Context
 
     internal class Context {
         internal lateinit var tedDriver: TedDriver
         internal lateinit var taskRecService: TaskRecService
         internal lateinit var thisSystem: String
+        internal lateinit var tableName: String
+        internal var schemaName: String? = null
         internal lateinit var dbType: DbType
         internal lateinit var dataSource: DataSource
         internal lateinit var dao: ISchedulerDao
         internal lateinit var primeTaskIdProvider: () -> Long?
+        internal fun getFullTableName() = if (schemaName == null) tableName else "$schemaName.$tableName"
     }
 
     private class SchedulerInfo(
@@ -53,11 +56,13 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
 
     init {
 
-        this.tedSchdDriverExt = _TedSchdDriverExt(tedDriver)
+        this.tedSchdDriverExt = TedSchdDriverExt(tedDriver)
 
         this.context = Context()
         this.context.tedDriver = tedDriver
         this.context.thisSystem = tedSchdDriverExt.systemId()
+        this.context.tableName = tedSchdDriverExt.tableName()
+        this.context.schemaName = tedSchdDriverExt.schemaName()
         this.context.dataSource = tedSchdDriverExt.dataSource()
         this.context.dbType = tedSchdDriverExt.dbType()
         this.context.primeTaskIdProvider = { tedSchdDriverExt.primeTaskId() }

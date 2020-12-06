@@ -61,6 +61,7 @@ interface TedDao {
 		final TedStatus status;
 		final String msg;
 		final Date nextRetryTs;
+		final Date updateTs = new Date();
 		public SetTaskStatus(long taskId, TedStatus status, String msg, Date nextRetryTs) {
 			this.taskId = taskId;
 			this.status = status;

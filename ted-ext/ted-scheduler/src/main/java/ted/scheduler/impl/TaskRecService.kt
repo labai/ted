@@ -1,11 +1,9 @@
 package ted.scheduler.impl
 
 import org.slf4j.LoggerFactory
-import ted.driver.Ted
 import ted.driver.Ted.TedProcessor
 import ted.driver.Ted.TedStatus
-import ted.driver.TedResult
-import ted.driver.sys._TedSchdJdbcSelect.TedSqlException
+import ted.scheduler.impl.JdbcSelectTed.TedSqlException
 import ted.scheduler.impl.TedSchedulerImpl.Context
 import ted.scheduler.impl.TxUtils.TxContext
 import java.sql.Connection

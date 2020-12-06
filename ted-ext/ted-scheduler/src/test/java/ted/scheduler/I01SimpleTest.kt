@@ -9,7 +9,7 @@ import org.junit.Test
 import org.slf4j.LoggerFactory
 import ted.driver.Ted.TedStatus
 import ted.driver.TedDriver
-import ted.driver.sys._TedSchdDriverExt
+import ted.scheduler.impl.TedSchdDriverExt
 import ted.scheduler.TestUtils.sleepMs
 import ted.scheduler.impl.AbstractDao
 import ted.scheduler.impl.TedSchedulerImpl
@@ -38,8 +38,8 @@ class I01SimpleTest {
 
         systemId = properties.getProperty("ted.systemId")
 
-        val tedSchdDriverExt = _TedSchdDriverExt(driver)
-        context = Context()
+        val tedSchdDriverExt = TedSchdDriverExt(driver)
+        context = schedulerImpl.context
         context.thisSystem = tedSchdDriverExt.systemId()
         context.dataSource = tedSchdDriverExt.dataSource()
         context.dbType = tedSchdDriverExt.dbType()

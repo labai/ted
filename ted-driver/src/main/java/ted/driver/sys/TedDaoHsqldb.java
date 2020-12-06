@@ -22,8 +22,8 @@ import static ted.driver.sys.JdbcSelectTed.sqlParam;
 class TedDaoHsqldb extends TedDaoAbstract {
 	private static final Logger logger = LoggerFactory.getLogger(TedDaoHsqldb.class);
 
-	TedDaoHsqldb(String system, DataSource dataSource, Stats stats) {
-		super(system, dataSource, DbType.HSQLDB, stats);
+	TedDaoHsqldb(String system, DataSource dataSource, Stats stats, String schema, String tableName) {
+		super(system, dataSource, DbType.HSQLDB, stats, schema, tableName);
 	}
 
 	@Override
@@ -34,8 +34,9 @@ class TedDaoHsqldb extends TedDaoAbstract {
 			status = TedStatus.NEW;
 		String nextts = (status == TedStatus.NEW ? dbType.sql().now() + " + " + dbType.sql().intervalSeconds(postponeSec) : "null");
 
-		String sql = " insert into tedtask (taskId, system, name, channel, bno, status, createTs, nextTs, retries, data, key1, key2, batchId)" +
+		String sql = " insert into $tedTask (taskId, system, name, channel, bno, status, createTs, nextTs, retries, data, key1, key2, batchId)" +
 				" values(?, '$sys', ?, ?, null, '$status', $now, $nextts, 0, ?, ?, ?, ?)";
+		sql = sql.replace("$tedTask", fullTableName);
 		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$nextts", nextts);

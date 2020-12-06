@@ -3,7 +3,7 @@
 
 	<groupId>com.github.labai</groupId>
 	<artifactId>ted-spring-support</artifactId>
-	<version>0.3.2-SNAPSHOT</version>
+	<version>0.3.5-SNAPSHOT</version>
 	<packaging>jar</packaging>
 
 	<name>Ted Spring adapter</name>

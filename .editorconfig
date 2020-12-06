@@ -1,0 +1,20 @@
+# Editor configuration, see https://editorconfig.org
+root = true
+
+[*]
+charset = utf-8
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+insert_final_newline = true
+max_line_length = 160
+
+[{*.html, *.ftl}]
+indent_style = space
+
+[*.yaml]
+indent_size = 2
+
+[{*.md, *.txt}]
+max_line_length = off
+trim_trailing_whitespace = false

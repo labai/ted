@@ -156,11 +156,13 @@ public class I01SimpleTest extends TestBase {
 		taskRec = driver.getContext().tedDao.getTask(taskId);
 		print(taskRec.toString());
 		assertEquals("WORK", taskRec.status);
+		assertNull(taskRec.finishTs);
 
 		awaitUntilTaskFinish(driver, taskId, 500);
 
 		taskRec = driver.getContext().tedDao.getTask(taskId);
 		assertEquals("DONE", taskRec.status);
+		assertNotNull(taskRec.finishTs);
 
 	}
 
@@ -183,7 +185,7 @@ public class I01SimpleTest extends TestBase {
 		print(taskRec.toString());
 		assertEquals("WORK", taskRec.status);
 
-		awaitUntilTaskFinish(driver, taskId, 200);
+		awaitUntilTaskFinish(driver, taskId, 100);
 
 		taskRec = driver.getContext().tedDao.getTask(taskId);
 		assertEquals("ERROR", taskRec.status);

@@ -65,6 +65,7 @@ class TaskManager {
 	private Map<String, ChannelWorkContext> channelContextMap = new HashMap<>();
 
 	private long lastRareMaintExecTimeMilis = System.currentTimeMillis();
+	private long lastIndexRebuildMillis = System.currentTimeMillis();
 
 	TaskManager(TedContext context) {
 		this.context = context;
@@ -104,6 +105,14 @@ class TaskManager {
 			logger.debug("Start process rare maintenance tasks");
 			context.tedDao.processMaintenanceRare(context.config.oldTaskArchiveDays());
 			lastRareMaintExecTimeMilis = System.currentTimeMillis();
+		}
+		if (context.config.rebuildIndexIntervalHours() > 0
+				&& context.prime.isPrime()
+				&& (System.currentTimeMillis() - lastIndexRebuildMillis) > ((long)context.config.rebuildIndexIntervalHours()) * 3600 * 1000
+				) {
+			logger.debug("Start to rebuild quickchk index");
+			context.tedDaoExt.maintenanceRebuildIndex();
+			lastIndexRebuildMillis = System.currentTimeMillis();
 		}
 	}
 

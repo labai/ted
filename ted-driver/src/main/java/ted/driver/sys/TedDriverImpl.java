@@ -19,6 +19,7 @@ import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.Model.TedTaskImpl;
 import ted.driver.sys.Registry.Channel;
 import ted.driver.sys.Registry.TaskConfig;
+import ted.driver.sys.SqlUtils.DbType;
 import ted.driver.sys.TedDao.SetTaskStatus;
 import ted.driver.sys.Trash.TedMetricsEvents;
 
@@ -75,7 +76,7 @@ public final class TedDriverImpl {
 
 	final DataSource dataSource;
 	private final TedContext context;
-	private AtomicBoolean isStartedFlag = new AtomicBoolean(false);
+	private final AtomicBoolean isStartedFlag = new AtomicBoolean(false);
 	private ScheduledExecutorService driverExecutor;
 	private ScheduledExecutorService maintenanceExecutor;
 	private final ExecutorService statsEventExecutor;
@@ -90,33 +91,38 @@ public final class TedDriverImpl {
 
 	TedDriverImpl(TedDbType dbType, DataSource dataSource, String system, Properties properties) {
 		this.dataSource = dataSource;
+
 		if (properties != null && properties.containsKey(TedProperty.SYSTEM_ID))
 			system = properties.getProperty(TedProperty.SYSTEM_ID);
 		FieldValidator.validateTaskSystem(system);
-		this.context = new TedContext();
+
+		context = new TedContext();
 		context.tedDriver = this;
 		context.config = new TedConfig(system);
 		context.executors = new Executors(context);
 
-		this.statsEventExecutor = context.executors.createExecutor(tedNamePrefix + "Stats" , 1, 2000);
+		statsEventExecutor = context.executors.createExecutor(tedNamePrefix + "Stats" , 1, 2000);
 		context.stats = new Stats(statsEventExecutor);
 
+		ConfigUtils.readDriverProperties(context.config, properties);
+		String tableName = context.config.tableName();
+		String schemaName = context.config.schemaName();
 		switch (dbType) {
 			case POSTGRES:
-				TedDaoPostgres pg = new TedDaoPostgres(system, dataSource, context.stats);
+				TedDaoPostgres pg = new TedDaoPostgres(system, dataSource, context.stats, schemaName, tableName);
 				context.tedDao = pg;
 				context.tedDaoExt = pg;
 				break;
 			case ORACLE:
-				context.tedDao = new TedDaoOracle(system, dataSource, context.stats);
+				context.tedDao = new TedDaoOracle(system, dataSource, context.stats, schemaName, tableName);
 				context.tedDaoExt = new TedDaoExtNA("Oracle");
 				break;
 			case MYSQL:
-				context.tedDao = new TedDaoMysql(system, dataSource, context.stats);
+				context.tedDao = new TedDaoMysql(system, dataSource, context.stats, schemaName, tableName);
 				context.tedDaoExt = new TedDaoExtNA("MySql");
 				break;
 			case HSQLDB:
-				context.tedDao = new TedDaoHsqldb(system, dataSource, context.stats);
+				context.tedDao = new TedDaoHsqldb(system, dataSource, context.stats, schemaName, tableName);
 				context.tedDaoExt = new TedDaoExtNA("HSQLDB");
 				break;
 			default: throw new IllegalStateException("Invalid case " + dbType);
@@ -130,7 +136,7 @@ public final class TedDriverImpl {
 		context.batchWaitManager = new BatchWaitManager(context);
 		context.notificationManager = new NotificationManager(context);
 
-		// read properties (e.g. from ted.properties.
+		// read task and channel properties (e.g. from ted.properties)
 		// default MAIN channel configuration: 5/100. Can be overwrite by [properties]
 		//
 		Properties defaultChanProp = new Properties();
@@ -140,8 +146,13 @@ public final class TedDriverImpl {
 		String prefixSystem = ConfigUtils.PROPERTY_PREFIX_CHANNEL + Model.CHANNEL_SYSTEM + ".";
 		defaultChanProp.put(prefixSystem + TedProperty.CHANNEL_WORKERS_COUNT, "2");
 		defaultChanProp.put(prefixSystem + TedProperty.CHANNEL_TASK_BUFFER, "2000");
-		ConfigUtils.readTedProperties(context.config, defaultChanProp);
-		ConfigUtils.readTedProperties(context.config, properties);
+		ConfigUtils.readTaskAndChannelProperties(context.config, defaultChanProp);
+		ConfigUtils.readTaskAndChannelProperties(context.config, properties);
+
+		if (context.config.rebuildIndexIntervalHours() > 0 && context.tedDao.getDbType() != DbType.POSTGRES) {
+			logger.warn("Parameter ted.maintenance.rebuildIndexIntervalHours is only for PostgreSql");
+			context.config.setRebuildIndexIntervalHours(0);
+		}
 
 		// Create channels
 		for (String channel : context.config.channelMap().keySet()) {
@@ -177,6 +188,7 @@ public final class TedDriverImpl {
 			try {
 				context.taskManager.flushStatuses();
 				context.quickCheck.quickCheck();
+				Thread.sleep(30); // cool down, just in case
 			} catch (Throwable e) {
 				logger.error("Error while executing driver task", e);
 			}

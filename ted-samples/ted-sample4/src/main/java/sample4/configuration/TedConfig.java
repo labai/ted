@@ -7,7 +7,7 @@ import ted.driver.TedResult;
 import ted.driver.TedTask;
 import ted.spring.annotation.TedTaskProcessor;
 import ted.spring.annotation.EnableTedTask;
-import ted.spring.conf.TedRetryException;
+import ted.spring.exception.TedRetryException;
 
 /**
  * @author Augustus

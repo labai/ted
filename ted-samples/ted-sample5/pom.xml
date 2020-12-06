@@ -26,7 +26,7 @@
 		<dependency>
 			<groupId>com.github.labai</groupId>
 			<artifactId>ted-spring-support</artifactId>
-			<version>0.3.2-SNAPSHOT</version>
+			<version>0.3.5-SNAPSHOT</version>
 		</dependency>
 
         <dependency>

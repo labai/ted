@@ -33,4 +33,6 @@ interface TedDaoExt {
 
 	void runInTx(Runnable runnable);
 
+	boolean maintenanceRebuildIndex();
+
 }

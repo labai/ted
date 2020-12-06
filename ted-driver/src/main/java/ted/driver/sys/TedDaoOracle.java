@@ -28,8 +28,8 @@ import static ted.driver.sys.JdbcSelectTed.sqlParam;
 class TedDaoOracle extends TedDaoAbstract {
 	private static final Logger logger = LoggerFactory.getLogger(TedDaoAbstract.class);
 
-	public TedDaoOracle(String system, DataSource dataSource, Stats stats) {
-		super(system, dataSource, DbType.ORACLE, stats);
+	public TedDaoOracle(String system, DataSource dataSource, Stats stats, String schema, String tableName) {
+		super(system, dataSource, DbType.ORACLE, stats, schema, tableName);
 	}
 
 	@Override
@@ -40,8 +40,9 @@ class TedDaoOracle extends TedDaoAbstract {
 			status = TedStatus.NEW;
 		String nextts = (status == TedStatus.NEW ? dbType.sql().now() + " + " + dbType.sql().intervalSeconds(postponeSec) : "null");
 
-		String sql = " insert into tedtask (taskId, system, name, channel, bno, status, createTs, nextTs, retries, data, key1, key2, batchId)" +
+		String sql = " insert into $tedTask (taskId, system, name, channel, bno, status, createTs, nextTs, retries, data, key1, key2, batchId)" +
 				" values(?, '$sys', ?, ?, null, '$status', $now, $nextts, 0, ?, ?, ?, ?)";
+		sql = sql.replace("$tedTask", fullTableName);
 		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$nextts", nextts);
@@ -74,19 +75,19 @@ class TedDaoOracle extends TedDaoAbstract {
 				+ " declare"
 				+ "   v_bno number;"
 				+ "   now timestamp(3) := systimestamp;"
-				+ "	  p_sys tedtask.system%type := :p_sys;"
+				+ "	  p_sys $tedTask.system%type := :p_sys;"
 				+ "   p_pairs varchar(500) := :p_pairs; "
 				+ "   v_taskid number;"
 
 				+ "   cursor c2 (vchan in varchar, vcnt in integer) is"
-				+ "     select taskid from tedtask"
+				+ "     select taskid from $tedTask"
 				+ "     where status in ('NEW', 'RETRY') and system = p_sys and channel = vchan"
 				+ "       and nextTs < now "
 				+ "       and rownum <= vcnt"
 				+ "       for update skip locked;"
 
 				+ " begin"
-				+ 	" v_bno := SEQ_TEDTASK_BNO.nextval;"
+				+ 	" v_bno := ${schemaPrefix}SEQ_TEDTASK_BNO.nextval;"
 
 				// iterate through 'channel:count,channel2:count2' pairs
 				+ 	" for cur in (select substr(str, 1, instr(str, ':') - 1) chan, to_number(substr(str, instr(str, ':') + 1)) cnt"
@@ -98,7 +99,7 @@ class TedDaoOracle extends TedDaoAbstract {
 				+ 		" loop "
 				+ 		" 	fetch c2 into v_taskid; "
 				+ 		" 	exit when c2%notfound; "
-				+		"   update tedtask set status = 'WORK', bno = v_bno, startTs = now, nextTs = null"
+				+		"   update $tedTask set status = 'WORK', bno = v_bno, startTs = now, nextTs = null"
 				+ 		"      where current of c2;"
 				+ 		" end loop;"
 				+ 		" close c2;"
@@ -107,8 +108,10 @@ class TedDaoOracle extends TedDaoAbstract {
 				+ 	" commit;"
 
 				// return all taken tasks
-				+ 	" open :o_rs for select * from tedtask where bno = v_bno;"
+				+ 	" open :o_rs for select * from $tedTask where bno = v_bno;"
 				+ " end;";
+		sql = sql.replace("$tedTask", fullTableName);
+		sql = sql.replace("${schemaPrefix}", (schema==null?"":schema+"."));
 		List<TaskRec> tasks = selectFromBlock(oraProc, sql, TaskRec.class, asList(
 				JdbcSelectTed.sqlParam("p_sys", thisSystem, JetJdbcParamType.STRING),
 				JdbcSelectTed.sqlParam("p_pairs", channelsParam, JetJdbcParamType.STRING),

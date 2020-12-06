@@ -1,9 +1,10 @@
 package ted.driver.sys;
 
-import ted.driver.Ted.TedRetryScheduler;
-import ted.driver.sys.RetryConfig.PeriodPatternRetryScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ted.driver.Ted.TedRetryScheduler;
+import ted.driver.sys.Model.FieldValidator;
+import ted.driver.sys.RetryConfig.PeriodPatternRetryScheduler;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -44,6 +45,10 @@ class ConfigUtils {
 		public static final String DRIVER_DISABLE_SQL_BATCH_UPDATE  = "ted.driver.disableSqlBatchUpdate";
 		// maintenance
 		public static final String DRIVER_OLD_TASK_ARCHIVE_DAYS	= "ted.maintenance.oldTaskArchiveDays";
+		public static final String DRIVER_REBUILD_INDEX_HOURS   = "ted.maintenance.rebuildIndexIntervalHours";
+		// tedtask table name
+		public static final String DRIVER_DB_SCHEMA      = "ted.driver.db.schema";
+		public static final String DRIVER_DB_TABLE_NAME  = "ted.driver.db.tableName";
 
 		// task defaults
 		public static final String TASKDEF_RETRY_PAUSES 			= "ted.taskDefault.retryPauses";
@@ -77,11 +82,13 @@ class ConfigUtils {
 		private int intervalDriverMs = 700;
 		private int intervalMaintenanceMs = 10000;
 		private int oldTaskArchiveDays = 35;
-		private Map<String, Properties> channelMap = new HashMap<>();
-		private Map<String, Properties> taskMap = new HashMap<>();
+		private int rebuildIndexIntervalHours = 0; // don't rebuild by default
+		private final Map<String, Properties> channelMap = new HashMap<>();
+		private final Map<String, Properties> taskMap = new HashMap<>();
 		private final String systemId;
 		private final String instanceId;
-
+		private String tableName = "tedtask";
+		private String schemaName = null;
 		public TedConfig(String systemId) {
 			this.systemId = systemId;
 			this.instanceId = MiscUtils.generateInstanceId();
@@ -95,51 +102,87 @@ class ConfigUtils {
 		public int intervalDriverMs() { return intervalDriverMs; }
 		public int intervalMaintenanceMs() { return intervalMaintenanceMs; }
 		public int oldTaskArchiveDays() { return oldTaskArchiveDays; }
+		public int rebuildIndexIntervalHours() { return rebuildIndexIntervalHours; }
 		public Map<String, Properties> channelMap() { return Collections.unmodifiableMap(channelMap); }
 		public Map<String, Properties> taskMap() { return Collections.unmodifiableMap(taskMap); }
 		public String systemId() { return systemId; }
 		public String instanceId() { return instanceId; }
+		public String tableName() { return tableName; }
+		public String schemaName() { return schemaName; }
 		public boolean isDisabledSqlBatchUpdate() { return disabledSqlBatchUpdate; }
 		public boolean isDisabledProcessing() { return disabledProcessing; }
+
+		void setRebuildIndexIntervalHours(int val) { this.rebuildIndexIntervalHours = val; }
 	}
 
-
-	public static void readTedProperties(TedConfig config, Properties properties) {
+	// read "ted.driver.*" properties
+	public static void readDriverProperties(TedConfig config, Properties properties) {
 		if (properties == null || properties.isEmpty()) {
 			logger.info("Not ted properties was provided, using default configuration");
 			return;
 		}
 		String sv;
 		Integer iv;
-		boolean bv;
+
+		sv = getString(properties, TedProperty.DRIVER_DB_TABLE_NAME, null);
+		if (sv != null) {
+			if (FieldValidator.hasNonAlphanumUnderscore(sv))
+				throw new IllegalArgumentException("Provided tableName contains invalid symbols. Allowed characters, numbers, underscore(_)");
+			config.tableName = sv;
+		}
+
+		sv = getString(properties, TedProperty.DRIVER_DB_SCHEMA, null);
+		if (sv != null) {
+			if (FieldValidator.hasNonAlphanumUnderscore(sv))
+				throw new IllegalArgumentException("Provided schema name contains invalid symbols. Allowed characters, numbers, underscore(_)");
+			config.schemaName = sv;
+		}
 
 		iv = getInteger(properties, TedProperty.DRIVER_INIT_DELAY_MS, null);
 		if (iv != null && iv >= 0)
 			config.initDelayMs = iv;
+
 		iv = getInteger(properties, TedProperty.DRIVER_INTERVAL_DRIVER_MS, null);
 		if (iv != null)
 			config.intervalDriverMs = Math.max(iv, 100);
+
 		iv = getInteger(properties, TedProperty.DRIVER_INTERVAL_MAINTENANCE_MS, null);
 		if (iv != null)
 			config.intervalMaintenanceMs = Math.max(iv, 100);
 
 		config.disabledSqlBatchUpdate = getBoolean(properties, TedProperty.DRIVER_DISABLE_SQL_BATCH_UPDATE, false);
+
 		config.disabledProcessing = getBoolean(properties, TedProperty.DRIVER_DISABLE_PROCESSING, false);
 
 		iv = getInteger(properties, TedProperty.DRIVER_OLD_TASK_ARCHIVE_DAYS, null);
 		if (iv != null)
 			config.oldTaskArchiveDays = iv;
 
+		iv = getInteger(properties, TedProperty.DRIVER_REBUILD_INDEX_HOURS, null);
+		if (iv != null)
+			config.rebuildIndexIntervalHours = iv;
+
+	}
+
+	public static void readTaskAndChannelProperties(TedConfig config, Properties properties) {
+		if (properties == null || properties.isEmpty()) {
+			logger.info("Not ted properties was provided, using default configuration");
+			return;
+		}
+		String sv;
+		Integer iv;
+
 		sv = getString (properties, TedProperty.TASKDEF_RETRY_PAUSES, null);
 		if (sv != null)
 			config.defaultRetryPauses = sv;
+
 		iv = getInteger(properties, TedProperty.TASKDEF_TIMEOUT_MINUTES, null);
 		if (iv != null && iv > 0)
 			config.defaultTaskTimeoutMn = Math.min(iv, 24 * 3600);
+
 		iv = getInteger(properties, TedProperty.TASKDEF_BATCH_TIMEOUT_MINUTES, null);
 		if (iv != null && iv > 0)
 			config.defaultBatchTaskTimeoutMn = Math.min(iv, 24 * 3600);
-
 
 		// channels and tasks config
 		config.channelMap.putAll(getShortPropertiesByPrefix(properties, PROPERTY_PREFIX_CHANNEL));
@@ -147,6 +190,10 @@ class ConfigUtils {
 	}
 
 	static void printConfigToLog(TedConfig config) {
+		loggerConfig.info("db:"
+		 		+ " table=" + config.tableName
+		 		+ (config.schemaName == null ? "" : " schema=" + config.schemaName)
+		 		);
 		loggerConfig.info("driver:"
 				+ " systemId=" + config.systemId
 				+ " initDelayMs=" + config.initDelayMs
@@ -155,6 +202,7 @@ class ConfigUtils {
 				);
 		loggerConfig.info("maintenance:"
 				+ " oldTaskArchiveDays=" + config.oldTaskArchiveDays
+				+ (config.rebuildIndexIntervalHours > 0 ? " rebuildIndexIntervalHours=" + config.rebuildIndexIntervalHours : "")
 				);
 		loggerConfig.info("taskDefault:"
 				+ " timeoutMinutes=" + config.defaultTaskTimeoutMn
@@ -230,6 +278,5 @@ class ConfigUtils {
 			return defaultValue;
 		return "yes".equals(value) || "true".equals(value);
 	}
-
 
 }

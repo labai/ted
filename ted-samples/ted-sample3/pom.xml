@@ -25,7 +25,7 @@
         <dependency>
             <groupId>com.github.labai</groupId>
             <artifactId>ted-driver</artifactId>
-            <version>0.3.2-SNAPSHOT</version>
+            <version>0.3.5-SNAPSHOT</version>
         </dependency>
 
         <dependency>
@@ -42,6 +42,11 @@
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
 			<version>42.2.5</version>
+		</dependency>
+		<dependency>
+			<groupId>org.hsqldb</groupId>
+			<artifactId>hsqldb</artifactId>
+			<version>2.4.1</version>
 		</dependency>
 <!--
 		<dependency>

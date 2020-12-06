@@ -1,8 +1,7 @@
 package ted.scheduler.impl
 
 import org.slf4j.LoggerFactory
-import ted.driver.sys._TedSchdJdbcSelect
-import ted.driver.sys._TedSchdJdbcSelect.SqlParam
+import ted.scheduler.impl.JdbcSelectTed.SqlParam
 import ted.scheduler.impl.TedSchedulerImpl.Context
 import java.sql.Connection
 import java.sql.SQLException
@@ -32,8 +31,9 @@ internal class DaoPostgres(context: Context) : AbstractDao(context) {
         val sql = "select case when pg_try_advisory_xact_lock(1977110802, $lockTaskId) then 1 else 0 end as longVal"
         val res: List<LongVal>
         try {
-            res = _TedSchdJdbcSelect.selectData(connection, sql, LongVal::class.java, emptyList<SqlParam>())
+            res = SchdJdbcSelect.selectData(connection, sql, LongVal::class.java, emptyList<SqlParam>())
         } catch (e: SQLException) {
+            logger.info("advisory lock {} SQLException: {} {}", lockTaskId, e.errorCode, e.message)
             return false
         }
         return ! (res.isEmpty() || res[0].longVal == 0L)

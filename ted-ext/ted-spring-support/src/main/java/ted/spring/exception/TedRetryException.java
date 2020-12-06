@@ -1,4 +1,4 @@
-package ted.spring.conf;
+package ted.spring.exception;
 
 /**
  * @author Augustus

@@ -22,8 +22,8 @@ import static ted.driver.sys.JdbcSelectTed.sqlParam;
 class TedDaoMysql extends TedDaoAbstract {
 	private static final Logger logger = LoggerFactory.getLogger(TedDaoMysql.class);
 
-	public TedDaoMysql(String system, DataSource dataSource, Stats stats) {
-		super(system, dataSource, DbType.MYSQL, stats);
+	public TedDaoMysql(String system, DataSource dataSource, Stats stats, String schema, String tableName) {
+		super(system, dataSource, DbType.MYSQL, stats, schema, tableName);
 	}
 
 	//
@@ -38,10 +38,11 @@ class TedDaoMysql extends TedDaoAbstract {
 			status = TedStatus.NEW;
 		String nextts = (status == TedStatus.NEW ? dbType.sql().now() + " + " + dbType.sql().intervalSeconds(postponeSec) : "null");
 
-		String sql = " insert into tedtask (taskId, `system`, name, channel, bno, status, createTs, nextTs, retries, data, key1, key2, batchId)" +
+		String sql = " insert into $tedTask (taskId, `system`, name, channel, bno, status, createTs, nextTs, retries, data, key1, key2, batchId)" +
 				" values(null, '$sys', ?, ?, null, '$status', $now, $nextts, 0, ?, ?, ?, ?)" +
 				" ";
-		sql = sql.replace("$nextTaskId", dbType.sql().sequenceSql("SEQ_TEDTASK_ID"));
+		sql = sql.replace("$tedTask", fullTableName);
+		sql = sql.replace("$nextTaskId", dbType.sql().sequenceSql(schemaPrefix() + "SEQ_TEDTASK_ID"));
 		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$nextts", nextts);

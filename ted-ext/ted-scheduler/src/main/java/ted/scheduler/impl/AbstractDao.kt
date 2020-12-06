@@ -1,10 +1,9 @@
 package ted.scheduler.impl
 
 import org.slf4j.LoggerFactory
-import ted.driver.sys._TedSchdJdbcSelect
-import ted.driver.sys._TedSchdJdbcSelect.JetJdbcParamType.LONG
-import ted.driver.sys._TedSchdJdbcSelect.JetJdbcParamType.STRING
-import ted.driver.sys._TedSchdJdbcSelect.SqlParam
+import ted.scheduler.impl.JdbcSelectTed.JetJdbcParamType.LONG
+import ted.scheduler.impl.JdbcSelectTed.JetJdbcParamType.STRING
+import ted.scheduler.impl.JdbcSelectTed.SqlParam
 import ted.scheduler.impl.TedSchedulerImpl.Context
 import java.sql.Connection
 import kotlin.reflect.KClass
@@ -23,16 +22,17 @@ internal abstract class AbstractDao (private val context: Context) : ISchedulerD
     private val dataSource = context.dataSource
     private val thisSystem = context.thisSystem
     private val dbType = context.dbType
+    private val tedTask = context.getFullTableName()
 
 
     override fun lockTask(connection: Connection, taskId: Long): Boolean {
         val sql = ("select taskid as longVal"
-                + " from tedtask"
+                + " from $tedTask"
                 + " where taskid = ?"
-                + dbType.sql().forUpdateSkipLocked()
+                + " " + dbType.sql().forUpdateSkipLocked()
                 )
-        val list = selectData("lock_task", sql, LongVal::class, listOf(
-                    _TedSchdJdbcSelect.sqlParam(taskId, LONG)
+        val list = selectData(connection, "lock_task", sql, LongVal::class, listOf(
+                    SchdJdbcSelect.sqlParam(taskId, LONG)
                 ))
         return list.firstOrNull()?.longVal == taskId
     }
@@ -41,28 +41,29 @@ internal abstract class AbstractDao (private val context: Context) : ISchedulerD
     // 'SLEEP'?
     override fun getActiveTasks(taskName: String, limit: Int, includingError: Boolean): List<Long> {
         val sqlLogId = "chk_uniq_task"
-        val sql = ("select taskid as longVal from tedtask where system = '$thisSystem' and name = ?"
+        val sql = ("select taskid as longVal from $tedTask where system = '$thisSystem' and name = ?"
                 + " and status in ('NEW', 'RETRY', 'WORK'" + (if (includingError) ",'ERROR'" else "") + ")"
                 + dbType.sql().rownum(limit)
                 )
         val results = selectData(sqlLogId, sql, LongVal::class, listOf(
-                _TedSchdJdbcSelect.sqlParam(taskName, STRING)
+                SchdJdbcSelect.sqlParam(taskName, STRING)
         ))
         return results.map { it.longVal!! }
     }
 
     override fun restoreFromError(taskId: Long, taskName: String, postponeSec: Int) {
         val sqlLogId = "restore_from_error"
-        val sql = ("update tedtask set status = 'RETRY', retries = retries + 1, "
-                + " nextts = now() + interval '$postponeSec seconds' "
+        val postponeSecSql = dbType.sql().intervalSeconds(postponeSec)
+        val nowSql = dbType.sql().now()
+        val sql = ("update $tedTask set status = 'RETRY', retries = retries + 1,"
+                + " nextts = $nowSql + $postponeSecSql"
                 + " where system = '$thisSystem' and taskid = ? and name = ?"
                 + " and status = 'ERROR'"
-                // + " returning tedtask.taskid"
                 )
 
         executeUpdate(sqlLogId, sql, listOf(
-                _TedSchdJdbcSelect.sqlParam(taskId, LONG),
-                _TedSchdJdbcSelect.sqlParam(taskName, STRING)
+                SchdJdbcSelect.sqlParam(taskId, LONG),
+                SchdJdbcSelect.sqlParam(taskName, STRING)
         ))
     }
 
@@ -72,7 +73,7 @@ internal abstract class AbstractDao (private val context: Context) : ISchedulerD
             return emptyList()
 
         val inIds = taskIds.map { it.toString() }.joinToString(",")
-        val sql = ("select taskid as longVal from tedtask"
+        val sql = ("select taskid as longVal from $tedTask"
                 + " where system = '$thisSystem'"
                 + " and status = 'ERROR'"
                 + " and taskid in ($inIds)")
@@ -82,7 +83,7 @@ internal abstract class AbstractDao (private val context: Context) : ISchedulerD
     }
 
     override fun findFirstTask(): Long? {
-        val sql = "select min(taskId) as longVal from tedtask where system = '$thisSystem'"
+        val sql = "select min(taskId) as longVal from $tedTask where system = '$thisSystem'"
 
         return selectData("min_taskid", sql, LongVal::class, emptyList())
                 .firstOrNull()?.longVal
@@ -90,7 +91,7 @@ internal abstract class AbstractDao (private val context: Context) : ISchedulerD
 
 
     override fun deleteTask(taskId: Long) {
-        val sql = "delete from tedtask where taskId = $taskId"
+        val sql = "delete from $tedTask where taskId = $taskId"
         executeUpdate("del_task", sql, emptyList())
     }
 
@@ -99,9 +100,20 @@ internal abstract class AbstractDao (private val context: Context) : ISchedulerD
     //
     //
 
+    internal fun <T : Any> selectData(connection: Connection, sqlLogId: String, sql: String, clazz: KClass<T>, params: List<SqlParam>): List<T> {
+        val startTm = System.currentTimeMillis()
+        val list = SchdJdbcSelect.selectData(connection, sql, clazz.java, params)
+        val durationMs = System.currentTimeMillis() - startTm
+        if (durationMs >= 50)
+            logger.info("After [{}] time={}ms items={}", sqlLogId, durationMs, list.size)
+        else
+            logger.debug("After [{}] time={}ms items={}", sqlLogId, durationMs, list.size)
+        return list
+    }
+
     internal fun <T : Any> selectData(sqlLogId: String, sql: String, clazz: KClass<T>, params: List<SqlParam>): List<T> {
         val startTm = System.currentTimeMillis()
-        val list = _TedSchdJdbcSelect.selectData(dataSource, sql, clazz.java, params)
+        val list = SchdJdbcSelect.selectData(dataSource, sql, clazz.java, params)
         val durationMs = System.currentTimeMillis() - startTm
         if (durationMs >= 50)
             logger.info("After [{}] time={}ms items={}", sqlLogId, durationMs, list.size)
@@ -112,7 +124,7 @@ internal abstract class AbstractDao (private val context: Context) : ISchedulerD
 
     internal fun executeUpdate(sqlLogId: String, sql: String, params: List<SqlParam>): Int {
         val startTm = System.currentTimeMillis()
-        val res = _TedSchdJdbcSelect.executeUpdate(dataSource, sql, params)
+        val res = SchdJdbcSelect.executeUpdate(dataSource, sql, params)
         val durationMs = System.currentTimeMillis() - startTm
         if (durationMs >= 50)
             logger.info("After [{}] time={}ms items={}", sqlLogId, durationMs, res)

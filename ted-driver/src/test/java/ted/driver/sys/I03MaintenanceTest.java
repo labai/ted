@@ -4,6 +4,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ted.driver.Ted.TedDbType;
 import ted.driver.sys.JdbcSelectTed.JetJdbcParamType;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.TedDriverImpl.TedContext;
@@ -16,7 +17,11 @@ import java.util.List;
 import java.util.Properties;
 
 import static java.util.Arrays.asList;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static ted.driver.sys.TestConfig.SYSTEM_ID;
 import static ted.driver.sys.TestUtils.print;
 
@@ -253,6 +258,17 @@ public class I03MaintenanceTest extends TestBase {
 		taskRec = context.tedDao.getTask(taskId);
 		assertNull("task should not exist", taskRec);
 
+	}
+
+
+	@Test
+	public void test04ReindexQuickchk() {
+		if (TestConfig.testDbType != TedDbType.POSTGRES) {
+			logger.info("Skip test04ReindexQuickchk as it is for PostgreSQL only");
+			return;
+		}
+		boolean success = context.tedDaoExt.maintenanceRebuildIndex();
+		assertTrue("Failed to rebuild quickchk index", success);
 	}
 
 }

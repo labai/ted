@@ -1,7 +1,7 @@
 package ted.scheduler.impl
 
 import org.slf4j.LoggerFactory
-import ted.driver.sys._TedSchdJdbcSelect.TedSqlException
+import ted.scheduler.impl.JdbcSelectTed.TedSqlException
 import java.sql.Connection
 import java.sql.SQLException
 import java.sql.Savepoint

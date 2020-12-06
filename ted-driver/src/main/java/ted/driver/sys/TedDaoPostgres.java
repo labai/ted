@@ -45,9 +45,10 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 	private static final Logger logger = LoggerFactory.getLogger(TedDaoPostgres.class);
 
 	private static final int CHANNEL_SUBSELECT_CHUNK = 10;
+	private static final String INDEX_QUICKCHK = "ix_tedtask_quickchk";
 
-	public TedDaoPostgres(String system, DataSource dataSource, Stats stats) {
-		super(system, dataSource, DbType.POSTGRES, stats);
+	public TedDaoPostgres(String system, DataSource dataSource, Stats stats, String schema, String tableName) {
+		super(system, dataSource, DbType.POSTGRES, stats, schema, tableName);
 	}
 
 	private static class TaskIdRes {
@@ -64,7 +65,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 			if (checkPrimeParams.isPrime()) {
 				sqlPrime = ""
 						+ "with updatedPrimeTask as ("
-						+ "  update tedtask set finishts = $now + $intervalSec"
+						+ "  update $tedTask set finishts = $now + $intervalSec"
 						+ "  where taskid = $primeTaskId"
 						+ "  and system = '$sys'"
 						+ "  and data = '$instanceId'"
@@ -74,10 +75,11 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 				logId = "b";
 			} else {
 				sqlPrime = "select case when finishts < $now then 'CAN_PRIME' else 'NEXT_CHECK' end as name, 'PRIM' as type, finishts as tillts, 0 as taskCnt"
-						+ " from tedtask"
+						+ " from $tedTask"
 						+ " where taskid = $primeTaskId and system = '$sys'";
 				logId = "c";
 			}
+			sqlPrime = sqlPrime.replace("$tedTask", fullTableName);
 			sqlPrime = sqlPrime.replace("$intervalSec", dbType.sql().intervalSeconds(checkPrimeParams.postponeSec()));
 			sqlPrime = sqlPrime.replace("$instanceId", checkPrimeParams.instanceId());
 			sqlPrime = sqlPrime.replace("$primeTaskId", Long.toString(checkPrimeParams.primeTaskId()));
@@ -89,12 +91,13 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 			if (! sql.isEmpty())
 				sql += " union all ";
 			sql += "select channel as name, 'CHAN' as type, null::timestamp as tillts, count(*) as taskCnt "
-					+ " from tedtask"
+					+ " from $tedTask"
 					+ " where system = '$sys' and nextTs <= $now"
 					+ " group by channel";
 			logId = "a" + logId;
 		}
 
+		sql = sql.replace("$tedTask", fullTableName);
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$now", dbType.sql().now());
 
@@ -128,12 +131,13 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 	private List<TaskRec> reserveTaskPortionChunk(List<Entry<String, Integer>> channelSizes) {
 		// create as many subselects as there are channels
 		String ptr = " select taskid from ("
-				+ " select taskid from tedtask "
+				+ " select taskid from $tedTask "
 				+ " where status in ('NEW','RETRY') and $systemCheck and channel = ?"
 				+ " and nextTs < $now"
 				+ " limit ?"
 				+ " $FOR_UPDATE_SKIP_LOCKED"
 				+ ") ";
+		ptr = ptr.replace("$tedTask", fullTableName);
 		ptr = ptr.replace("$now", dbType.sql().now());
 		ptr = ptr.replace("$systemCheck", systemCheck);
 		ptr = ptr.replace("$FOR_UPDATE_SKIP_LOCKED", dbType.sql().forUpdateSkipLocked());
@@ -151,13 +155,14 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 		}
 
 		String sqlLogId = "reserve_chan_pg(" + channelSizes.size() + ")";
-		String sql = "update tedtask set status = 'WORK', startTs = $now, nextTs = null"
+		String sql = "update $tedTask set status = 'WORK', startTs = $now, nextTs = null"
 				+ " where status in ('NEW','RETRY') and $systemCheck"
 				+ " and taskid in ("
 				+ " $taskIdSubSelects"
 				+ " )"
 				+ " returning *";
 
+		sql = sql.replace("$tedTask", fullTableName);
 		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$systemCheck", systemCheck);
 		sql = sql.replace("$taskIdSubSelects", sb.toString());
@@ -192,15 +197,16 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 	// used in eventQueue
 	public TaskRec eventQueueReserveTask(long taskId) {
 		String sqlLogId = "reserve_task";
-		String sql = "update tedtask set status = 'WORK', startTs = $now, nextTs = null"
+		String sql = "update $tedTask set status = 'WORK', startTs = $now, nextTs = null"
 				+ " where status in ('NEW','RETRY') and system = '$sys'"
 				+ " and taskid in ("
-				+ " select taskid from tedtask "
+				+ " select taskid from $tedTask "
 					+ " where status in ('NEW','RETRY') and system = '$sys'"
 					+ " and taskid = ?"
 					+ " for update skip locked"
-				+ ") returning tedtask.*"
+				+ ") returning $tedTask.*"
 				;
+		sql = sql.replace("$tedTask", fullTableName);
 		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$sys", thisSystem);
 		List<TaskRec> tasks = selectData(sqlLogId, sql, TaskRec.class, asList(
@@ -217,7 +223,8 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 	@Override
 	public Long findPrimeTaskId() {
 		String sql;
-		sql = "select taskid from tedtask where system = '$sys' and name = 'TED_PRIME' limit 2";
+		sql = "select taskid from $tedTask where system = '$sys' and name = 'TED_PRIME' limit 2";
+		sql = sql.replace("$tedTask", fullTableName);
 		sql = sql.replace("$sys", thisSystem);
 		List<TaskIdRes> ls2 = selectData("find_primetask", sql, TaskIdRes.class, Collections.emptyList());
 		if (ls2.size() == 1) {
@@ -232,20 +239,22 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 
 		// get next taskid, prefer some from lower numbers (11..99)
 		String sqlNextId = "coalesce("
-				+ "  nullif(coalesce((select max(taskid) from tedtask where taskid between 10 and 99), 10) + 1, 100),"
+				+ "  nullif(coalesce((select max(taskid) from $tedTask where taskid between 10 and 99), 10) + 1, 100),"
 				+ "  $sequenceTedTask"
 				+ "  )";
-		sql = "insert into tedtask(taskid, system, name, status, channel, startts, nextts, msg)"
+		sql = "insert into $tedTask(taskid, system, name, status, channel, startts, nextts, msg)"
 				+ " values (" + sqlNextId + ", '$sys', 'TED_PRIME', 'SLEEP', '$channel', $now, null, 'This is internal TED pseudo-task for prime check')";
+		sql = sql.replace("$tedTask", fullTableName);
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$channel", Model.CHANNEL_PRIME);
-		sql = sql.replace("$sequenceTedTask", dbType.sql().sequenceSql("SEQ_TEDTASK_ID"));
+		sql = sql.replace("$sequenceTedTask", dbType.sql().sequenceSql(schemaPrefix() + "SEQ_TEDTASK_ID"));
 
 		execute("insert_prime", sql, Collections.emptyList());
 
 		// check again, to be sure
-		sql = "select taskid from tedtask where system = '$sys' and name = 'TED_PRIME'";
+		sql = "select taskid from $tedTask where system = '$sys' and name = 'TED_PRIME'";
+		sql = sql.replace("$tedTask", fullTableName);
 		sql = sql.replace("$sys", thisSystem);
 		Long taskId = selectSingleLong("find_primetask(2)", sql);
 		if (taskId == null)
@@ -256,11 +265,12 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 
 	@Override
 	public boolean becomePrime(Long primeTaskId, String instanceId) {
-		String sql = "update tedtask set data = '$instanceId', finishts = now() + interval '5 seconds'"
-				+ " where taskid = (select taskid from tedtask where system = '$sys' "
+		String sql = "update $tedTask set data = '$instanceId', finishts = now() + interval '5 seconds'"
+				+ " where taskid = (select taskid from $tedTask where system = '$sys' "
 				+ "  and (finishts < now() or finishts is null) "
 				+ "  and taskid = $primeTaskId for update skip locked)"
 				+ " returning taskid";
+		sql = sql.replace("$tedTask", fullTableName);
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$primeTaskId", primeTaskId.toString());
 		sql = sql.replace("$instanceId", instanceId);
@@ -281,15 +291,16 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 
 	@Override
 	public TaskRec eventQueueMakeFirst(String queueId) {
-		String sql = "update tedtask set status = 'NEW', nextts = now() where system = '$sys'" +
+		String sql = "update $tedTask set status = 'NEW', nextts = now() where system = '$sys'" +
 				" and key1 = ? and status = 'SLEEP' and channel = 'TedEQ'" +
-				" and taskid = (select min(taskid) from tedtask t2 " +
+				" and taskid = (select min(taskid) from $tedTask t2 " +
 				"   where system = '$sys' and channel = 'TedEQ' and t2.key1 = ?" +
 				"   and status = 'SLEEP')" +
-				" and not exists (select taskid from tedtask t3" +
+				" and not exists (select taskid from $tedTask t3" +
 				"   where system = '$sys' and channel = 'TedEQ' and t3.key1 = ?" +
 				"   and status in ('NEW', 'RETRY', 'WORK', 'ERROR'))" +
-				" returning tedtask.*";
+				" returning $tedTask.*";
+		sql = sql.replace("$tedTask", fullTableName);
 		sql = sql.replace("$sys", thisSystem);
 		try {
 			List<TaskRec> recs = selectData("event_make_first", sql, TaskRec.class, asList(
@@ -309,12 +320,13 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 
 	@Override
 	public List<TaskRec> eventQueueGetTail(String queueId) {
-		String sql = "select * from tedtask where key1 = ?"
+		String sql = "select * from $tedTask where key1 = ?"
 				+ " and status = 'SLEEP'"
 				+ " and channel = '$channel' and system = '$sys'"
 				+ " order by taskid"
 				+ " for update nowait"
 				+ " limit 100";
+		sql = sql.replace("$tedTask", fullTableName);
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$channel", Model.CHANNEL_QUEUE);
 		List<TaskRec> recs;
@@ -332,10 +344,11 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 
 	@Override
 	public List<TaskRec> getLastNotifications(Date fromTs) {
-		String sql = "select * from tedtask where "
+		String sql = "select * from $tedTask where "
 				+ " system = '$sys' and channel = '$channel'"
 				+ " and nextts >= ?"
 				+ " limit 1000";
+		sql = sql.replace("$tedTask", fullTableName);
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$channel", Model.CHANNEL_NOTIFY);
 		List<TaskRec> recs = selectData("notif_get", sql, TaskRec.class, asList(
@@ -346,16 +359,17 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 
 	@Override
 	public void cleanupNotifications(Date tillTs) {
-		String sql = "update tedtask "
+		String sql = "update $tedTask "
 				+ " set nextts = null, status = 'DONE', finishts = now()"
 				+ " where system = '$sys'"
-				+ " and taskid in (select taskid from tedtask"
+				+ " and taskid in (select taskid from $tedTask"
 				+ "  where system = '$sys' and channel = '$channel' and status = 'NEW'"
 				+ "  and nextts < ?"
 				+ "  limit 1000"
 				+ "  for update skip locked"
 				+ " )";
 
+		sql = sql.replace("$tedTask", fullTableName);
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$channel", Model.CHANNEL_NOTIFY);
 		execute("notif_clean", sql, asList(
@@ -410,6 +424,18 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 		}
 	}
 
+	@Override
+	public boolean maintenanceRebuildIndex() {
+		String sql = "reindex index " + schemaPrefix() + INDEX_QUICKCHK;
+		try {
+			execute("reindex_quickchk", sql, Collections.emptyList());
+			return true;
+		} catch (Exception e) {
+			logger.warn("Cannot rebuild ix_tedtask_quickchk index: {}", e.getMessage());
+			logger.debug("Exception while executing '"+ sql +"'", e);
+			return false;
+		}
+	}
 
 
 	//
@@ -417,9 +443,11 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 	//
 
 	private void executePgCopy(Connection connection, List<TaskParam> taskParams) throws SQLException {
-		String sql = "COPY tedtask (taskId, system, name, channel, status, key1, key2, batchId, data)" +
+		String sql = "COPY $tedTask (taskId, system, name, channel, status, key1, key2, batchId, data)" +
 				" FROM STDIN " +
 				" WITH (FORMAT text, DELIMITER '\t', ENCODING 'UTF-8')";
+
+		sql = sql.replace("$tedTask", fullTableName);
 
 		StringBuilder stringBuilder = new StringBuilder(512);
 		for (TaskParam task : taskParams) {
@@ -457,6 +485,8 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 	protected ArrayList<Long> getSequencePortion(String seqName, int number) {
 		if (number < 1 || number > 100000)
 			throw new IllegalArgumentException("Invalid requested sequence count: " + number);
+		if (schema != null)
+			seqName = schema + "." + seqName;
 		String sql = "select nextval('" + seqName + "') as seqval from generate_series(1," + number + ")";
 		List<ResSeqVal> seqVals = selectData("seq_portion", sql, ResSeqVal.class, Collections.emptyList());
 		ArrayList<Long> result = new ArrayList<>();
@@ -474,10 +504,11 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 			status = TedStatus.NEW;
 		String nextts = (status == TedStatus.NEW ? dbType.sql().now() + " + " + dbType.sql().intervalSeconds(postponeSec) : "null");
 
-		String sql = " insert into tedtask (taskId, system, name, channel, bno, status, createTs, nextTs, retries, data, key1, key2, batchId)" +
+		String sql = " insert into $tedTask (taskId, system, name, channel, bno, status, createTs, nextTs, retries, data, key1, key2, batchId)" +
 				" values($nextTaskId, '$sys', ?, ?, null, '$status', $now, $nextts, 0, ?, ?, ?, ?)" +
 				" returning taskId";
-		sql = sql.replace("$nextTaskId", dbType.sql().sequenceSql("SEQ_TEDTASK_ID"));
+		sql = sql.replace("$tedTask", fullTableName);
+		sql = sql.replace("$nextTaskId", dbType.sql().sequenceSql(schemaPrefix() + "SEQ_TEDTASK_ID"));
 		sql = sql.replace("$now", dbType.sql().now());
 		sql = sql.replace("$sys", thisSystem);
 		sql = sql.replace("$nextts", nextts);

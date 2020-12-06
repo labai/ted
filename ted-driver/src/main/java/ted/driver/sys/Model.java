@@ -4,11 +4,6 @@ import ted.driver.Ted.TedStatus;
 import ted.driver.TedTask;
 
 import java.text.SimpleDateFormat;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
@@ -170,6 +165,7 @@ class Model {
 		public static boolean isEmpty(String str) { return str == null || str.isEmpty(); }
 		// allows letters, numbers, and ".-_"
 		private static final Pattern hasInvalidCharsPattern = Pattern.compile("[^a-z0-9\\_\\-\\.]", Pattern.CASE_INSENSITIVE);
+		private static final Pattern hasAlphanumUnderscore = Pattern.compile("[^a-z0-9\\_]", Pattern.CASE_INSENSITIVE);
 
 		public static void validateTaskKey1(String key1) {
 			checkMaxLengthAscii("key1", key1, Lengths.len_key1);
@@ -216,6 +212,10 @@ class Model {
 			return m.find();
 		}
 
+		static boolean hasNonAlphanumUnderscore(String str){
+			Matcher m = hasAlphanumUnderscore.matcher(str);
+			return m.find();
+		}
 		//
 		// private
 		//

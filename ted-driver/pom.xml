@@ -3,7 +3,7 @@
 
 	<groupId>com.github.labai</groupId>
 	<artifactId>ted-driver</artifactId>
-	<version>0.3.5-SNAPSHOT</version>
+	<version>0.3.4</version>
 	<packaging>jar</packaging>
 
 	<name>Ted driver</name>
@@ -46,12 +46,12 @@
 
 		<!-- scope: provided -->
 
-		<dependency>
-			<groupId>com.oracle</groupId>
-			<artifactId>ojdbc6</artifactId>
-			<version>11.2.0.3.0</version>
-			<scope>provided</scope>
-		</dependency>
+        <dependency>
+            <groupId>com.oracle.database.jdbc</groupId>
+            <artifactId>ojdbc6</artifactId>
+            <version>11.2.0.4</version>
+            <scope>provided</scope>
+        </dependency>
 
 		<dependency>
 			<groupId>org.postgresql</groupId>

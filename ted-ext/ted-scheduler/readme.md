@@ -9,6 +9,18 @@ Provides simplified API for scheduler tasks,
 some additional functionality, e.g. cron expressions.
 
 
+
+##### Manual
+
+```java
+TedScheduler scheduler = new TedScheduler(tedDriver);
+scheduler.builder().name("MAINT")
+        .scheduleCron("0 0/10 * 1/1 * ?")
+        .runnable(() -> {
+            logger.info("do something");
+        }).register();
+```
+
 ##### In Spring
 
 ```java
@@ -22,17 +34,6 @@ public class SchedulerTasks {
 	}
 
 }
-```
-
-##### Manual
-
-```java
-TedScheduler scheduler = new TedScheduler(tedDriver);
-scheduler.builder().name("MAINT")
-        .scheduleCron("0 0/10 * 1/1 * ?")
-        .runnable(() -> {
-            logger.info("do something");
-        }).register();
 ```
 
 When registering task, TedScheduler also checks, do exists such task in db, 

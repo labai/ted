@@ -13,13 +13,13 @@ import org.springframework.core.type.AnnotationMetadata;
  *
  */
 public class TedTaskConfigurationSelector implements ImportSelector {
-    private static final Logger logger = LoggerFactory.getLogger(TedTaskConfigurationSelector.class);
+	private static final Logger logger = LoggerFactory.getLogger(TedTaskConfigurationSelector.class);
 
-    @Override
-    public String[] selectImports(AnnotationMetadata metadata) {
-        return new String[]{
-            TedDriverConfiguration.class.getName()
-        };
+	@Override
+	public String[] selectImports(AnnotationMetadata metadata) {
+		return new String[]{
+				TedDriverConfiguration.class.getName()
+		};
 
-    }
+	}
 }

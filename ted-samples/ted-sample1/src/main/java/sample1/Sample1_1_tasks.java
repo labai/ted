@@ -38,12 +38,12 @@ public class Sample1_1_tasks {
         HikariDataSource dataSource = new HikariDataSource();
         dataSource.setDriverClassName("org.hsqldb.jdbc.JDBCDriver");
         dataSource.setJdbcUrl("jdbc:hsqldb:mem:tedtest;sql.syntax_pgs=true");
-        // dataSource.setDriverClassName("org.postgresql.Driver");
-        // dataSource.setJdbcUrl("jdbc:postgresql://localhost:5433/ted");
-        // dataSource.setDriverClass("oracle.jdbc.OracleDriver");
-        // dataSource.setJdbcUrl("jdbc:oracle:thin:@localhost:1521:XE");
-        // dataSource.setDriverClass("com.mysql.cj.jdbc.Driver");
-        // dataSource.setJdbcUrl("jdbc:mysql://localhost:3308/ted");
+//		dataSource.setDriverClassName("org.postgresql.Driver");
+//		dataSource.setJdbcUrl("jdbc:postgresql://localhost:5433/ted");
+//		dataSource.setDriverClass("oracle.jdbc.OracleDriver");
+//		dataSource.setJdbcUrl("jdbc:oracle:thin:@localhost:1521:XE");
+//		dataSource.setDriverClass("com.mysql.cj.jdbc.Driver");
+//		dataSource.setJdbcUrl("jdbc:mysql://localhost:3308/ted");
         dataSource.setUsername("ted");
         dataSource.setPassword("ted");
 

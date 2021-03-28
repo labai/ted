@@ -94,7 +94,7 @@ class Registry {
         if (taskName.length() <= prefixLen + hashLen)
             return taskName.toUpperCase();
         String prefix = (taskName.replace("-", "").replace("_", "")+ "XX").substring(0, prefixLen);
-        String hash = "XXX" + Integer.toString(Math.abs(taskName.hashCode()), 36);
+        String hash = "XXX" + Integer.toString(Math.abs(taskName.hashCode() % Integer.MAX_VALUE), 36);
         hash = hash.substring(hash.length() - hashLen);
         return (prefix + hash).toUpperCase();
     }

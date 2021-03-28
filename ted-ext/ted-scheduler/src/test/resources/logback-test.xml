@@ -7,9 +7,11 @@
         </encoder>
     </appender>
 
-<!--    <logger name="ted" level="debug">
-        <appender-ref ref="STDOUT" />
-    </logger>-->
+    <!--
+    <logger name="ted" level="debug">
+            <appender-ref ref="STDOUT" />
+    </logger>
+    -->
 
     <root level="debug">
         <appender-ref ref="STDOUT"/>

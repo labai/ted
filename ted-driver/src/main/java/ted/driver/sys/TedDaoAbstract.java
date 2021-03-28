@@ -59,8 +59,8 @@ abstract class TedDaoAbstract implements TedDao {
     protected final String schemaPrefix() { return schema == null ? "" : schema + "."; }
 
     public TedDaoAbstract(String system, DataSource dataSource, DbType dbType, Stats stats, String schema, String tableName) {
-        this.fullTableName = (schema == null) ? tableName : schema + "." + tableName;
         this.schema = schema;
+        this.fullTableName = schemaPrefix() + tableName;
         this.thisSystem = system;
         this.dataSource = dataSource;
         this.dbType = dbType;
@@ -142,7 +142,7 @@ abstract class TedDaoAbstract implements TedDao {
         if (dbType == DbType.HSQLDB)
             bno = getSequenceNextValue("SEQ_TEDTASK_BNO");
         else if (dbType == DbType.MYSQL)
-            bno = Math.abs(random.nextLong()); // we will use random instead of sequences
+            bno = Math.abs(random.nextLong() % Long.MAX_VALUE); // we will use random instead of sequences
         else
             throw new IllegalStateException("For Oracle, PostgreSql should be override");
 
@@ -171,7 +171,6 @@ abstract class TedDaoAbstract implements TedDao {
             + " limit ?"
             + " $FOR_UPDATE_SKIP_LOCKED"
             + ") tmp"
-            // + dbType.sql.rownum("" + rowLimit)
             + ")"
             ;
         sql = sql.replace("$tedTask", fullTableName);
@@ -351,9 +350,7 @@ abstract class TedDaoAbstract implements TedDao {
 
 
     protected Long getSequenceNextValue(String seqName) {
-        if (schema != null )
-            seqName = schema + "." + seqName;
-        return selectSingleLong("get_sequence", dbType.sql().sequenceSelect(seqName));
+        return selectSingleLong("get_sequence", dbType.sql().sequenceSelect(schemaPrefix() + seqName));
     }
 
     //

@@ -18,3 +18,7 @@ indent_size = 2
 [{*.md, *.txt}]
 max_line_length = off
 trim_trailing_whitespace = false
+
+[*.{kt,kts}]
+# ktlint rules - see https://github.com/pinterest/ktlint
+disabled_rules = no-wildcard-imports, chain-wrapping, import-ordering, indent, no-consecutive-blank-lines, no-blank-line-before-rbrace, max-line-length, parameter-list-wrapping, no-multi-spaces, string-template

@@ -14,6 +14,8 @@ import java.util.Random;
  */
 class MiscUtils {
 
+    private static final Random random = new Random();
+
     static String toTimeString(Date date){
         if (date == null) return "";
         return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(date);
@@ -35,8 +37,7 @@ class MiscUtils {
         String id = ManagementFactory.getRuntimeMXBean().getName();
         if (id == null)
             id = "x";
-        Random random = new Random();
-        id += "#" + Integer.toString(Math.abs(random.nextInt()), 36);
+        id += "#" + Integer.toString(random.nextInt(Integer.MAX_VALUE), 36);
         return id;
     }
 

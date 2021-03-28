@@ -2,7 +2,6 @@ package ted.scheduler.impl
 
 import org.slf4j.LoggerFactory
 import ted.scheduler.impl.TedSchedulerImpl.Context
-import java.sql.Connection
 
 /**
  * @author Augustus

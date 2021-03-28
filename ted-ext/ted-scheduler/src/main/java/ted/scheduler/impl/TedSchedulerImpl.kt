@@ -1,12 +1,18 @@
 package ted.scheduler.impl
 
 import org.slf4j.LoggerFactory
-import ted.driver.Ted.*
+import ted.driver.Ted.TedProcessor
+import ted.driver.Ted.TedProcessorFactory
+import ted.driver.Ted.TedRetryScheduler
+import ted.driver.Ted.TedStatus
 import ted.driver.TedDriver
 import ted.driver.TedResult
 import ted.driver.TedTask
 import ted.driver.sys.SqlUtils.DbType
-import ted.driver.sys.SqlUtils.DbType.*
+import ted.driver.sys.SqlUtils.DbType.HSQLDB
+import ted.driver.sys.SqlUtils.DbType.MYSQL
+import ted.driver.sys.SqlUtils.DbType.ORACLE
+import ted.driver.sys.SqlUtils.DbType.POSTGRES
 import ted.scheduler.TedScheduler
 import ted.scheduler.TedScheduler.TedSchedulerNextTime
 import ted.scheduler.utils.CronExpression
@@ -18,6 +24,7 @@ import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.TimeUnit
 import javax.sql.DataSource
+import kotlin.math.min
 
 
 /**
@@ -33,7 +40,7 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
     private val schedulerTasks = mutableMapOf<String, SchedulerInfo>()
 
     // internal for tests
-    internal val context : Context
+    internal val context: Context
 
     internal class Context {
         internal lateinit var tedDriver: TedDriver
@@ -49,9 +56,9 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
     }
 
     private class SchedulerInfo(
-        internal val name: String,
-        internal val taskId: Long,
-        internal val retryScheduler: TedRetryScheduler
+        val name: String,
+        val taskId: Long,
+        val retryScheduler: TedRetryScheduler
     )
 
     init {
@@ -69,7 +76,7 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
         this.context.taskRecService = TaskRecService(context)
 
 
-        this.context.dao = when(context.dbType) {
+        this.context.dao = when (context.dbType) {
             ORACLE -> DaoOracle(context)
             POSTGRES -> DaoPostgres(context)
             MYSQL -> DaoMysql(context)
@@ -210,7 +217,7 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
             val startFrom = retryScheduler.getNextRetryTime(null, 1, Date())
             var postponeSec = 0
             if (startFrom != null) {
-                postponeSec = Math.min(0L, startFrom.time - System.currentTimeMillis() / 1000).toInt()
+                postponeSec = min(0L, startFrom.time - System.currentTimeMillis() / 1000).toInt()
             }
             return postponeSec
         }

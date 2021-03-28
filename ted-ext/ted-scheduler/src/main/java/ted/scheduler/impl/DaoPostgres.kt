@@ -18,7 +18,7 @@ internal class DaoPostgres(context: Context) : AbstractDao(context) {
     private val logger = LoggerFactory.getLogger(DaoPostgres::class.java)
 
     private class LongVal {
-        internal val longVal: Long? = null
+        val longVal: Long? = null
     }
 
     override fun lockTask(connection: Connection, taskId: Long): Boolean {

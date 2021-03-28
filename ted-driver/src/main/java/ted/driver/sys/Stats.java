@@ -26,7 +26,7 @@ class Stats {
     private final ExecutorService statsEventExecutor;
 
     private TedMetricsEvents registryExt = null;
-    private TedMetricsEvents registryInternal = new TedMetricsEventsInternal();
+    private final TedMetricsEvents registryInternal = new TedMetricsEventsInternal();
 
 
     public Stats(ExecutorService statsEventExecutor) {
@@ -56,20 +56,17 @@ class Stats {
                 // external
                 if (registryExt == null)
                     return null;
-                //if (methodSkipList.contains(method))
+                // if (methodSkipList.contains(method))
                 //	return null;
-                statsEventExecutor.execute(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            long startMs = System.currentTimeMillis();
-                            Object result = method.invoke(registryExt, args);
-                            if (System.currentTimeMillis() - startMs > 10) // 10ms just for registering
-                                logger.debug("ted stats long execution, method={}, time={}ms", method.getName(), System.currentTimeMillis() - startMs);
-                        } catch (Throwable e) {
-                            //methodSkipList.add(method); // do we need this?
-                            logger.warn("Exception while registering metrics (method " + method.getName() + "). Next method calls will be skipped", e);
-                        }
+                statsEventExecutor.execute(() -> {
+                    try {
+                        long startMs = System.currentTimeMillis();
+                        Object result1 = method.invoke(registryExt, args);
+                        if (System.currentTimeMillis() - startMs > 10) // 10ms just for registering
+                            logger.debug("ted stats long execution, method={}, time={}ms", method.getName(), System.currentTimeMillis() - startMs);
+                    } catch (Throwable e) {
+                        //methodSkipList.add(method); // do we need this?
+                        logger.warn("Exception while registering metrics (method " + method.getName() + "). Next method calls will be skipped", e);
                     }
                 });
             } catch (RejectedExecutionException e) {
@@ -93,7 +90,6 @@ class Stats {
         @Override public void startTask(long taskId, String taskName, String channel) {}
         @Override public void finishTask(long taskId, String taskName, String channel, TedStatus status, int durationMs) { }
     }
-
 
 }
 

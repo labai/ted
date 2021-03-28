@@ -7,7 +7,6 @@ import ted.driver.Ted.TedProcessorFactory;
 import ted.driver.Ted.TedRetryScheduler;
 import ted.driver.Ted.TedStatus;
 import ted.driver.TedDriverApi.TedDriverConfig;
-import ted.driver.TedDriverApi.TedTaskConfig;
 import ted.driver.TedTask;
 import ted.driver.sys.ConfigUtils.TedConfig;
 import ted.driver.sys.ConfigUtils.TedProperty;
@@ -31,6 +30,7 @@ import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -76,7 +76,7 @@ public final class TedDriverImpl {
 
     final DataSource dataSource;
     private final TedContext context;
-    private final AtomicBoolean isStartedFlag = new AtomicBoolean(false);
+    final AtomicBoolean isStartedFlag = new AtomicBoolean(false);
     private ScheduledExecutorService driverExecutor;
     private ScheduledExecutorService maintenanceExecutor;
     private final ExecutorService statsEventExecutor;
@@ -210,10 +210,9 @@ public final class TedDriverImpl {
     }
 
     public void shutdown(long timeoutMs) {
-
         long startMs = System.currentTimeMillis();
         long tillMs = startMs + (timeoutMs > 0 ? timeoutMs : 20 * 1000) - 100; // 100ms for finishing rest tasks
-        if (isStartedFlag.get() == false) {
+        if (!isStartedFlag.get()) {
             logger.info("TED driver is not started, leaving shutdown procedure");
             return;
         }
@@ -251,13 +250,13 @@ public final class TedDriverImpl {
         Map<String, ExecutorService> pools = new LinkedHashMap<>();
         pools.put("(driver)", driverExecutor);
         pools.put("(maintenance)", maintenanceExecutor);
-        //pools.put("(stats)", statsEventExecutor);
         for (Channel channel : context.registry.getChannels()) {
             pools.put(channel.name, channel.workers);
         }
         boolean interrupt = false;
-        for (String poolId : pools.keySet()) {
-            ExecutorService pool = pools.get(poolId);
+        for (Entry<String, ExecutorService> entry : pools.entrySet()) {
+            String poolId = entry.getKey();
+            ExecutorService pool = entry.getValue();
             try {
                 if (!pool.awaitTermination(Math.max(tillMs - System.currentTimeMillis(), 0L), TimeUnit.MILLISECONDS)) {
                     if (pool instanceof ChannelThreadPoolExecutor) {
@@ -271,7 +270,7 @@ public final class TedDriverImpl {
         }
         statsEventExecutor.shutdown();
         if (interrupt)
-            Thread.currentThread().interrupt(); // Preserve interrupt status (??? see ThreadPoolExecutor javadoc)
+            Thread.currentThread().interrupt(); // Preserve interrupt status (see ThreadPoolExecutor javadoc)
         isStartedFlag.set(false);
         logger.info("TED driver shutdown in {}ms", System.currentTimeMillis() - startMs);
     }
@@ -340,8 +339,6 @@ public final class TedDriverImpl {
     }
 
     public List<Long> createTasksBulk(List<TedTask> tedTasks, Long batchId) {
-        //if (context.tedDao.getDbType() != DbType.POSTGRES)
-        //	throw new IllegalArgumentException("createTasksBulk allowed only for PostgreSql db");
         if (tedTasks == null || tedTasks.isEmpty())
             return Collections.emptyList();
 
@@ -359,7 +356,7 @@ public final class TedDriverImpl {
             tp.key2 = task.getKey2();
             tp.data = task.getData();
             tp.channel = tc.channel;
-            tp.batchId = batchId; //task.getBatchId();
+            tp.batchId = batchId;
             taskParams.add(tp);
         }
         return context.tedDao.createTasksBulk(taskParams);
@@ -401,11 +398,6 @@ public final class TedDriverImpl {
         context.registry.registerTaskConfig(taskName, tedProcessorFactory);
     }
 
-//	public void registerTaskConfig(String taskName, TedPackProcessorFactory tedPackProcessorFactory) {
-//		FieldValidator.validateTaskName(taskName);
-//		context.registry.registerTaskConfig(taskName, tedPackProcessorFactory);
-//	}
-
     public void registerTaskConfig(String taskName, TedProcessorFactory tedProcessorFactory, Integer workTimeoutInMinutes, TedRetryScheduler retryScheduler, String channel) {
         FieldValidator.validateTaskName(taskName);
         context.registry.registerTaskConfig(taskName, tedProcessorFactory, workTimeoutInMinutes, retryScheduler, channel);
@@ -429,14 +421,11 @@ public final class TedDriverImpl {
     }
 
     public TedDriverConfig getTedDriverConfig() {
-        return new TedDriverConfig() {
-            @Override
-            public TedTaskConfig getTaskConfig(String taskName) {
-                TaskConfig taskConfig = context.registry.getTaskConfig(taskName);
-                if (taskConfig == null)
-                    return null;
-                return taskConfig.api;
-            }
+        return taskName -> {
+            TaskConfig taskConfig = context.registry.getTaskConfig(taskName);
+            if (taskConfig == null)
+                return null;
+            return taskConfig.api;
         };
     }
 

@@ -216,6 +216,7 @@ class Model {
             Matcher m = hasAlphanumUnderscore.matcher(str);
             return m.find();
         }
+
         //
         // private
         //

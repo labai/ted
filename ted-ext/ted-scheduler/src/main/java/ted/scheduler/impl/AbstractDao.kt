@@ -16,7 +16,7 @@ import kotlin.reflect.KClass
  *
  * Dao functions for ted-scheduler (common for all db)
  */
-internal abstract class AbstractDao (private val context: Context) : ISchedulerDao {
+internal abstract class AbstractDao(context: Context) : ISchedulerDao {
     private val logger = LoggerFactory.getLogger(AbstractDao::class.java)
 
     private val dataSource = context.dataSource
@@ -72,7 +72,7 @@ internal abstract class AbstractDao (private val context: Context) : ISchedulerD
         if (taskIds.isEmpty())
             return emptyList()
 
-        val inIds = taskIds.map { it.toString() }.joinToString(",")
+        val inIds = taskIds.joinToString(",") { it.toString() }
         val sql = ("select taskid as longVal from $tedTask"
             + " where system = '$thisSystem'"
             + " and status = 'ERROR'"
@@ -122,7 +122,7 @@ internal abstract class AbstractDao (private val context: Context) : ISchedulerD
         return list
     }
 
-    internal fun executeUpdate(sqlLogId: String, sql: String, params: List<SqlParam>): Int {
+    private fun executeUpdate(sqlLogId: String, sql: String, params: List<SqlParam>): Int {
         val startTm = System.currentTimeMillis()
         val res = SchdJdbcSelect.executeUpdate(dataSource, sql, params)
         val durationMs = System.currentTimeMillis() - startTm
@@ -138,7 +138,7 @@ internal abstract class AbstractDao (private val context: Context) : ISchedulerD
     //
 
     private class LongVal {
-        internal val longVal: Long? = null
+        val longVal: Long? = null
     }
 
 }

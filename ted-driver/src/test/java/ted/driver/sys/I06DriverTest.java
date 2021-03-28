@@ -1,8 +1,8 @@
 package ted.driver.sys;
 
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
+import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedProcessor;
@@ -20,7 +20,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
@@ -170,16 +170,19 @@ public class I06DriverTest extends TestBase {
         TestUtils.sleepMs(50);
         driver.shutdown(10); // no working tasks left after 50ms
         TestUtils.print("finish test");
+        assertFalse(driver.isStartedFlag.get());
 
     }
 
-    @Ignore
     @Test
-    public void test05Reject() {
+    public void test05_return_to_work_on_reject_when_queue_overflow() {
         String taskName = "TEST06-01";
         dao_cleanupAllTasks();
-
+        TedDao mockDao = Mockito.mock(TedDao.class);
+        driver.getContext().tedDao = mockDao;
+        Mockito.doNothing().when(mockDao).setStatuses(Mockito.any());
         driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test06ProcessorLongOk.class), 1, null, Model.CHANNEL_MAIN);
+
         // create more tasks, than allowed in queue
         List<TaskRec> dummyTasks = new ArrayList<>();
         for (int i = 0; i < 600; i++) {
@@ -192,11 +195,10 @@ public class I06DriverTest extends TestBase {
             dummyTasks.add(taskRec);
         }
         driver.getContext().taskManager.sendTaskListToChannels(dummyTasks);
-        TestUtils.sleepMs(1000);
-        driver.shutdown(10); // no working tasks left after 50ms
-        TestUtils.print("finish test");
 
+        Mockito.verify(mockDao, Mockito.atLeastOnce()).setStatuses(Mockito.any());
     }
+
 
     @Test
     public void test06GetDriverConfig() {

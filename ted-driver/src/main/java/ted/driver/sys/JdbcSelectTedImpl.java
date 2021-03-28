@@ -202,7 +202,7 @@ class JdbcSelectTedImpl {
                     fld.set(bean, getBigDecimal(colData));
                 else if (type.isAssignableFrom(String.class)) {
                     fld.set(bean, colData.toString());
-                } else if (type.getSimpleName().equals("byte[]")) {
+                } else if (type.isAssignableFrom(byte[].class)) {
                     if (trySetOracleBLOB(fld, bean, colData)) {
                         // done..
                     }
@@ -364,8 +364,6 @@ class JdbcSelectTedImpl {
             stmt = connection.prepareStatement(sql);
             stmtAssignSqlParams(stmt, sqlParams);
             resultSet = stmt.executeQuery();
-            if (resultSet == null /*|| resultSet.isClosed()*/) // isClosed may throw AbstractMethod error for older versions of driver
-                throw new SQLException("ResultSet is null or closed");
 
             ResultSetMetaData rsmd = resultSet.getMetaData();
             if (rsmd.getColumnCount() != 1)

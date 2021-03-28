@@ -38,7 +38,6 @@ internal object TxUtils {
             connection.autoCommit = false
             savepoint = connection.setSavepoint("txRun")
             val txLogId = Integer.toHexString(savepoint!!.hashCode())
-            //logger.trace("start transaction {}", txLogId)
             val txContext = TxContext(connection)
 
             // call

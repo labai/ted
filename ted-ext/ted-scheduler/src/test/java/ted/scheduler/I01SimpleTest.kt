@@ -126,6 +126,7 @@ class I01SimpleTest {
     }
 
     private fun dao_execSql(sql: String) {
+        @Suppress("INACCESSIBLE_TYPE")
         (context.dao as AbstractDao).selectData("test", sql, Void::class, listOf())
     }
 

@@ -53,16 +53,14 @@ public class I05PerfomTest extends TestBase {
         @Override
         public TedResult process(TedTask task)  {
             logger.info(this.getClass().getSimpleName() + " process");
-            //sleepMs(2000);
             return TedResult.done();
         }
     }
 
 
 
-    @Ignore
-    @Test
-    public void test01FullQueue() {
+    // generate and run...
+    public void runFullQueue() {
 		/* fill:
 		(oracle)
 		insert into tedtask (taskId, system, name, channel, bno, status, createTs, nextTs)
@@ -75,21 +73,25 @@ public class I05PerfomTest extends TestBase {
 		from generate_series(1,100) s;
 		*/
         // dao_cleanupAllTasks();
-        String taskName = "TEST05-01";
-        driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test05ProcessorOk.class));
-        try {
-            for (int i = 0; i < 30; i++) {
-                getContext().taskManager.processChannelTasks();
-                TestUtils.sleepMs(600);
-                if (getContext().tedDao.getWaitChannels().isEmpty()) {
-                    TestUtils.print("No more tasks, finish");
-                    break;
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        TestUtils.print("Exit");
+
+        /* ..
+		String taskName = "TEST05-01";
+		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test05ProcessorOk.class));
+		try {
+			for (int i = 0; i < 30; i++) {
+				getContext().taskManager.processChannelTasks();
+				TestUtils.sleepMs(600);
+				if (getContext().tedDao.getWaitChannels().isEmpty()) {
+					TestUtils.print("No more tasks, finish");
+					break;
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			fail(e.getMessage());
+		}
+		TestUtils.print("Exit");
+        */
     }
 
     private void doQuickCheck(Integer waitingTaskCount) {

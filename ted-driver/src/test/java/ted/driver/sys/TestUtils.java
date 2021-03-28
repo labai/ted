@@ -10,6 +10,7 @@ import java.io.InputStream;
 import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
@@ -73,16 +74,22 @@ class TestUtils {
             .until(conditionEvaluator);
     }
 
+    // just flush statuses and then get from db
     public static void awaitUntilTaskFinish(final TedDriverImpl driver, final long taskId, int maxMs) {
         awaitTask(maxMs, () -> {
-            //driver.getContext().taskManager.processChannelTasks();
+            // driver.getContext().taskManager.processChannelTasks();
             driver.getContext().taskManager.flushStatuses();
             TaskRec rec = driver.getContext().tedDao.getTask(taskId);
             return ! asList("WORK", "NEW").contains(rec.status);
         });
     }
 
-//	public static void awaitTask(Callable<Boolean> conditionEvaluator) {
-//		awaitTask(200, conditionEvaluator);
-//	}
+    // just flush statuses and then get from db
+    public static void awaitUntilStatus(final TedDriverImpl driver, final long taskId, List<String> statuses, int maxMs) {
+        awaitTask(maxMs, () -> {
+            driver.getContext().taskManager.flushStatuses();
+            TaskRec rec = driver.getContext().tedDao.getTask(taskId);
+            return statuses.contains(rec.status);
+        });
+    }
 }

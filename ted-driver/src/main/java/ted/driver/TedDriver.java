@@ -31,7 +31,7 @@ public class TedDriver implements
     TedDriverConfigAware,
     TedDriverTaskConfig,
     TedDriverTask,
-    // TedDriverBatch,
+//		TedDriverBatch,
     TedDriverEvent,
     TedDriverNotification,
     TedDriverPrime {
@@ -101,7 +101,7 @@ public class TedDriver implements
      */
     @Override
     public void shutdown() {
-        tedDriverImpl.shutdown(20*1000);
+        tedDriverImpl.shutdown(20_000L);
     }
 
     /**

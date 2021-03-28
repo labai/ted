@@ -40,9 +40,9 @@ class TaskManager {
     static final int SLOW_START_COUNT = 3;
     static final int MAX_TASK_COUNT = 1000;
     static final int LIMIT_TOTAL_WAIT_TASKS = 20000; // max waiting tasks (aim to don't consume all memory)
-    private static final long RARE_MAINT_INTERVAL_MS = 3 * 3600 * 1000; // every 3 hour
-    private static final long UNKNOWN_TASK_POSTPONE_MS = 120 * 1000; // 2 min
-    private static final long UNKNOWN_TASK_CANCEL_AFTER_MS = 24 * 3600 * 1000;
+    private static final long RARE_MAINT_INTERVAL_MS = 3 * 3600 * 1000L; // every 3 hour
+    private static final long UNKNOWN_TASK_POSTPONE_MS = 120 * 1000L; // 2 min
+    private static final long UNKNOWN_TASK_CANCEL_AFTER_MS = 24 * 3600 * 1000L;
 
     private final TedContext context;
     private final TaskStatusManager taskStatusManager;

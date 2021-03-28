@@ -485,9 +485,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
     protected ArrayList<Long> getSequencePortion(String seqName, int number) {
         if (number < 1 || number > 100000)
             throw new IllegalArgumentException("Invalid requested sequence count: " + number);
-        if (schema != null)
-            seqName = schema + "." + seqName;
-        String sql = "select nextval('" + seqName + "') as seqval from generate_series(1," + number + ")";
+        String sql = "select nextval('" + schemaPrefix() + seqName + "') as seqval from generate_series(1," + number + ")";
         List<ResSeqVal> seqVals = selectData("seq_portion", sql, ResSeqVal.class, Collections.emptyList());
         ArrayList<Long> result = new ArrayList<>();
         for (ResSeqVal item : seqVals) {

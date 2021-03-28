@@ -21,15 +21,13 @@ internal object SchdJdbcSelect {
     }
 
     internal fun <T> selectData(dataSource: DataSource, sql: String, clazz: Class<T>, sqlParams: List<SqlParam>): List<T> {
-        return JdbcSelectTed.runInConn(dataSource) {
-            connection ->
+        return JdbcSelectTed.runInConn(dataSource) { connection ->
             JdbcSelectTedImpl.selectData(connection, sql, clazz, sqlParams)
         }
     }
 
     internal fun executeUpdate(dataSource: DataSource, sql: String, sqlParams: List<SqlParam>): Int {
-        return JdbcSelectTed.runInConn(dataSource) {
-            connection ->
+        return JdbcSelectTed.runInConn(dataSource) { connection ->
             JdbcSelectTedImpl.executeUpdate(connection, sql, sqlParams)
         }
     }

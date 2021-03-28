@@ -26,6 +26,7 @@ import java.util.Random;
 import static org.junit.Assert.assertEquals;
 import static ted.driver.sys.TestConfig.SYSTEM_ID;
 import static ted.driver.sys.TestTedProcessors.forProcessor;
+import static ted.driver.sys.TestUtils.awaitUntilTaskFinish;
 import static ted.driver.sys.TestUtils.print;
 import static ted.driver.sys.TestUtils.sleepMs;
 
@@ -92,7 +93,7 @@ public class I09EventQueueTest extends TestBase {
     }
 
     @Test
-    public void test03EventStatuses() {
+    public void test03CheckStatuses() {
         String taskName = "TEST09-1";
         String taskName2 = "TEST09-2";
         cleanupData();
@@ -139,7 +140,7 @@ public class I09EventQueueTest extends TestBase {
     }
 
     @Test
-    public void test04EventCreateEvent() {
+    public void test04CreateEventInEvent() {
         String taskName = "TEST09-1";
         final String taskName2 = "TEST09-2";
         cleanupData();
@@ -162,9 +163,14 @@ public class I09EventQueueTest extends TestBase {
         sleepMs(20);
         driver.getContext().eventQueueManager.processTedQueue();
 
-        sleepMs(220);
-        assertEquals("task1:" + taskId,"DONE", tedDao.getTask(taskId).status);
+        awaitUntilTaskFinish(driver, taskId, 500);
+        awaitUntilTaskFinish(driver, taskId2[0], 500);
+        awaitUntilTaskFinish(driver, taskId2[1], 500);
+
+        // sleepMs(220);
+        assertEquals("task1:" + taskId, "DONE", tedDao.getTask(taskId).status);
         assertEquals("task2:" + taskId2[0], "DONE", tedDao.getTask(taskId2[0]).status);
+        assertEquals("task3:" + taskId2[1], "DONE", tedDao.getTask(taskId2[0]).status);
     }
 
     @Test

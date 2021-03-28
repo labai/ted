@@ -3,7 +3,7 @@
 ## About
 
 Helper for creating scheduler tasks.
- 
+
 Use ted-driver for task executing.
 Provides simplified API for scheduler tasks,
 some additional functionality, e.g. cron expressions.
@@ -40,7 +40,7 @@ When registering task, TedScheduler also checks, do exists such task in db,
 and if not exists, then creates it.
 
 Technically TedScheduler creates Ted tasks, but they will have some restrictions:
-- they have never ending retry policy - they always be in status RETRY (cron expression can be used to calculate next execution time); 
+- they have never ending retry policy - they always be in status RETRY (cron expression can be used to calculate next execution time);
 - thus it is not allowed to return error while executing tasks. TedScheduler will catch error and return RETRY;
 - if somehow task status will be set to ERROR in db, TedScheduler will restore it to RETRY;
 - there can be only one active scheduler task of one type;

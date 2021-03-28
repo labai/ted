@@ -17,43 +17,43 @@ import java.util.Random;
  */
 @Component
 public class TaskSamples {
-	private static final Logger logger = LoggerFactory.getLogger(TaskSamples.class);
+    private static final Logger logger = LoggerFactory.getLogger(TaskSamples.class);
 
-	@Autowired
-	private Gson gson;
+    @Autowired
+    private Gson gson;
 
-	private Random random = new Random();
+    private Random random = new Random();
 
-	public static class TaskParam {
-		public int lineNumber;
-		public String line;
-	}
+    public static class TaskParam {
+        public int lineNumber;
+        public String line;
+    }
 
-	// task may return String on success - it will be saved into tedtask.msg
-	@TedTaskProcessor(name = "TASK3")
-	public String task3(TedTask task) {
-		logger.info("Start TASK3");
-		TaskParam data = gson.fromJson(task.getData(), TaskParam.class);
-		int sleepMs = 200 + random.nextInt(700);
-		logger.info("do something smart with line {}: '{}' for {}ms", data.lineNumber, data.line, sleepMs);
-		sleep(sleepMs);
-		return "Task done";
-	}
-
-
-	// scheduler task
-	@TedSchedulerProcessor(name = "SCH_1", cron = "1 * * * * *")
-	public String schedulerTask1() {
-		logger.info("Start schedulerTask1");
-		return "ok";
-	}
+    // task may return String on success - it will be saved into tedtask.msg
+    @TedTaskProcessor(name = "TASK3")
+    public String task3(TedTask task) {
+        logger.info("Start TASK3");
+        TaskParam data = gson.fromJson(task.getData(), TaskParam.class);
+        int sleepMs = 200 + random.nextInt(700);
+        logger.info("do something smart with line {}: '{}' for {}ms", data.lineNumber, data.line, sleepMs);
+        sleep(sleepMs);
+        return "Task done";
+    }
 
 
-	private static void sleep(long milis) {
-		try {
-			Thread.sleep(milis);
-		} catch (InterruptedException e2) {
-		}
-	}
+    // scheduler task
+    @TedSchedulerProcessor(name = "SCH_1", cron = "1 * * * * *")
+    public String schedulerTask1() {
+        logger.info("Start schedulerTask1");
+        return "ok";
+    }
+
+
+    private static void sleep(long milis) {
+        try {
+            Thread.sleep(milis);
+        } catch (InterruptedException e2) {
+        }
+    }
 
 }

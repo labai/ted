@@ -16,7 +16,7 @@ import javax.sql.DataSource
  *
  * for TED internal usage only!!!
  */
-internal class TaskRecService (private val context: Context) {
+internal class TaskRecService(private val context: Context) {
     private val logger = LoggerFactory.getLogger(TaskRecService::class.java)
 
 
@@ -27,7 +27,7 @@ internal class TaskRecService (private val context: Context) {
     internal fun createUniqueTask(name: String, data: String?, key1: String?, key2: String?, postponeSec: Int): Long? {
 
         val resTaskId: Long?
-        var createdFakeTaskId : Long? = null
+        var createdFakeTaskId: Long? = null
 
         try {
             var lockTaskId = context.primeTaskIdProvider() ?: context.dao.findFirstTask()
@@ -38,10 +38,10 @@ internal class TaskRecService (private val context: Context) {
                 context.tedDriver.registerTaskConfig("ted_lock_schd") { TedProcessor { null } }
                 createdFakeTaskId = context.tedDriver.createTaskPostponed("ted_lock_schd", "temporary for lock", null, null, 999999999)
                 sleepMs(30) // .. just in case
-                lockTaskId = context.dao.findFirstTask();
+                lockTaskId = context.dao.findFirstTask()
             }
 
-            resTaskId = execWithLockedTask(context.dataSource, lockTaskId!!, 2000) fn@ {
+            resTaskId = execWithLockedTask(context.dataSource, lockTaskId!!, 2000) fn@{
                 val taskIds = context.dao.getActiveTasks(name, 2, true)
                 if (taskIds.size > 1)
                     throw IllegalStateException("Exists more than one $name active scheduler task (statuses NEW, RETRY, WORK or ERROR) $taskIds, skipping")
@@ -92,8 +92,8 @@ internal class TaskRecService (private val context: Context) {
                     sleepMs(30)
                     waited = true
                 }
-                if (! succeed) {
-                    logger.error("Cannot get advisoryLockPrimeTask for lockTaskId={}, skipping", lockTaskId)
+                if (!succeed) {
+                    logger.error("Cannot get lockPrimeTask for lockTaskId={}, skipping", lockTaskId)
                     return@txRun null
                 }
                 if (waited) {

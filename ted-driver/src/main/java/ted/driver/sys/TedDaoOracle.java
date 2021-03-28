@@ -111,7 +111,7 @@ class TedDaoOracle extends TedDaoAbstract {
             + 	" open :o_rs for select * from $tedTask where bno = v_bno;"
             + " end;";
         sql = sql.replace("$tedTask", fullTableName);
-        sql = sql.replace("${schemaPrefix}", (schema==null?"":schema+"."));
+        sql = sql.replace("${schemaPrefix}", schemaPrefix());
         List<TaskRec> tasks = selectFromBlock(oraProc, sql, TaskRec.class, asList(
             JdbcSelectTed.sqlParam("p_sys", thisSystem, JetJdbcParamType.STRING),
             JdbcSelectTed.sqlParam("p_pairs", channelsParam, JetJdbcParamType.STRING),

@@ -1,15 +1,19 @@
 package ted.driver.sys;
 
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import ted.driver.TedResult;
 import ted.driver.sys.Registry.Channel;
-import ted.driver.sys.TestTedProcessors.TestProcessorOk;
 
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.junit.Assert.assertEquals;
+import static ted.driver.sys.TestUtils.awaitTask;
+import static ted.driver.sys.TestUtils.print;
 
 /**
  * @author Augustus
@@ -59,29 +63,44 @@ public class I02MultiTest extends TestBase {
 
     // test 2 instances
     // 1-st will take 20 tasks of 30 (2 workers * 10), 2-nd - remaining 10
-    @Ignore
     @Test
-    public void test01FullQueue() {
+    public void testFullQueue() {
         String taskName = "TEST02-01";
         dao_cleanupAllTasks();
 
-        driver1.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class));
-        driver2.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class));
+        AtomicInteger count1 = new AtomicInteger();
+        AtomicInteger count2 = new AtomicInteger();
 
-        for (int i = 0; i < 30; i++) {
-            Long taskId = driver1.createTask(taskName, null, "num-" + i, null);
+        driver1.registerTaskConfig(taskName, proc -> task -> {
+            count1.getAndIncrement();
+            logger.info("P1 process");
+            return TedResult.done();
+        });
+        driver2.registerTaskConfig(taskName, proc -> task -> {
+            count2.getAndIncrement();
+            logger.info("P2 process");
+            return TedResult.done();
+        });
+
+        for (int i = 0; i < 10; i++) {
+            driver1.createTask(taskName, null, "num-" + i, null);
         }
 
         // will start parallel
+        // at first will take 3 each of processors, next will take 6
         driver1.getContext().taskManager.processChannelTasks();
-        TestUtils.print("Driver1 active="+ channel1.workers.getActiveCount() + " queue=" + channel1.workers.getQueue().size());
+        print("Driver1 active="+ channel1.workers.getActiveCount() + " queue=" + channel1.workers.getQueue().size());
         driver2.getContext().taskManager.processChannelTasks();
-        TestUtils.print("Driver2 active="+ channel2.workers.getActiveCount() + " queue=" + channel2.workers.getQueue().size());
+        print("Driver2 active="+ channel2.workers.getActiveCount() + " queue=" + channel2.workers.getQueue().size());
+        driver1.getContext().taskManager.processChannelTasks();
+        print("Driver1 active="+ channel1.workers.getActiveCount() + " queue=" + channel1.workers.getQueue().size());
 
-        for (int i = 0; i < 10; i++) {
-            TestUtils.sleepMs(600);
-            driver2.getContext().taskManager.processChannelTasks();
-        }
-        TestUtils.print("Exit");
+        awaitTask(200, () ->
+            count1.get() + count2.get() >= 10
+        );
+
+        assertEquals("First should take 7 tasks", 7, count1.get());
+        assertEquals("Second should take 3 tasks", 3, count2.get());
+
     }
 }

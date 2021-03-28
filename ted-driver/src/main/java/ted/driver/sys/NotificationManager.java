@@ -62,7 +62,7 @@ class NotificationManager {
 
         if (context.prime.isEnabled() == false || context.prime.isPrime()) {
             logger.debug("cleaning notifications");
-            long keepInDbMs = context.config.intervalDriverMs() + 1000; // 1000 - reserve
+            long keepInDbMs = context.config.intervalDriverMs() + 1000L; // 1000 - reserve
             context.tedDaoExt.cleanupNotifications(new Date(nowMs - keepInDbMs));
         }
     }

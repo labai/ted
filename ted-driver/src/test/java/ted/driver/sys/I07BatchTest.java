@@ -23,6 +23,8 @@ import static org.awaitility.Awaitility.await;
 import static org.junit.Assert.assertEquals;
 import static ted.driver.sys.JdbcSelectTed.sqlParam;
 import static ted.driver.sys.MiscUtils.asList;
+import static ted.driver.sys.TestUtils.awaitUntilStatus;
+import static ted.driver.sys.TestUtils.awaitUntilTaskFinish;
 import static ted.driver.sys.TestUtils.print;
 import static ted.driver.sys.TestUtils.sleepMs;
 
@@ -118,9 +120,8 @@ public class I07BatchTest extends TestBase {
         sleepMs(10);
         driver.getContext().taskManager.processChannelTasks();
         driver.getContext().batchWaitManager.processBatchWaitTasks();
-        sleepMs(50);
 
-        TestUtils.awaitUntilTaskFinish(driver, batchId, 200);
+        awaitUntilTaskFinish(driver, batchId, 300);
 
         TaskRec batchRec = tedDao.getTask(batchId);
         print(batchRec.toString());
@@ -142,11 +143,15 @@ public class I07BatchTest extends TestBase {
             return true;
         });
 
-        driver.getContext().taskManager.processChannelTasks(); // here all subtask should be finished
-        sleepMs(50);
-
         driver.getContext().batchWaitManager.processBatchWaitTasks();
-        sleepMs(50);
+        sleepMs(10);
+        // here batch task may be changed from RETRY to NEW, and then can be processed and again changed
+        await().atMost(300, TimeUnit.MILLISECONDS).pollInterval(TestUtils.POLL_INTERVAL).until(() -> {
+            TaskRec rec = tedDao.getTask(batchId);
+            return !Model.BATCH_MSG.equals(rec.msg); // wait till start batch
+        });
+        // wait till exec batch
+        awaitUntilStatus(driver, batchId, asList("RETRY", "DONE", "ERROR"), 300);
 
         batchRec = tedDao.getTask(batchId);
         print(batchRec.toString());

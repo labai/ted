@@ -39,116 +39,116 @@ import java.util.Properties;
 @Configuration
 @Role(BeanDefinition.ROLE_INFRASTRUCTURE)
 public class TedDriverConfiguration implements ImportAware, ApplicationContextAware {
-    private static final Logger logger = LoggerFactory.getLogger(TedDriverConfiguration.class);
+	private static final Logger logger = LoggerFactory.getLogger(TedDriverConfiguration.class);
 
-    private AnnotationAttributes annotationAttributes;
+	private AnnotationAttributes annotationAttributes;
 
-    public TedDriverConfiguration() { }
+	public TedDriverConfiguration() { }
 
-    @Bean(name = "ted.driver.TedTaskManager")
-    TedTaskManager tedTaskManager() {
-        return new TedTaskManager();
-    }
+	@Bean(name = "ted.driver.TedTaskManager")
+	TedTaskManager tedTaskManager() {
+		return new TedTaskManager();
+	}
 
-    @Bean
-    TedTaskFactory tedTaskFactory(TedTaskManager taskManager) {
-        return taskManager.getTaskFactory();
-    }
+	@Bean
+	TedTaskFactory tedTaskFactory(TedTaskManager taskManager) {
+		return taskManager.getTaskFactory();
+	}
 
-    @Bean(destroyMethod = "shutdown")
-    TedDriver tedDriver(ApplicationContext applicationContext, Environment environment) {
-        logger.trace("Create TedDriver");
+	@Bean(destroyMethod = "shutdown")
+	TedDriver tedDriver(ApplicationContext applicationContext, Environment environment) {
+		logger.trace("Create TedDriver");
 
-        DataSource dataSource = resolveDataSource(applicationContext);
+		DataSource dataSource = resolveDataSource(applicationContext);
 
-        Map<String, String> props = getAllKnownProperties(environment, "ted.");
+		Map<String, String> props = getAllKnownProperties(environment, "ted.");
 
-        if (isEmpty(props.get("ted.systemId"))) {
-            props.put("ted.systemId", "default");
-            logger.warn("Parameter 'ted.systemId' was not found, value 'default' will be used for systemId");
-        }
-        Properties properties = new Properties();
-        properties.putAll(props);
-        TedDriver tedDriver = new TedDriver(dataSource, properties);
+		if (isEmpty(props.get("ted.systemId"))) {
+			props.put("ted.systemId", "default");
+			logger.warn("Parameter 'ted.systemId' was not found, value 'default' will be used for systemId");
+		}
+		Properties properties = new Properties();
+		properties.putAll(props);
+		TedDriver tedDriver = new TedDriver(dataSource, properties);
 
-        return tedDriver;
-    }
+		return tedDriver;
+	}
 
-    private static DataSource resolveDataSource(ApplicationContext applicationContext) {
-        Map<String, DataSource> dataSourceMap = applicationContext.getBeansOfType(DataSource.class);
-        if (dataSourceMap.isEmpty())
-            throw new IllegalStateException("DataSource is required for TedDriver, but can't be acquired from spring context");
-        if (dataSourceMap.size() == 1)
-            return dataSourceMap.values().iterator().next();
+	private static DataSource resolveDataSource(ApplicationContext applicationContext) {
+		Map<String, DataSource> dataSourceMap = applicationContext.getBeansOfType(DataSource.class);
+		if (dataSourceMap.isEmpty())
+			throw new IllegalStateException("DataSource is required for TedDriver, but can't be acquired from spring context");
+		if (dataSourceMap.size() == 1)
+			return dataSourceMap.values().iterator().next();
 
-        // 1) try get with @TedDataSource
-        for (Entry<String, DataSource> e : dataSourceMap.entrySet()) {
-            TedDataSource an = applicationContext.findAnnotationOnBean(e.getKey(), TedDataSource.class);
-            if (an != null)
-                return e.getValue();
-        }
-        // 2) choose @Primary or fail with NoUniqueBeanDefinitionException
-        return applicationContext.getBean(DataSource.class);
-    }
+		// 1) try get with @TedDataSource
+		for (Entry<String, DataSource> e : dataSourceMap.entrySet()) {
+			TedDataSource an = applicationContext.findAnnotationOnBean(e.getKey(), TedDataSource.class);
+			if (an != null)
+				return e.getValue();
+		}
+		// 2) choose @Primary or fail with NoUniqueBeanDefinitionException
+		return applicationContext.getBean(DataSource.class);
+	}
 
-    @Bean(destroyMethod = "shutdown")
-    TedScheduler tedScheduler(TedDriver tedDriver, Environment environment) {
-        logger.trace("Create TedScheduler");
-        return new TedScheduler(tedDriver);
-    }
+	@Bean(destroyMethod = "shutdown")
+	TedScheduler tedScheduler(TedDriver tedDriver, Environment environment) {
+		logger.trace("Create TedScheduler");
+		return new TedScheduler(tedDriver);
+	}
 
-    private void initBeans(ApplicationContext ctx) {
-        TedDriver tedDriver = ctx.getBean(TedDriver.class);
-        TedScheduler tedScheduler = ctx.getBean(TedScheduler.class);
+	private void initBeans(ApplicationContext ctx) {
+		TedDriver tedDriver = ctx.getBean(TedDriver.class);
+		TedScheduler tedScheduler = ctx.getBean(TedScheduler.class);
 
-        TedTaskManager tedTaskManager = ctx.getBean(TedTaskManager.class);
-        tedTaskManager.setTedDriver(tedDriver);
+		TedTaskManager tedTaskManager = ctx.getBean(TedTaskManager.class);
+		tedTaskManager.setTedDriver(tedDriver);
 
-        TaskRegistrar registrar = new TaskRegistrar(ctx, tedDriver, tedScheduler);
-        registrar.registerAnnotatedTasks();
+		TaskRegistrar registrar = new TaskRegistrar(ctx, tedDriver, tedScheduler);
+		registrar.registerAnnotatedTasks();
 
-        // start tedDriver (but still tasks will start with few sec delay)
-        logger.debug("Starting TedDriver");
-        tedDriver.start();
-    }
-
-
-    @Override
-    public void setApplicationContext(ApplicationContext ctx) throws BeansException {
-        initBeans(ctx);
-    }
+		// start tedDriver (but still tasks will start with few sec delay)
+		logger.debug("Starting TedDriver");
+		tedDriver.start();
+	}
 
 
-    @Override
-    public void setImportMetadata(AnnotationMetadata importMetadata) {
-        this.annotationAttributes = AnnotationAttributes.fromMap(importMetadata.getAnnotationAttributes(EnableTedTask.class.getName(), false));
-        if (this.annotationAttributes == null) {
-            throw new IllegalArgumentException("@EnableTedTask is not present on importing class " + importMetadata.getClassName());
-        }
-    }
+	@Override
+	public void setApplicationContext(ApplicationContext ctx) throws BeansException {
+		initBeans(ctx);
+	}
 
 
-    private static boolean isEmpty(final CharSequence cs) {
-        return cs == null || cs.length() == 0;
-    }
+	@Override
+	public void setImportMetadata(AnnotationMetadata importMetadata) {
+		this.annotationAttributes = AnnotationAttributes.fromMap(importMetadata.getAnnotationAttributes(EnableTedTask.class.getName(), false));
+		if (this.annotationAttributes == null) {
+			throw new IllegalArgumentException("@EnableTedTask is not present on importing class " + importMetadata.getClassName());
+		}
+	}
 
-    private static Map<String, String> getAllKnownProperties(Environment env, String prefix) {
-        Map<String, String> rtn = new HashMap<>();
-        if (!(env instanceof ConfigurableEnvironment))
-            return rtn;
-        for (PropertySource<?> propertySource : ((ConfigurableEnvironment) env).getPropertySources()) {
-            if (! (propertySource instanceof EnumerablePropertySource))
-                continue;
-            for (String key : ((EnumerablePropertySource) propertySource).getPropertyNames()) {
-                if (! key.startsWith(prefix))
-                    continue;
-                Object value = propertySource.getProperty(key);
-                if (value != null)
-                    rtn.put(key, value.toString());
-            }
-        }
-        return rtn;
-    }
+
+	private static boolean isEmpty(final CharSequence cs) {
+		return cs == null || cs.length() == 0;
+	}
+
+	private static Map<String, String> getAllKnownProperties(Environment env, String prefix) {
+		Map<String, String> rtn = new HashMap<>();
+		if (!(env instanceof ConfigurableEnvironment))
+			return rtn;
+		for (PropertySource<?> propertySource : ((ConfigurableEnvironment) env).getPropertySources()) {
+			if (! (propertySource instanceof EnumerablePropertySource))
+				continue;
+			for (String key : ((EnumerablePropertySource) propertySource).getPropertyNames()) {
+				if (! key.startsWith(prefix))
+					continue;
+				Object value = propertySource.getProperty(key);
+				if (value != null)
+					rtn.put(key, value.toString());
+			}
+		}
+		return rtn;
+	}
 
 
 }

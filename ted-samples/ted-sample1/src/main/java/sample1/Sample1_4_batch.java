@@ -42,8 +42,8 @@ public class Sample1_4_batch {
         HikariDataSource dataSource = new HikariDataSource();
         dataSource.setDriverClassName("org.hsqldb.jdbc.JDBCDriver");
         dataSource.setJdbcUrl("jdbc:hsqldb:mem:tedtest;sql.syntax_pgs=true");
-        // dataSource.setDriverClassName("org.postgresql.Driver");
-        // dataSource.setJdbcUrl("jdbc:postgresql://localhost:5433/ted");
+//		dataSource.setDriverClassName("org.postgresql.Driver");
+//		dataSource.setJdbcUrl("jdbc:postgresql://localhost:5433/ted");
         dataSource.setUsername("ted");
         dataSource.setPassword("ted");
 

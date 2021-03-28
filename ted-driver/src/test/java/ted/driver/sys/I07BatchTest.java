@@ -127,6 +127,7 @@ public class I07BatchTest extends TestBase {
         print(batchRec.toString());
         print(batchRec.getTedTask().toString());
         assertEquals("batch should be RETRY until all task will be finished", "RETRY", batchRec.status);
+        assertEquals("batch channel temporary changed to TedBW", Model.CHANNEL_BATCH, batchRec.channel);
         assertEquals("Batch task is waiting for finish of subtasks", batchRec.msg);
         print("sleep...");
 
@@ -145,18 +146,16 @@ public class I07BatchTest extends TestBase {
 
         driver.getContext().batchWaitManager.processBatchWaitTasks();
         sleepMs(10);
-        // here batch task may be changed from RETRY to NEW, and then can be processed and again changed
+        // here batch task is changed from RETRY to NEW for processing
         await().atMost(300, TimeUnit.MILLISECONDS).pollInterval(TestUtils.POLL_INTERVAL).until(() -> {
             TaskRec rec = tedDao.getTask(batchId);
             return !Model.BATCH_MSG.equals(rec.msg); // wait till start batch
         });
         // wait till exec batch
-        awaitUntilStatus(driver, batchId, asList("RETRY", "DONE", "ERROR"), 300);
-
+        awaitUntilStatus(driver, batchId, asList("NEW"), 300);
         batchRec = tedDao.getTask(batchId);
         print(batchRec.toString());
-        assertEquals("batch should be RETRY because 1 task was delayed and not finished yet", "RETRY", batchRec.status);
-        assertEquals("channel should be as is in config", batchChannel, batchRec.channel);
+        assertEquals("channel should restored to original", batchChannel, batchRec.channel);
 
         print("subtasks finished, waiting for batch tasks own retry");
         await().atMost(2600, TimeUnit.MILLISECONDS).pollInterval(TestUtils.POLL_INTERVAL).until(() -> {

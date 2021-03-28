@@ -33,36 +33,36 @@ import static org.mockito.Mockito.when;
 
 @Ignore
 public class I05PerfomTest extends TestBase {
-	private final static Logger logger = LoggerFactory.getLogger(I05PerfomTest.class);
+    private final static Logger logger = LoggerFactory.getLogger(I05PerfomTest.class);
 
-	private TedDriverImpl driver;
-	private TedContext context;
+    private TedDriverImpl driver;
+    private TedContext context;
 
-	@Override
-	protected TedDriverImpl getDriver() { return driver; }
+    @Override
+    protected TedDriverImpl getDriver() { return driver; }
 
-	@Before
-	public void init() throws IOException {
-		Properties properties = TestUtils.readPropertiesFile("ted-I05.properties");
-		driver = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), TestConfig.SYSTEM_ID, properties);
-		context = driver.getContext();
-	}
-
-
-	public static class Test05ProcessorOk implements TedProcessor {
-		@Override
-		public TedResult process(TedTask task)  {
-			logger.info(this.getClass().getSimpleName() + " process");
-			//sleepMs(2000);
-			return TedResult.done();
-		}
-	}
+    @Before
+    public void init() throws IOException {
+        Properties properties = TestUtils.readPropertiesFile("ted-I05.properties");
+        driver = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), TestConfig.SYSTEM_ID, properties);
+        context = driver.getContext();
+    }
 
 
+    public static class Test05ProcessorOk implements TedProcessor {
+        @Override
+        public TedResult process(TedTask task)  {
+            logger.info(this.getClass().getSimpleName() + " process");
+            //sleepMs(2000);
+            return TedResult.done();
+        }
+    }
 
-	@Ignore
-	@Test
-	public void test01FullQueue() {
+
+
+    @Ignore
+    @Test
+    public void test01FullQueue() {
 		/* fill:
 		(oracle)
 		insert into tedtask (taskId, system, name, channel, bno, status, createTs, nextTs)
@@ -74,65 +74,65 @@ public class I05PerfomTest extends TestBase {
 		select nextval('SEQ_TEDTASK_ID'), 'ted.test', 'TEST05-01', 'TEST5', null, 'NEW', now(), now()
 		from generate_series(1,100) s;
 		*/
-		// dao_cleanupAllTasks();
-		String taskName = "TEST05-01";
-		driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test05ProcessorOk.class));
-		try {
-			for (int i = 0; i < 30; i++) {
-				getContext().taskManager.processChannelTasks();
-				TestUtils.sleepMs(600);
-				if (getContext().tedDao.getWaitChannels().isEmpty()) {
-					TestUtils.print("No more tasks, finish");
-					break;
-				}
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		TestUtils.print("Exit");
-	}
+        // dao_cleanupAllTasks();
+        String taskName = "TEST05-01";
+        driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test05ProcessorOk.class));
+        try {
+            for (int i = 0; i < 30; i++) {
+                getContext().taskManager.processChannelTasks();
+                TestUtils.sleepMs(600);
+                if (getContext().tedDao.getWaitChannels().isEmpty()) {
+                    TestUtils.print("No more tasks, finish");
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        TestUtils.print("Exit");
+    }
 
-	private void doQuickCheck(Integer waitingTaskCount) {
+    private void doQuickCheck(Integer waitingTaskCount) {
 
-		List<CheckResult> chkres = new ArrayList<>();
-		chkres.add(new CheckResult("CHAN", "TEST5", waitingTaskCount));
+        List<CheckResult> chkres = new ArrayList<>();
+        chkres.add(new CheckResult("CHAN", "TEST5", waitingTaskCount));
 
-		when(context.tedDao.quickCheck(isNull(CheckPrimeParams.class), anyBoolean()))
-				.thenReturn(chkres);
+        when(context.tedDao.quickCheck(isNull(CheckPrimeParams.class), anyBoolean()))
+            .thenReturn(chkres);
 
-		when(context.tedDao.reserveTaskPortion(anyMap())).thenReturn(asList());
+        when(context.tedDao.reserveTaskPortion(anyMap())).thenReturn(asList());
 
-		context.quickCheck.quickCheck();
-	}
+        context.quickCheck.quickCheck();
+    }
 
-	@Test
-	public void test02QuickCheckChannelLookupOnManyWaitingTasks() {
+    @Test
+    public void test02QuickCheckChannelLookupOnManyWaitingTasks() {
 
-		context.tedDao = Mockito.mock(TedDao.class);
+        context.tedDao = Mockito.mock(TedDao.class);
 
-		// 1. there are many waiting tasks
-		//
+        // 1. there are many waiting tasks
+        //
 
-		doQuickCheck(5000);
-		verify(context.tedDao).quickCheck(isNull(CheckPrimeParams.class),
-				eq(false)); // first call with check
-		verify(context.tedDao).reserveTaskPortion(anyMap());
-		Mockito.reset(context.tedDao);
+        doQuickCheck(5000);
+        verify(context.tedDao).quickCheck(isNull(CheckPrimeParams.class),
+            eq(false)); // first call with check
+        verify(context.tedDao).reserveTaskPortion(anyMap());
+        Mockito.reset(context.tedDao);
 
-		doQuickCheck(null);
-		verify(context.tedDao).quickCheck(isNull(CheckPrimeParams.class),
-				eq(true)); // after getting 5000 waiting count next time we skip channelLookup
-		verify(context.tedDao).reserveTaskPortion(anyMap());
-		Mockito.reset(context.tedDao);
+        doQuickCheck(null);
+        verify(context.tedDao).quickCheck(isNull(CheckPrimeParams.class),
+            eq(true)); // after getting 5000 waiting count next time we skip channelLookup
+        verify(context.tedDao).reserveTaskPortion(anyMap());
+        Mockito.reset(context.tedDao);
 
-		// 2. now wait tasks again
-		//
+        // 2. now wait tasks again
+        //
 
-		doQuickCheck(0);
-		verify(context.tedDao).quickCheck(isNull(CheckPrimeParams.class),
-				eq(false));
-		Mockito.reset(context.tedDao);
+        doQuickCheck(0);
+        verify(context.tedDao).quickCheck(isNull(CheckPrimeParams.class),
+            eq(false));
+        Mockito.reset(context.tedDao);
 
-	}
+    }
 
 }

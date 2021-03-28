@@ -19,25 +19,25 @@ import ted.spring.exception.TedRetryException;
 @EnableTedTask
 @Configuration
 public class TedConfig {
-	private static final Logger logger = LoggerFactory.getLogger(TedConfig.class);
+    private static final Logger logger = LoggerFactory.getLogger(TedConfig.class);
 
-	public static class Sample4RetryException extends TedRetryException {
-		public Sample4RetryException(String message) {
-			super(message);
-		}
-	}
+    public static class Sample4RetryException extends TedRetryException {
+        public Sample4RetryException(String message) {
+            super(message);
+        }
+    }
 
-	// task may return TedResult
-	@TedTaskProcessor(name = "TASK1")
-	public TedResult task1(TedTask task) {
-		logger.info("start TASK1: {}", task.getData());
-		return TedResult.done();
-	}
+    // task may return TedResult
+    @TedTaskProcessor(name = "TASK1")
+    public TedResult task1(TedTask task) {
+        logger.info("start TASK1: {}", task.getData());
+        return TedResult.done();
+    }
 
-	// task may throw exception. If it is TedRetryException then task will be retried
-	@TedTaskProcessor(name = "TASK2")
-	public String task2(TedTask task) {
-		logger.info("start TASK2");
-		throw new Sample4RetryException("retry error");
-	}
+    // task may throw exception. If it is TedRetryException then task will be retried
+    @TedTaskProcessor(name = "TASK2")
+    public String task2(TedTask task) {
+        logger.info("start TASK2");
+        throw new Sample4RetryException("retry error");
+    }
 }

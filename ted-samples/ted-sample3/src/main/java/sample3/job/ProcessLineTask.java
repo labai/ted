@@ -16,32 +16,32 @@ import java.util.Random;
  */
 @Component
 public class ProcessLineTask extends AbstractTedProcessor<TaskParam> {
-	private static final Logger logger = LoggerFactory.getLogger(AbstractTedProcessor.class);
+    private static final Logger logger = LoggerFactory.getLogger(AbstractTedProcessor.class);
 
-	public ProcessLineTask() {
-		super(TedConfig.TASK_PROCESS_LINE);
-	}
+    public ProcessLineTask() {
+        super(TedConfig.TASK_PROCESS_LINE);
+    }
 
-	private Random random = new Random();
+    private Random random = new Random();
 
-	public static class TaskParam {
-		public int lineNumber;
-		public String line;
-	}
+    public static class TaskParam {
+        public int lineNumber;
+        public String line;
+    }
 
-	@Override
-	protected final TedResult processTask(TedTask task, TaskParam data) {
-		int sleepMs = 200 + random.nextInt(700);
-		logger.info("do something smart with line {}: '{}' for {}ms", data.lineNumber, data.line, sleepMs);
-		sleep(sleepMs);
-		return TedResult.done();
-	}
+    @Override
+    protected final TedResult processTask(TedTask task, TaskParam data) {
+        int sleepMs = 200 + random.nextInt(700);
+        logger.info("do something smart with line {}: '{}' for {}ms", data.lineNumber, data.line, sleepMs);
+        sleep(sleepMs);
+        return TedResult.done();
+    }
 
-	private static void sleep(long milis) {
-		try {
-			Thread.sleep(milis);
-		} catch (InterruptedException e2) {
-		}
-	}
+    private static void sleep(long milis) {
+        try {
+            Thread.sleep(milis);
+        } catch (InterruptedException e2) {
+        }
+    }
 
 }

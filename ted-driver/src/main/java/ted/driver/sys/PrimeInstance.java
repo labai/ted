@@ -20,118 +20,118 @@ import java.util.concurrent.ThreadPoolExecutor;
  *
  */
 public final class PrimeInstance {
-	private final static Logger logger = LoggerFactory.getLogger(PrimeInstance.class);
-	private final static Logger loggerConfig = LoggerFactory.getLogger("ted-config");
-	final static int TICK_SKIP_COUNT = 3; // every 3 check periods
+    private final static Logger logger = LoggerFactory.getLogger(PrimeInstance.class);
+    private final static Logger loggerConfig = LoggerFactory.getLogger("ted-config");
+    final static int TICK_SKIP_COUNT = 3; // every 3 check periods
 
-	private final TedContext context;
+    private final TedContext context;
 
-	private boolean enabled = false;
-	private boolean initiated = false;
-	private Long primeTaskId = null;
-	private int postponeSec = 3;
-	private boolean isPrime = false;
+    private boolean enabled = false;
+    private boolean initiated = false;
+    private Long primeTaskId = null;
+    private int postponeSec = 3;
+    private boolean isPrime = false;
 
-	private PrimeChangeEvent onBecomePrime = null;
-	private PrimeChangeEvent onLostPrime = null;
+    private PrimeChangeEvent onBecomePrime = null;
+    private PrimeChangeEvent onLostPrime = null;
 
-	final CheckPrimeParams checkPrimeParams = new CheckPrimeParams() {
-		public boolean isPrime() { return isPrime; };
-		public String instanceId() { return context.config.instanceId(); };
-		public long primeTaskId() { return primeTaskId; }
-		public int postponeSec() { return postponeSec; };
+    final CheckPrimeParams checkPrimeParams = new CheckPrimeParams() {
+        public boolean isPrime() { return isPrime; };
+        public String instanceId() { return context.config.instanceId(); };
+        public long primeTaskId() { return primeTaskId; }
+        public int postponeSec() { return postponeSec; };
 
-	};
+    };
 
-	boolean isEnabled() {
-		return enabled;
-	}
+    boolean isEnabled() {
+        return enabled;
+    }
 
-	public PrimeInstance(TedContext context) {
-		this.context = context;
-	}
+    public PrimeInstance(TedContext context) {
+        this.context = context;
+    }
 
-	public void enable() {
-		if (context.tedDao.getDbType() != DbType.POSTGRES)
-			throw new IllegalStateException("Prime instance feature is allowed for PostgreSQL db yet. TODO");
-		enabled = true;
-		//if (initiated)
-		init(); // re-init
-	}
+    public void enable() {
+        if (context.tedDao.getDbType() != DbType.POSTGRES)
+            throw new IllegalStateException("Prime instance feature is allowed for PostgreSQL db yet. TODO");
+        enabled = true;
+        //if (initiated)
+        init(); // re-init
+    }
 
-	// after configs read
-	void init() {
-		if (! isEnabled()) {
-			loggerConfig.info("Ted prime instance check is disabled");
-			return;
-		}
-		this.primeTaskId = context.tedDaoExt.findPrimeTaskId();
+    // after configs read
+    void init() {
+        if (! isEnabled()) {
+            loggerConfig.info("Ted prime instance check is disabled");
+            return;
+        }
+        this.primeTaskId = context.tedDaoExt.findPrimeTaskId();
 
-		int periodMs = context.config.intervalDriverMs();
-		this.postponeSec = (int)Math.round((1.0 * periodMs * TICK_SKIP_COUNT + 500 + 500) / 1000); // 500ms reserve, 500 for rounding up
+        int periodMs = context.config.intervalDriverMs();
+        this.postponeSec = (int)Math.round((1.0 * periodMs * TICK_SKIP_COUNT + 500 + 500) / 1000); // 500ms reserve, 500 for rounding up
 
-		becomePrime();
+        becomePrime();
 
-		loggerConfig.info("Ted prime instance check is enabled, primeTaskId={} isPrime={} postponeSec={}", primeTaskId, isPrime, postponeSec);
-		initiated = true;
-	}
+        loggerConfig.info("Ted prime instance check is enabled, primeTaskId={} isPrime={} postponeSec={}", primeTaskId, isPrime, postponeSec);
+        initiated = true;
+    }
 
-	void becomePrime() {
-		if (isPrime)
-			return;
-		this.isPrime = context.tedDaoExt.becomePrime(primeTaskId, context.config.instanceId());
-		if (isPrime) {
-			logger.info("TED become prime. instanceId={}", context.config.instanceId());
-			if (onBecomePrime != null) {
-				ThreadPoolExecutor workers = context.registry.getChannel(Model.CHANNEL_SYSTEM).workers;
-				workers.execute(() -> {
-					try {
-						onBecomePrime.onEvent();
-					} catch (Throwable e) {
-						logger.error("Exception onBecomePrime handler", e);
-					}
-				});
-			}
-		}
-	}
+    void becomePrime() {
+        if (isPrime)
+            return;
+        this.isPrime = context.tedDaoExt.becomePrime(primeTaskId, context.config.instanceId());
+        if (isPrime) {
+            logger.info("TED become prime. instanceId={}", context.config.instanceId());
+            if (onBecomePrime != null) {
+                ThreadPoolExecutor workers = context.registry.getChannel(Model.CHANNEL_SYSTEM).workers;
+                workers.execute(() -> {
+                    try {
+                        onBecomePrime.onEvent();
+                    } catch (Throwable e) {
+                        logger.error("Exception onBecomePrime handler", e);
+                    }
+                });
+            }
+        }
+    }
 
-	void lostPrime() {
-		if (! isPrime)
-			return;
-		logger.info("TED lost prime. instanceId={}", context.config.instanceId());
-		this.isPrime = false;
-		if (onLostPrime != null) {
-			ThreadPoolExecutor workers = context.registry.getChannel(Model.CHANNEL_SYSTEM).workers;
-			workers.execute(() -> {
-				try {
-					onLostPrime.onEvent();
-				} catch (Throwable e) {
-					logger.error("Exception onLostPrime handler", e);
-				}
-			});
-		}
-	}
+    void lostPrime() {
+        if (! isPrime)
+            return;
+        logger.info("TED lost prime. instanceId={}", context.config.instanceId());
+        this.isPrime = false;
+        if (onLostPrime != null) {
+            ThreadPoolExecutor workers = context.registry.getChannel(Model.CHANNEL_SYSTEM).workers;
+            workers.execute(() -> {
+                try {
+                    onLostPrime.onEvent();
+                } catch (Throwable e) {
+                    logger.error("Exception onLostPrime handler", e);
+                }
+            });
+        }
+    }
 
-	public boolean isPrime() {
-		return isPrime;
-	}
+    public boolean isPrime() {
+        return isPrime;
+    }
 
-	Long primeTaskId() {
-		return primeTaskId;
-	}
+    Long primeTaskId() {
+        return primeTaskId;
+    }
 
-	interface CheckPrimeParams {
-		boolean isPrime();
-		String instanceId();
-		long primeTaskId();
-		int postponeSec();
-	}
+    interface CheckPrimeParams {
+        boolean isPrime();
+        String instanceId();
+        long primeTaskId();
+        int postponeSec();
+    }
 
-	public void setOnBecomePrime(PrimeChangeEvent onBecomePrime) {
-		this.onBecomePrime = onBecomePrime;
-	}
+    public void setOnBecomePrime(PrimeChangeEvent onBecomePrime) {
+        this.onBecomePrime = onBecomePrime;
+    }
 
-	public void setOnLostPrime(PrimeChangeEvent onLostPrime) {
-		this.onLostPrime = onLostPrime;
-	}
+    public void setOnLostPrime(PrimeChangeEvent onLostPrime) {
+        this.onLostPrime = onLostPrime;
+    }
 }

@@ -27,13 +27,13 @@ internal abstract class AbstractDao (private val context: Context) : ISchedulerD
 
     override fun lockTask(connection: Connection, taskId: Long): Boolean {
         val sql = ("select taskid as longVal"
-                + " from $tedTask"
-                + " where taskid = ?"
-                + " " + dbType.sql().forUpdateSkipLocked()
-                )
+            + " from $tedTask"
+            + " where taskid = ?"
+            + " " + dbType.sql().forUpdateSkipLocked()
+            )
         val list = selectData(connection, "lock_task", sql, LongVal::class, listOf(
-                    SchdJdbcSelect.sqlParam(taskId, LONG)
-                ))
+            SchdJdbcSelect.sqlParam(taskId, LONG)
+        ))
         return list.firstOrNull()?.longVal == taskId
     }
 
@@ -42,11 +42,11 @@ internal abstract class AbstractDao (private val context: Context) : ISchedulerD
     override fun getActiveTasks(taskName: String, limit: Int, includingError: Boolean): List<Long> {
         val sqlLogId = "chk_uniq_task"
         val sql = ("select taskid as longVal from $tedTask where system = '$thisSystem' and name = ?"
-                + " and status in ('NEW', 'RETRY', 'WORK'" + (if (includingError) ",'ERROR'" else "") + ")"
-                + dbType.sql().rownum(limit)
-                )
+            + " and status in ('NEW', 'RETRY', 'WORK'" + (if (includingError) ",'ERROR'" else "") + ")"
+            + dbType.sql().rownum(limit)
+            )
         val results = selectData(sqlLogId, sql, LongVal::class, listOf(
-                SchdJdbcSelect.sqlParam(taskName, STRING)
+            SchdJdbcSelect.sqlParam(taskName, STRING)
         ))
         return results.map { it.longVal!! }
     }
@@ -56,14 +56,14 @@ internal abstract class AbstractDao (private val context: Context) : ISchedulerD
         val postponeSecSql = dbType.sql().intervalSeconds(postponeSec)
         val nowSql = dbType.sql().now()
         val sql = ("update $tedTask set status = 'RETRY', retries = retries + 1,"
-                + " nextts = $nowSql + $postponeSecSql"
-                + " where system = '$thisSystem' and taskid = ? and name = ?"
-                + " and status = 'ERROR'"
-                )
+            + " nextts = $nowSql + $postponeSecSql"
+            + " where system = '$thisSystem' and taskid = ? and name = ?"
+            + " and status = 'ERROR'"
+            )
 
         executeUpdate(sqlLogId, sql, listOf(
-                SchdJdbcSelect.sqlParam(taskId, LONG),
-                SchdJdbcSelect.sqlParam(taskName, STRING)
+            SchdJdbcSelect.sqlParam(taskId, LONG),
+            SchdJdbcSelect.sqlParam(taskName, STRING)
         ))
     }
 
@@ -74,9 +74,9 @@ internal abstract class AbstractDao (private val context: Context) : ISchedulerD
 
         val inIds = taskIds.map { it.toString() }.joinToString(",")
         val sql = ("select taskid as longVal from $tedTask"
-                + " where system = '$thisSystem'"
-                + " and status = 'ERROR'"
-                + " and taskid in ($inIds)")
+            + " where system = '$thisSystem'"
+            + " and status = 'ERROR'"
+            + " and taskid in ($inIds)")
 
         val results = selectData(sqlLogId, sql, LongVal::class, emptyList())
         return results.map { it.longVal!! }
@@ -86,7 +86,7 @@ internal abstract class AbstractDao (private val context: Context) : ISchedulerD
         val sql = "select min(taskId) as longVal from $tedTask where system = '$thisSystem'"
 
         return selectData("min_taskid", sql, LongVal::class, emptyList())
-                .firstOrNull()?.longVal
+            .firstOrNull()?.longVal
     }
 
 

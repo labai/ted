@@ -49,9 +49,9 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
     }
 
     private class SchedulerInfo(
-            internal val name: String,
-            internal val taskId: Long,
-            internal val retryScheduler: TedRetryScheduler
+        internal val name: String,
+        internal val taskId: Long,
+        internal val retryScheduler: TedRetryScheduler
     )
 
     init {

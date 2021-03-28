@@ -15,24 +15,24 @@ interface TedDaoExt {
 
 //	Map<TedStatus, Integer> getBatchStatusStats(long batchId);
 
-	boolean becomePrime(Long primeTaskId, String instanceId);
+    boolean becomePrime(Long primeTaskId, String instanceId);
 
-	Long findPrimeTaskId();
+    Long findPrimeTaskId();
 
-	Long createEvent(String taskName, String queueId, String data, String key2);
+    Long createEvent(String taskName, String queueId, String data, String key2);
 
-	TaskRec eventQueueMakeFirst(String queueId);
+    TaskRec eventQueueMakeFirst(String queueId);
 
-	List<TaskRec> eventQueueGetTail(String queueId);
+    List<TaskRec> eventQueueGetTail(String queueId);
 
-	TaskRec eventQueueReserveTask(long taskId);
+    TaskRec eventQueueReserveTask(long taskId);
 
-	List<TaskRec> getLastNotifications(Date fromTs);
+    List<TaskRec> getLastNotifications(Date fromTs);
 
-	void cleanupNotifications(Date tillTs);
+    void cleanupNotifications(Date tillTs);
 
-	void runInTx(Runnable runnable);
+    void runInTx(Runnable runnable);
 
-	boolean maintenanceRebuildIndex();
+    boolean maintenanceRebuildIndex();
 
 }

@@ -19,14 +19,14 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface TedTaskProcessor {
 
-	/**
-	 * Task name, mandatory
-	 */
-	String name();
+    /**
+     * Task name, mandatory
+     */
+    String name();
 
-	/**
-	 * list of exception, on which will set RETRY instead of ERROR
-	 */
-	Class<? extends Throwable>[] retryException() default TedRetryException.class;
+    /**
+     * list of exception, on which will set RETRY instead of ERROR
+     */
+    Class<? extends Throwable>[] retryException() default TedRetryException.class;
 }
 

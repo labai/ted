@@ -15,21 +15,21 @@ import java.util.Date;
  */
 public interface TedTask {
 
-	Long getTaskId();
-	String getName();
-	String getKey1();
-	String getKey2();
-	String getData();
-	Integer getRetries();
-	Date getCreateTs();
-	Date getStartTs();
-	Long getBatchId();
-	TedStatus getStatus();
+    Long getTaskId();
+    String getName();
+    String getKey1();
+    String getKey2();
+    String getData();
+    Integer getRetries();
+    Date getCreateTs();
+    Date getStartTs();
+    Long getBatchId();
+    TedStatus getStatus();
 
-	/** is task executing first time */
-	boolean isNew();
-	/** is task executing not first time */
-	boolean isRetry();
-	/** is task after timout (was returned from status 'WORK') */
-	boolean isAfterTimeout();
+    /** is task executing first time */
+    boolean isNew();
+    /** is task executing not first time */
+    boolean isRetry();
+    /** is task after timout (was returned from status 'WORK') */
+    boolean isAfterTimeout();
 }

@@ -12,10 +12,10 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class BeansConfig {
 
-	@Bean
-	public Gson gson() {
-		return new GsonBuilder()
-				.setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-				.create();
-	}
+    @Bean
+    public Gson gson() {
+        return new GsonBuilder()
+            .setDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+            .create();
+    }
 }

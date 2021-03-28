@@ -14,56 +14,56 @@ import java.util.List;
  */
 public interface TedDriverApi {
 
-	interface TedTaskConfig {
+    interface TedTaskConfig {
 
-		TedRetryScheduler getRetryScheduler();
+        TedRetryScheduler getRetryScheduler();
 
-		//String getChannel(); ...and so on...
-	}
+        //String getChannel(); ...and so on...
+    }
 
-	interface TedDriverConfig {
+    interface TedDriverConfig {
 
-		TedTaskConfig getTaskConfig(String taskName);
-	}
+        TedTaskConfig getTaskConfig(String taskName);
+    }
 
-	interface TedDriverService {
+    interface TedDriverService {
 
-		void start();
+        void start();
 
-		void shutdown();
+        void shutdown();
 
-	}
+    }
 
-	interface TedDriverConfigAware {
+    interface TedDriverConfigAware {
 
-		TedDriverConfig getDriverConfig();
+        TedDriverConfig getDriverConfig();
 
-	}
+    }
 
-	interface TedDriverTaskConfig {
+    interface TedDriverTaskConfig {
 
-		void registerTaskConfig(String taskName, TedProcessorFactory tedProcessorFactory);
+        void registerTaskConfig(String taskName, TedProcessorFactory tedProcessorFactory);
 
-		void registerTaskConfig(String taskName, TedProcessorFactory tedProcessorFactory, TedRetryScheduler retryScheduler);
+        void registerTaskConfig(String taskName, TedProcessorFactory tedProcessorFactory, TedRetryScheduler retryScheduler);
 
-	}
+    }
 
 
-	interface TedDriverTask {
+    interface TedDriverTask {
 
-		Long createTask(String taskName, String data, String key1, String key2);
+        Long createTask(String taskName, String data, String key1, String key2);
 
-		Long createTask(String taskName, String data);
+        Long createTask(String taskName, String data);
 
-		Long createTaskPostponed(String taskName, String data, String key1, String key2, int postponeSec);
+        Long createTaskPostponed(String taskName, String data, String key1, String key2, int postponeSec);
 
-		Long createAndExecuteTask(String taskName, String data, String key1, String key2);
+        Long createAndExecuteTask(String taskName, String data, String key1, String key2);
 
-		Long createAndStartTask(String taskName, String data, String key1, String key2);
+        Long createAndStartTask(String taskName, String data, String key1, String key2);
 
-		TedTask getTask(Long taskId);
+        TedTask getTask(Long taskId);
 
-	}
+    }
 
 //	interface TedDriverBatch {
 //
@@ -71,29 +71,29 @@ public interface TedDriverApi {
 //
 //	}
 
-	interface TedDriverEvent {
+    interface TedDriverEvent {
 
-		Long createEvent(String taskName, String queueId, String data, String key2);
+        Long createEvent(String taskName, String queueId, String data, String key2);
 
-		Long createEventAndTryExecute(String taskName, String queueId, String data, String key2);
+        Long createEventAndTryExecute(String taskName, String queueId, String data, String key2);
 
-	}
+    }
 
-	interface TedDriverNotification {
+    interface TedDriverNotification {
 
-		Long sendNotification(String taskName, String data);
+        Long sendNotification(String taskName, String data);
 
-	}
+    }
 
-	interface TedDriverPrime {
+    interface TedDriverPrime {
 
-		void enablePrime();
+        void enablePrime();
 
-		boolean isPrime();
+        boolean isPrime();
 
-		void setOnBecomePrimeHandler(PrimeChangeEvent onBecomePrime);
+        void setOnBecomePrimeHandler(PrimeChangeEvent onBecomePrime);
 
-		void setOnLostPrimeHandler(PrimeChangeEvent onLostPrime);
-	}
+        void setOnLostPrimeHandler(PrimeChangeEvent onLostPrime);
+    }
 
 }

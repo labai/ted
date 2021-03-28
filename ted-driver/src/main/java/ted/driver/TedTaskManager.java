@@ -19,31 +19,31 @@ import ted.driver.task.TedTaskFactory;
  */
 public class TedTaskManager {
 
-	private TedDriverImpl tedDriverImpl; // for internal, not for in apps
+    private TedDriverImpl tedDriverImpl; // for internal, not for in apps
 
-	private final TedTaskFactory taskFactory;
-	private final TedBatchFactory batchFactory;
+    private final TedTaskFactory taskFactory;
+    private final TedBatchFactory batchFactory;
 
-	public TedTaskManager(TedDriver tedDriver) {
-		this.tedDriverImpl = tedDriver.tedDriverImpl;
-		this.taskFactory = new TedTaskFactory(tedDriverImpl);
-		this.batchFactory = new TedBatchFactory(tedDriverImpl);
-	}
+    public TedTaskManager(TedDriver tedDriver) {
+        this.tedDriverImpl = tedDriver.tedDriverImpl;
+        this.taskFactory = new TedTaskFactory(tedDriverImpl);
+        this.batchFactory = new TedBatchFactory(tedDriverImpl);
+    }
 
-	public TedTaskManager() {
-		this.taskFactory = new TedTaskFactory(() -> tedDriverImpl);
-		this.batchFactory = new TedBatchFactory(() -> tedDriverImpl);
-	}
+    public TedTaskManager() {
+        this.taskFactory = new TedTaskFactory(() -> tedDriverImpl);
+        this.batchFactory = new TedBatchFactory(() -> tedDriverImpl);
+    }
 
-	public void setTedDriver(TedDriver tedDriver) {
-		this.tedDriverImpl = tedDriver.tedDriverImpl;
-	}
+    public void setTedDriver(TedDriver tedDriver) {
+        this.tedDriverImpl = tedDriver.tedDriverImpl;
+    }
 
-	public TedTaskFactory getTaskFactory() {
-		return taskFactory;
-	}
+    public TedTaskFactory getTaskFactory() {
+        return taskFactory;
+    }
 
-	public TedBatchFactory getBatchFactory() {
-		return batchFactory;
-	}
+    public TedBatchFactory getBatchFactory() {
+        return batchFactory;
+    }
 }

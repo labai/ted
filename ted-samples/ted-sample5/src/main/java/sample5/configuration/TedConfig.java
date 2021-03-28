@@ -18,12 +18,12 @@ import ted.spring.annotation.TedTaskProcessor;
 @EnableTedTask
 @Configuration
 public class TedConfig {
-	private static final Logger logger = LoggerFactory.getLogger(TedConfig.class);
+    private static final Logger logger = LoggerFactory.getLogger(TedConfig.class);
 
-	@TedTaskProcessor(name = "TASK1")
-	public TedResult task1(TedTask task) {
-		logger.info("start TASK1: {}", task.getData());
-		return TedResult.done();
-	}
+    @TedTaskProcessor(name = "TASK1")
+    public TedResult task1(TedTask task) {
+        logger.info("start TASK1: {}", task.getData());
+        return TedResult.done();
+    }
 
 }

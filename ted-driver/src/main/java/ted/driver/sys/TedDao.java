@@ -23,64 +23,64 @@ import static ted.driver.sys.MiscUtils.asList;
  */
 interface TedDao {
 
-	DbType getDbType();
+    DbType getDbType();
 
-	Long createTask(String name, String channel, String data, String key1, String key2, Long batchId, Connection conn);
+    Long createTask(String name, String channel, String data, String key1, String key2, Long batchId, Connection conn);
 
-	Long createTaskPostponed(String name, String channel, String data, String key1, String key2, int postponeSec, Connection conn);
+    Long createTaskPostponed(String name, String channel, String data, String key1, String key2, int postponeSec, Connection conn);
 
-	Long createTaskWithWorkStatus(String name, String channel, String data, String key1, String key2, Connection conn);
+    Long createTaskWithWorkStatus(String name, String channel, String data, String key1, String key2, Connection conn);
 
-	List<Long> createTasksBulk(List<TaskParam> taskParams);
+    List<Long> createTasksBulk(List<TaskParam> taskParams);
 
-	void processMaintenanceFrequent();
+    void processMaintenanceFrequent();
 
-	void processMaintenanceRare(int deleteAfterDays);
+    void processMaintenanceRare(int deleteAfterDays);
 
-	List<TaskRec> getWorkingTooLong();
+    List<TaskRec> getWorkingTooLong();
 
-	void setTaskPlannedWorkTimeout(long taskId, Date timeoutTime);
+    void setTaskPlannedWorkTimeout(long taskId, Date timeoutTime);
 
-	// quick check, is there any task
-	List<GetWaitChannelsResult> getWaitChannels();
+    // quick check, is there any task
+    List<GetWaitChannelsResult> getWaitChannels();
 
-	List<TaskRec> reserveTaskPortion(Map<String, Integer> channelSizes);
+    List<TaskRec> reserveTaskPortion(Map<String, Integer> channelSizes);
 
-	void setStatuses(List<SetTaskStatus> statuses);
+    void setStatuses(List<SetTaskStatus> statuses);
 
-	TaskRec getTask(long taskId);
+    TaskRec getTask(long taskId);
 
-	boolean checkIsBatchFinished(long batchId);
+    boolean checkIsBatchFinished(long batchId);
 
-	void cleanupBatchTask(Long taskId, String msg, String chanel);
+    void cleanupBatchTask(Long taskId, String msg, String chanel);
 
-	List<CheckResult> quickCheck(CheckPrimeParams checkPrimeParams, boolean skipChannelCheck);
+    List<CheckResult> quickCheck(CheckPrimeParams checkPrimeParams, boolean skipChannelCheck);
 
-	class SetTaskStatus {
-		final long taskId;
-		final TedStatus status;
-		final String msg;
-		final Date nextRetryTs;
-		final Date updateTs = new Date();
-		public SetTaskStatus(long taskId, TedStatus status, String msg, Date nextRetryTs) {
-			this.taskId = taskId;
-			this.status = status;
-			this.msg = msg;
-			this.nextRetryTs = nextRetryTs;
-		}
-		public SetTaskStatus(long taskId, TedStatus status, String msg) {
-			this(taskId, status, msg, null);
-		}
+    class SetTaskStatus {
+        final long taskId;
+        final TedStatus status;
+        final String msg;
+        final Date nextRetryTs;
+        final Date updateTs = new Date();
+        public SetTaskStatus(long taskId, TedStatus status, String msg, Date nextRetryTs) {
+            this.taskId = taskId;
+            this.status = status;
+            this.msg = msg;
+            this.nextRetryTs = nextRetryTs;
+        }
+        public SetTaskStatus(long taskId, TedStatus status, String msg) {
+            this(taskId, status, msg, null);
+        }
 
-		@Override public String toString() { return "{" + taskId + " " + status + "}"; }
-	}
+        @Override public String toString() { return "{" + taskId + " " + status + "}"; }
+    }
 
-	default void setStatus(long taskId, TedStatus status, String msg) {
-		setStatuses(asList(new SetTaskStatus(taskId, status, msg)));
-	}
+    default void setStatus(long taskId, TedStatus status, String msg) {
+        setStatuses(asList(new SetTaskStatus(taskId, status, msg)));
+    }
 
-	default void setStatusPostponed(long taskId, TedStatus status, String msg, Date nextTs) {
-		setStatuses(asList(new SetTaskStatus(taskId, status, msg, nextTs)));
-	}
+    default void setStatusPostponed(long taskId, TedStatus status, String msg, Date nextTs) {
+        setStatuses(asList(new SetTaskStatus(taskId, status, msg, nextTs)));
+    }
 
 }

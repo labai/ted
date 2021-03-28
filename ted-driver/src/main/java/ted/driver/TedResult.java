@@ -14,45 +14,45 @@ import ted.driver.Ted.TedStatus;
  * 	 ... return TedResult.retry("Record was locked")
  */
 public class TedResult {
-	private static final TedResult RES_DONE = new TedResult(TedStatus.DONE, null);
-	private static final TedResult RES_RETRY = new TedResult(TedStatus.RETRY, null);
-	private static final TedResult RES_ERROR = new TedResult(TedStatus.ERROR, null);
-	private final TedStatus status;
-	private final String message;
+    private static final TedResult RES_DONE = new TedResult(TedStatus.DONE, null);
+    private static final TedResult RES_RETRY = new TedResult(TedStatus.RETRY, null);
+    private static final TedResult RES_ERROR = new TedResult(TedStatus.ERROR, null);
+    private final TedStatus status;
+    private final String message;
 
-	private TedResult(TedStatus status, String message) {
-		this.status = status;
-		this.message = message;
-	}
+    private TedResult(TedStatus status, String message) {
+        this.status = status;
+        this.message = message;
+    }
 
-	public static TedResult error(String msg) {
-		return new TedResult(TedStatus.ERROR, msg);
-	}
-	public static TedResult error() {
-		return RES_ERROR;
-	}
+    public static TedResult error(String msg) {
+        return new TedResult(TedStatus.ERROR, msg);
+    }
+    public static TedResult error() {
+        return RES_ERROR;
+    }
 
-	public static TedResult done(String msg) {
-		return new TedResult(TedStatus.DONE, msg);
-	}
+    public static TedResult done(String msg) {
+        return new TedResult(TedStatus.DONE, msg);
+    }
 
-	public static TedResult done() {
-		return RES_DONE;
-	}
+    public static TedResult done() {
+        return RES_DONE;
+    }
 
-	public static TedResult retry(String msg) {
-		return new TedResult(TedStatus.RETRY, msg);
-	}
+    public static TedResult retry(String msg) {
+        return new TedResult(TedStatus.RETRY, msg);
+    }
 
-	public static TedResult retry() {
-		return RES_RETRY;
-	}
+    public static TedResult retry() {
+        return RES_RETRY;
+    }
 
-	public TedStatus status() {
-		return status;
-	}
+    public TedStatus status() {
+        return status;
+    }
 
-	public String message() {
-		return message;
-	}
+    public String message() {
+        return message;
+    }
 }

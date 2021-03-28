@@ -17,14 +17,14 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface TedSchedulerProcessor {
 
-	/**
-	 * Task name, mandatory
-	 */
-	String name();
+    /**
+     * Task name, mandatory
+     */
+    String name();
 
-	/**
-	 * Cron expression, mandatory
-	 */
-	String cron();
+    /**
+     * Cron expression, mandatory
+     */
+    String cron();
 
 }

@@ -17,30 +17,30 @@ import java.util.Properties;
  */
 @Configuration
 public class TedConfig {
-	public static final String TASK_PROCESS_LINE = "PROCESS_LINE";
-	public static final String SCHEDULER_TASK_SAMPLE3 = "SCH_SAMPLE3";
+    public static final String TASK_PROCESS_LINE = "PROCESS_LINE";
+    public static final String SCHEDULER_TASK_SAMPLE3 = "SCH_SAMPLE3";
 
-	@Autowired
-	private DataSource dataSource;
+    @Autowired
+    private DataSource dataSource;
 
-	@Bean(destroyMethod="shutdown")
-	public TedDriver tedDriver() {
-		Properties properties = new Properties();
-		String propFileName = "ted.properties";
-		InputStream inputStream = TedConfig.class.getClassLoader().getResourceAsStream(propFileName);
-		if (inputStream == null)
-			throw new RuntimeException("Property file '" + propFileName + "' not found in the classpath");
-		try {
-			properties.load(inputStream);
-			inputStream.close();
-		} catch (IOException e) {
-			throw new RuntimeException("Cannot read property file '" + propFileName + "'", e);
-		}
-		if (dataSource == null)
-			throw new IllegalStateException("dataSource is null");
-		TedDriver tedDriver = new TedDriver(TedDbType.POSTGRES, dataSource, properties);
-		tedDriver.enablePrime();
-		tedDriver.start();
-		return tedDriver;
-	}
+    @Bean(destroyMethod="shutdown")
+    public TedDriver tedDriver() {
+        Properties properties = new Properties();
+        String propFileName = "ted.properties";
+        InputStream inputStream = TedConfig.class.getClassLoader().getResourceAsStream(propFileName);
+        if (inputStream == null)
+            throw new RuntimeException("Property file '" + propFileName + "' not found in the classpath");
+        try {
+            properties.load(inputStream);
+            inputStream.close();
+        } catch (IOException e) {
+            throw new RuntimeException("Cannot read property file '" + propFileName + "'", e);
+        }
+        if (dataSource == null)
+            throw new IllegalStateException("dataSource is null");
+        TedDriver tedDriver = new TedDriver(TedDbType.POSTGRES, dataSource, properties);
+        tedDriver.enablePrime();
+        tedDriver.start();
+        return tedDriver;
+    }
 }

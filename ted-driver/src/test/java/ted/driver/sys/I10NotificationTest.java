@@ -17,11 +17,10 @@ import ted.driver.sys.TestTedProcessors.SingeInstanceFactory;
 import ted.driver.sys.TestTedProcessors.TestProcessorOk;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.anyBoolean;
+import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.isA;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.times;
@@ -55,9 +54,6 @@ public class I10NotificationTest extends TestBase {
             " and status <> 'DONE'");
     }
 
-    private void dao_execSql (String sql) {
-        ((TedDaoAbstract)getContext().tedDao).execute("test", sql, Collections.emptyList());
-    }
 
     @Test
     public void test01SendNotification() {
@@ -127,15 +123,15 @@ public class I10NotificationTest extends TestBase {
 
         List<CheckResult> chkres = new ArrayList<>();
         chkres.add(new CheckResult("CHAN", Model.CHANNEL_NOTIFY, null));
-        doReturn(chkres).when(context1.tedDao).quickCheck(isA(CheckPrimeParams.class), anyBoolean());
-        doReturn(chkres).when(context2.tedDao).quickCheck(isA(CheckPrimeParams.class), anyBoolean());
+        doReturn(chkres).when(context1.tedDao).quickCheck(isA(CheckPrimeParams.class), anyObject());
+        doReturn(chkres).when(context2.tedDao).quickCheck(isA(CheckPrimeParams.class), anyObject());
 
         context1.quickCheck.quickCheck();
         context2.quickCheck.quickCheck();
 
-        verify(context1.tedDao, times(1)).quickCheck(isA(CheckPrimeParams.class), anyBoolean());
+        verify(context1.tedDao, times(1)).quickCheck(isA(CheckPrimeParams.class), anyObject());
         verify(context1.notificationManager, times(1)).processNotifications();
-        verify(context2.tedDao, times(1)).quickCheck(isA(CheckPrimeParams.class), anyBoolean());
+        verify(context2.tedDao, times(1)).quickCheck(isA(CheckPrimeParams.class), anyObject());
         verify(context2.notificationManager, times(1)).processNotifications();
 
 

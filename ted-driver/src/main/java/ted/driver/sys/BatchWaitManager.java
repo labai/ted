@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedStatus;
 import ted.driver.sys.Executors.TedRunnable;
 import ted.driver.sys.Model.TaskRec;
+import ted.driver.sys.QuickCheck.Tick;
 import ted.driver.sys.Registry.Channel;
 import ted.driver.sys.Registry.TaskConfig;
 import ted.driver.sys.TedDriverImpl.TedContext;
@@ -42,7 +43,7 @@ class BatchWaitManager {
         int maxTask = context.taskManager.calcChannelBufferFree(channel);
         Map<String, Integer> channelSizes = new HashMap<>();
         channelSizes.put(Model.CHANNEL_BATCH, maxTask);
-        List<TaskRec> batches = context.tedDao.reserveTaskPortion(channelSizes);
+        List<TaskRec> batches = context.tedDao.reserveTaskPortion(channelSizes, new Tick(1));
         if (batches.isEmpty())
             return;
 
@@ -70,7 +71,6 @@ class BatchWaitManager {
             logger.debug("Batch {} waiting finished, changing channel to {} and status to NEW", batch.taskId, tc.channel);
             tedDao.cleanupBatchTask(batch.taskId, "", tc.channel);
             tedDao.setStatusPostponed(batch.taskId, TedStatus.NEW, "", new Date());
-            return;
         }
 
         // retry batch

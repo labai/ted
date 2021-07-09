@@ -20,7 +20,7 @@ class TedDaoExtNA implements TedDaoExt {
     }
 
     @Override
-    public boolean becomePrime(Long primeTaskId, String instanceId) {
+    public boolean becomePrime(Long primeTaskId, String instanceId, Integer postponeSec) {
         throw new IllegalStateException(errorMsg);
     }
 
@@ -69,4 +69,8 @@ class TedDaoExtNA implements TedDaoExt {
         throw new IllegalStateException(errorMsg);
     }
 
+    @Override
+    public void maintenanceMoveDoneTasks(String histTableName, int deleteHistoryDays) {
+        throw new IllegalStateException(errorMsg);
+    }
 }

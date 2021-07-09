@@ -5,10 +5,10 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ted.driver.TedResult;
+import ted.driver.sys.QuickCheck.Tick;
 import ted.driver.sys.Registry.Channel;
 
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
+import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertEquals;
@@ -28,37 +28,16 @@ public class I02MultiTest extends TestBase {
     @Override
     protected TedDriverImpl getDriver() { return driver1; }
 
-    private Channel channel1;
-    private Channel channel2;
-
     @Before
     public void init() {
         // driver1
-        driver1 = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), TestConfig.SYSTEM_ID);
-        channel1 = driver1.getContext().registry.getChannel("MAIN");
-        ThreadPoolExecutor executor1 = channel1.workers;
-        executor1.setThreadFactory(new ThreadFactory() {
-            private int counter = 0;
-            @Override
-            public Thread newThread(Runnable runnable) {
-                return new Thread(runnable, "Ted1-" + ++counter);
-            }
-        });
-        executor1.setCorePoolSize(2);
-        executor1.setMaximumPoolSize(2);
-        // driver2
-        driver2 = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), TestConfig.SYSTEM_ID);
-        channel2 = driver2.getContext().registry.getChannel("MAIN");
-        ThreadPoolExecutor executor2 = channel2.workers;
-        executor2.setThreadFactory(new ThreadFactory() {
-            private int counter = 0;
-            @Override
-            public Thread newThread(Runnable runnable) {
-                return new Thread(runnable, "Ted2-" + ++counter);
-            }
-        });
-        executor2.setCorePoolSize(2);
-        executor2.setMaximumPoolSize(2);
+        Properties props = new Properties();
+        props.put("ted.systemId", TestConfig.SYSTEM_ID);
+        props.put("ted.channel.MAIN.workerCount", "2");
+        props.put("ted.channel.MAIN.taskBuffer", "5");
+
+        driver1 = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), props);
+        driver2 = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), props);
     }
 
     // test 2 instances
@@ -67,6 +46,9 @@ public class I02MultiTest extends TestBase {
     public void testFullQueue() {
         String taskName = "TEST02-01";
         dao_cleanupAllTasks();
+
+        Channel channel1 = driver1.getContext().registry.getChannel("MAIN");
+        Channel channel2 = driver2.getContext().registry.getChannel("MAIN");
 
         AtomicInteger count1 = new AtomicInteger();
         AtomicInteger count2 = new AtomicInteger();
@@ -87,13 +69,12 @@ public class I02MultiTest extends TestBase {
         }
 
         // will start parallel
-        // at first will take 3 each of processors, next will take 6
-        driver1.getContext().taskManager.processChannelTasks();
+        // first will take 7 tasks (2 workers + 5 buffer)
+        Tick tick = new Tick(1) {{ this.limitNextTs = true; }}; // .. but if !limitNextTs then will use all queue
+        driver1.getContext().taskManager.processChannelTasks(tick);
         print("Driver1 active="+ channel1.workers.getActiveCount() + " queue=" + channel1.workers.getQueue().size());
-        driver2.getContext().taskManager.processChannelTasks();
+        driver2.getContext().taskManager.processChannelTasks(tick);
         print("Driver2 active="+ channel2.workers.getActiveCount() + " queue=" + channel2.workers.getQueue().size());
-        driver1.getContext().taskManager.processChannelTasks();
-        print("Driver1 active="+ channel1.workers.getActiveCount() + " queue=" + channel1.workers.getQueue().size());
 
         awaitTask(200, () ->
             count1.get() + count2.get() >= 10

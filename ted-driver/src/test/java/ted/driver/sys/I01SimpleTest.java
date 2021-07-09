@@ -10,6 +10,7 @@ import ted.driver.Ted.TedStatus;
 import ted.driver.TedResult;
 import ted.driver.TedTask;
 import ted.driver.sys.Model.TaskRec;
+import ted.driver.sys.QuickCheck.Tick;
 import ted.driver.sys.SqlUtils.DbType;
 import ted.driver.sys.TedDriverImpl.TedContext;
 import ted.driver.sys.TestTedProcessors.OnTaskFinishListener;
@@ -27,7 +28,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static ted.driver.sys.TestTedProcessors.forClass;
 import static ted.driver.sys.TestUtils.awaitUntilTaskFinish;
 import static ted.driver.sys.TestUtils.print;
@@ -114,7 +119,7 @@ public class I01SimpleTest extends TestBase {
 
         Long taskId = driver.createTask(taskName, "test-data", "test-key1", "test-key2");
 
-        TaskRec taskRec = driver.getContext().tedDao.getTask(taskId);
+        TaskRec taskRec = context.tedDao.getTask(taskId);
         assertEquals("NEW", taskRec.status);
         assertEquals(TestConfig.SYSTEM_ID, taskRec.system);
         assertEquals("TEST01-01", taskRec.name);
@@ -134,9 +139,9 @@ public class I01SimpleTest extends TestBase {
         assertNull(taskRec.finishTs);
         //assertNull(taskRec.result);
 
-        //driver.getContext().tedDao.setStatus(taskId, TedStatus.DONE, "test-msg", "test-result".getBytes());
-        driver.getContext().tedDao.setStatus(taskId, TedStatus.DONE, "test-msg");
-        taskRec = driver.getContext().tedDao.getTask(taskId);
+        //context.tedDao.setStatus(taskId, TedStatus.DONE, "test-msg", "test-result".getBytes());
+        context.tedDao.setStatus(taskId, TedStatus.DONE, "test-msg");
+        taskRec = context.tedDao.getTask(taskId);
         assertEquals("DONE", taskRec.status);
         assertEquals("test-msg", taskRec.msg);
         //assertEquals("test-result", new String(taskRec.result));
@@ -151,21 +156,21 @@ public class I01SimpleTest extends TestBase {
 
         final Long taskId = driver.createTask(taskName, null, null, null);
 
-        TaskRec taskRec = driver.getContext().tedDao.getTask(taskId);
+        TaskRec taskRec = context.tedDao.getTask(taskId);
         print(taskRec.toString());
         assertEquals("NEW", taskRec.status);
 
         // will start parallel
-        driver.getContext().taskManager.processChannelTasks();
+        processChannelTasks();
 
-        taskRec = driver.getContext().tedDao.getTask(taskId);
+        taskRec = context.tedDao.getTask(taskId);
         print(taskRec.toString());
         assertEquals("WORK", taskRec.status);
         assertNull(taskRec.finishTs);
 
         awaitUntilTaskFinish(driver, taskId, 500);
 
-        taskRec = driver.getContext().tedDao.getTask(taskId);
+        taskRec = context.tedDao.getTask(taskId);
         assertEquals("DONE", taskRec.status);
         assertNotNull(taskRec.finishTs);
 
@@ -179,20 +184,20 @@ public class I01SimpleTest extends TestBase {
 
         final Long taskId = driver.createTask(taskName, null, null, null);
 
-        TaskRec taskRec = driver.getContext().tedDao.getTask(taskId);
+        TaskRec taskRec = context.tedDao.getTask(taskId);
         print(taskRec.toString());
         assertEquals("NEW", taskRec.status);
 
         // will start parallel
-        driver.getContext().taskManager.processChannelTasks();
+        processChannelTasks();
 
-        taskRec = driver.getContext().tedDao.getTask(taskId);
+        taskRec = context.tedDao.getTask(taskId);
         print(taskRec.toString());
         assertEquals("WORK", taskRec.status);
 
         awaitUntilTaskFinish(driver, taskId, 300);
 
-        taskRec = driver.getContext().tedDao.getTask(taskId);
+        taskRec = context.tedDao.getTask(taskId);
         assertEquals("ERROR", taskRec.status);
         assertEquals("Catch: Test runtime exception", taskRec.msg);
 
@@ -223,21 +228,21 @@ public class I01SimpleTest extends TestBase {
             latch.countDown();
         }));
 
-        TaskRec taskRec = driver.getContext().tedDao.getTask(taskId);
+        TaskRec taskRec = context.tedDao.getTask(taskId);
         //print(taskRec.toString());
         assertEquals("NEW", taskRec.status);
 
         // will start parallel
-        driver.getContext().taskManager.processChannelTasks();
+        processChannelTasks();
 
-        taskRec = driver.getContext().tedDao.getTask(taskId);
+        taskRec = context.tedDao.getTask(taskId);
         //print(taskRec.toString());
         assertEquals("WORK", taskRec.status);
 
         latch.await(200, TimeUnit.MILLISECONDS);
-        driver.getContext().taskManager.flushStatuses();
+        context.taskManager.flushStatuses();
 
-        taskRec = driver.getContext().tedDao.getTask(taskId);
+        taskRec = context.tedDao.getTask(taskId);
         long deltaMs = taskRec.nextTs.getTime() - System.currentTimeMillis();
         print(taskRec.toString() + " deltaMs:" + deltaMs);
         assertEquals("RETRY", taskRec.status);
@@ -251,8 +256,8 @@ public class I01SimpleTest extends TestBase {
     public void test05GetPortion() {
         String taskName = "TEST01-05";
         String taskName2 = "TEST01-05-2";
-        driver.getContext().registry.registerChannel("TEST1", 5, 100);
-        driver.getContext().registry.registerChannel("TEST2", 5, 100);
+        context.registry.registerChannel("TEST1", 5, 100);
+        context.registry.registerChannel("TEST2", 5, 100);
         //driver.registerTaskConfig(taskName, forClass(Test01ProcessorRetry.class), 1, null, "TEST1");
 
         driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test01ProcessorRetry.class));
@@ -261,7 +266,7 @@ public class I01SimpleTest extends TestBase {
         Long taskId = driver.createTask(taskName, null, null, null);
         Long taskId2 = driver.createTask(taskName2, null, null, null);
 
-        TaskRec taskRec = driver.getContext().tedDao.getTask(taskId);
+        TaskRec taskRec = context.tedDao.getTask(taskId);
         //print(taskRec.toString());
         assertEquals("NEW", taskRec.status);
 
@@ -279,7 +284,7 @@ public class I01SimpleTest extends TestBase {
         channelSizes.put("TEST9", 1);
         channelSizes.put("TST10", 1);
         channelSizes.put("TST11", 1);
-        List<TaskRec> list = driver.getContext().tedDao.reserveTaskPortion(channelSizes);
+        List<TaskRec> list = context.tedDao.reserveTaskPortion(channelSizes, new Tick(1));
         assertEquals(2, list.size());
         Map<String, List<TaskRec>> map = list.stream().collect(Collectors.groupingBy(it -> it.name));
         assertEquals(1, map.get(taskName).size());
@@ -289,7 +294,7 @@ public class I01SimpleTest extends TestBase {
 
     @Test
     public void test06GetPortionLocked() throws Exception {
-        if (driver.getContext().tedDao.getDbType() == DbType.HSQLDB) {
+        if (context.tedDao.getDbType() == DbType.HSQLDB) {
             logger.warn("Skipped, as HSQLDB do not support locking");
             return;
         }
@@ -297,13 +302,13 @@ public class I01SimpleTest extends TestBase {
         String taskName = "TEST01-05";
         dao_cleanupAllTasks();
 
-        driver.getContext().registry.registerChannel("TEST1", 5, 100);
+        context.registry.registerChannel("TEST1", 5, 100);
         driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test01ProcessorRetry.class));
 
         // create 2 tasks, then lock 1 of them
         driver.createTask(taskName, null, null, null);
         final Long lockTaskId = driver.createTask(taskName, null, null, null);
-        TaskRec taskRec = driver.getContext().tedDao.getTask(lockTaskId);
+        TaskRec taskRec = context.tedDao.getTask(lockTaskId);
         assertEquals("NEW", taskRec.status);
 
         logger.info("Before lock");
@@ -317,12 +322,60 @@ public class I01SimpleTest extends TestBase {
 
         Map<String, Integer> channelSizes = new HashMap<>();
         channelSizes.put("TEST1", 3);
-        List<TaskRec> list = driver.getContext().tedDao.reserveTaskPortion(channelSizes);
+        List<TaskRec> list = context.tedDao.reserveTaskPortion(channelSizes, new Tick(1));
         assertEquals(1, list.size());
         assertEquals(taskName, list.get(0).name);
         logger.info("Done");
     }
 
+
+    @Test
+    public void test07CheckNextTsLimit() {
+        if (context.tedDao.getDbType() != DbType.POSTGRES) {
+            logger.warn("Skipped for non PostgreSql");
+            return;
+        }
+        String taskName = "TEST01-05";
+        context.registry.registerChannel("TEST1", 5, 100);
+
+        driver.registerTaskConfig(taskName, TestTedProcessors.forClass(Test01ProcessorRetry.class));
+
+        Long taskId = driver.createTask(taskName, null, null, null);
+        Long taskId2 = driver.createTask(taskName, null, null, null);
+
+        // make taskId2 old
+        String sql = "update tedtask set nextts = $now - $interval where taskid = " + taskId2;
+        sql = sql.replace("$now", getDbType().sql().now());
+        sql = sql.replace("$interval", getDbType().sql().intervalSeconds(9999));
+        dao_execSql(sql);
+
+        TaskRec taskRec = context.tedDao.getTask(taskId);
+        assertEquals("NEW", taskRec.status);
+
+        Map<String, Integer> channelSizes = new HashMap<>();
+        channelSizes.put("TEST1", 3);
+        List<TaskRec> list = context.tedDao.reserveTaskPortion(channelSizes, tickWithLimited(true));
+        assertEquals(1, list.size());
+
+        // no more exists in last 10 minutes
+        list = context.tedDao.reserveTaskPortion(channelSizes, tickWithLimited(true));
+        assertEquals(0, list.size());
+
+        // with checkLimited = false should find old
+        list = context.tedDao.reserveTaskPortion(channelSizes, tickWithLimited(false));
+        assertEquals(1, list.size());
+
+    }
+
+    private Tick tickWithLimited(boolean limitPeriod) {
+        return new Tick(1) {{
+            this.limitNextTs = limitPeriod;
+        }};
+    }
+
+    void processChannelTasks() {
+        context.taskManager.processChannelTasks(new Tick(1));
+    }
 
 /*	@Test
 	public void test07CreateUniqueKey1() throws Exception {
@@ -360,6 +413,5 @@ public class I01SimpleTest extends TestBase {
         }
 
     }
-
 
 }

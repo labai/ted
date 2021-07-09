@@ -11,10 +11,10 @@ import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedDbType;
 import ted.driver.sys.PrimeInstance.CheckPrimeParams;
 import ted.driver.sys.QuickCheck.CheckResult;
+import ted.driver.sys.QuickCheck.Tick;
 import ted.driver.sys.SqlUtils.DbType;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
@@ -48,9 +48,6 @@ public class I08PrimeInstanceTest extends TestBase {
         //this.context = driver.getContext();
     }
 
-    private void dao_execSql (String sql) {
-        ((TedDaoAbstract)getContext().tedDao).execute("test", sql, Collections.emptyList());
-    }
 
     @Test
     public void testPrimeInit() {
@@ -114,16 +111,16 @@ public class I08PrimeInstanceTest extends TestBase {
             public int postponeSec() { return 1; }
 
         };
-        List<CheckResult> res = tedDao.quickCheck(checkPrimeParams, false);
+        List<CheckResult> res = tedDao.quickCheck(checkPrimeParams, new Tick(1));
         print(gson.toJson(res));
 
         sleepMs(20);
 
-        boolean isPrime = tedDaoExt.becomePrime(primeTaskId, "abra1");
+        boolean isPrime = tedDaoExt.becomePrime(primeTaskId, "abra1", 5);
         print("isPrime=" + isPrime);
         assertTrue("take 1st", isPrime);
         sleepMs(20);
-        boolean isPrime2 = tedDaoExt.becomePrime(primeTaskId, "abra2");
+        boolean isPrime2 = tedDaoExt.becomePrime(primeTaskId, "abra2", 5);
         print("isPrime=" + isPrime2);
         assertFalse("cannot take 2nd", isPrime2);
 

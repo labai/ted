@@ -52,7 +52,7 @@ class I01SimpleTest {
     fun cleanup() {
         driver.shutdown()
         dao_execSql("update tedtask set nextts = null, status = 'DONE' where system = '$systemId' and "
-            + " status in ('NEW', 'RETRY', 'WORK') returning taskid")
+                + " status in ('NEW', 'RETRY', 'WORK') returning taskid")
     }
 
 
@@ -60,12 +60,12 @@ class I01SimpleTest {
     fun `simple test scheduler every 1 second`() {
         var count = 0
         scheduler.builder().name("TEST1")
-            .scheduleCron("* * * ? * *")
-            .runnable {
-                count++;
-                logger.info("executing scheduler task $count")
-            }
-            .register()
+                .scheduleCron("* * * ? * *")
+                .runnable {
+                    count++
+                    logger.info("executing scheduler task $count")
+                }
+                .register()
         Awaitility.await().atMost(2500, TimeUnit.MILLISECONDS).until { count >= 2 }
     }
 
@@ -74,20 +74,20 @@ class I01SimpleTest {
         var count = 0
         var count2 = 0
         val shdId = scheduler.builder().name("TEST2")
-            .scheduleCron("* * * ? * *")
-            .runnable {
-                count++;
-                logger.info("[1] executing scheduler task $count")
-            }
-            .register()
+                .scheduleCron("* * * ? * *")
+                .runnable {
+                    count++
+                    logger.info("[1] executing scheduler task $count")
+                }
+                .register()
 
         val shdId2 = scheduler.builder().name("TEST2")
-            .scheduleCron("* * * ? * *")
-            .runnable {
-                count2++;
-                logger.info("[2] executing scheduler task $count2")
-            }
-            .register()
+                .scheduleCron("* * * ? * *")
+                .runnable {
+                    count2++
+                    logger.info("[2] executing scheduler task $count2")
+                }
+                .register()
 
         assertEquals(shdId, shdId2)
 
@@ -101,8 +101,8 @@ class I01SimpleTest {
     @Test
     fun `maintenance test`() {
         val taskId = schedulerImpl.registerScheduler("TEST1", null,
-            Factory.single(Runnable { logger.info("executing scheduler task") }),
-            CronRetry("0 0/10 * ? * *"))
+                Factory.single(Runnable { logger.info("executing scheduler task") }),
+                CronRetry("0 0/10 * ? * *"))
         print("scheduler taskId=$taskId")
         sleepMs(20)
 

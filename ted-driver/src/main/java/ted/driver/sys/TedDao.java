@@ -6,6 +6,7 @@ import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.PrimeInstance.CheckPrimeParams;
 import ted.driver.sys.QuickCheck.CheckResult;
 import ted.driver.sys.QuickCheck.GetWaitChannelsResult;
+import ted.driver.sys.QuickCheck.Tick;
 import ted.driver.sys.SqlUtils.DbType;
 
 import java.sql.Connection;
@@ -35,16 +36,18 @@ interface TedDao {
 
     void processMaintenanceFrequent();
 
-    void processMaintenanceRare(int deleteAfterDays);
+    void processMaintenanceRare();
+
+    void maintenanceDeleteTasks(int deleteAfterDays, String tableName);
 
     List<TaskRec> getWorkingTooLong();
 
     void setTaskPlannedWorkTimeout(long taskId, Date timeoutTime);
 
     // quick check, is there any task
-    List<GetWaitChannelsResult> getWaitChannels();
+    List<GetWaitChannelsResult> getWaitChannels(Tick tick);
 
-    List<TaskRec> reserveTaskPortion(Map<String, Integer> channelSizes);
+    List<TaskRec> reserveTaskPortion(Map<String, Integer> channelSizes, Tick tick);
 
     void setStatuses(List<SetTaskStatus> statuses);
 
@@ -52,9 +55,9 @@ interface TedDao {
 
     boolean checkIsBatchFinished(long batchId);
 
-    void cleanupBatchTask(Long taskId, String msg, String chanel);
+    void cleanupBatchTask(Long taskId, String msg, String channel);
 
-    List<CheckResult> quickCheck(CheckPrimeParams checkPrimeParams, boolean skipChannelCheck);
+    List<CheckResult> quickCheck(CheckPrimeParams checkPrimeParams, Tick tick);
 
     class SetTaskStatus {
         final long taskId;

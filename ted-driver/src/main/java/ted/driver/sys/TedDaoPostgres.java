@@ -13,6 +13,7 @@ import ted.driver.sys.Model.TaskParam;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.PrimeInstance.CheckPrimeParams;
 import ted.driver.sys.QuickCheck.CheckResult;
+import ted.driver.sys.QuickCheck.Tick;
 import ted.driver.sys.SqlUtils.DbType;
 
 import javax.sql.DataSource;
@@ -56,7 +57,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
     }
 
     @Override
-    public List<CheckResult> quickCheck(CheckPrimeParams checkPrimeParams, boolean skipChannelCheck) {
+    public List<CheckResult> quickCheck(CheckPrimeParams checkPrimeParams, Tick tick) {
         String sql = "";
         String logId = "";
 
@@ -87,19 +88,21 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
         }
 
         // check for new tasks
-        if (! skipChannelCheck) {
+        if (! tick.skipChannelLookup) {
             if (! sql.isEmpty())
                 sql += " union all ";
             sql += "select channel as name, 'CHAN' as type, null::timestamp as tillts, count(*) as taskCnt "
                 + " from $tedTask"
                 + " where system = '$sys' and nextTs <= $now"
+                + (tick.limitNextTs ? " and nextTs > ($now - $limitNextTs)" : "")
                 + " group by channel";
-            logId = "a" + logId;
+            logId = (tick.limitNextTs ? "a" : "e") + logId;
         }
 
         sql = sql.replace("$tedTask", fullTableName);
         sql = sql.replace("$sys", thisSystem);
         sql = sql.replace("$now", dbType.sql().now());
+        sql = sql.replace("$limitNextTs", dbType.sql().intervalSeconds(tick.limitNextTsSec));
 
         if (sql.isEmpty())
             return Collections.emptyList();
@@ -108,12 +111,12 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
     }
 
     @Override
-    public List<TaskRec> reserveTaskPortion(Map<String, Integer> channelSizes) {
+    public List<TaskRec> reserveTaskPortion(Map<String, Integer> channelSizes, Tick tick) {
         // limit channel subselect count in one select
         Collection<List<Entry<String, Integer>>> chunked = splitList(channelSizes.entrySet(), CHANNEL_SUBSELECT_CHUNK);
         List<TaskRec> reservedTasks = new ArrayList<>();
         for (List<Entry<String, Integer>> chunk : chunked) {
-            List<TaskRec> res = reserveTaskPortionChunk(chunk);
+            List<TaskRec> res = reserveTaskPortionChunk(chunk, tick);
             reservedTasks.addAll(res);
         }
         return reservedTasks;
@@ -128,18 +131,20 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
             .values();
     }
 
-    private List<TaskRec> reserveTaskPortionChunk(List<Entry<String, Integer>> channelSizes) {
+    private List<TaskRec> reserveTaskPortionChunk(List<Entry<String, Integer>> channelSizes, Tick tick) {
         // create as many subselects as there are channels
         String ptr = " select taskid from ("
             + " select taskid from $tedTask "
             + " where status in ('NEW','RETRY') and $systemCheck and channel = ?"
             + " and nextTs < $now"
+            + (tick.limitNextTs ? " and nextTs > ($now - $limitNextTs)" : "")
             + " limit ?"
             + " $FOR_UPDATE_SKIP_LOCKED"
             + ") ";
         ptr = ptr.replace("$tedTask", fullTableName);
         ptr = ptr.replace("$now", dbType.sql().now());
         ptr = ptr.replace("$systemCheck", systemCheck);
+        ptr = ptr.replace("$limitNextTs", dbType.sql().intervalSeconds(tick.limitNextTsSec));
         ptr = ptr.replace("$FOR_UPDATE_SKIP_LOCKED", dbType.sql().forUpdateSkipLocked());
 
         int i = 0;
@@ -154,7 +159,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
             params.add(sqlParam(entry.getValue(), JetJdbcParamType.INTEGER)); //value=count
         }
 
-        String sqlLogId = "reserve_chan_pg(" + channelSizes.size() + ")";
+        String sqlLogId = "reserve_chan_pg" + (tick.limitNextTs ? "a" : "e") + "(" + channelSizes.size() + ")";
         String sql = "update $tedTask set status = 'WORK', startTs = $now, nextTs = null"
             + " where status in ('NEW','RETRY') and $systemCheck"
             + " and taskid in ("
@@ -215,6 +220,61 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
         return tasks.isEmpty() ? null : tasks.get(0);
     }
 
+    @Override
+    public void maintenanceMoveDoneTasks(String archiveTableName, int mainDeleteAfterDays) {
+        // move recently done tasks
+        moveToArch(archiveTableName, false, 300, "mvhista");
+        // move old errors also
+        if (mainDeleteAfterDays < 9999) {
+            moveToArch(archiveTableName, true, mainDeleteAfterDays * 24 * 3600, "mvhistb");
+        }
+    }
+
+    private void moveToArch(String archiveTableName, boolean moveError, int expireTimeSec, String logid) {
+        if (expireTimeSec < 0) {
+            logger.error("expireTimeSec must be positive (is {})", expireTimeSec);
+            return;
+        }
+        String sql = ""
+            + " with deleted_rows as ("
+            + "   delete from $tedTask"
+            + "   where taskid in (select taskid from $tedTask"
+            + "     where $systemCheck and status in ('DONE'" + (moveError ? ", 'ERROR'" : "") + ")"
+            + "       and createTs < ($now - $expireTimeSec) and (finishTs is null or finishTs < $now - $expireTimeSec)"
+            + "     $FOR_UPDATE_SKIP_LOCKED"
+            + "     limit $limit"
+            + "   ) returning taskid, system, name, status, channel, nextts, batchid, retries, key1, key2, createts, startts, finishts, msg, data, bno"
+            + " ),"
+            + " moved_rows as ("
+            + "   insert into $tedArch (taskid, system, name, status, channel, nextts, batchid, retries, key1, key2, createts, startts, finishts, msg, data, bno)"
+            + "   select * from deleted_rows"
+            + "   returning $tedArch.*"
+            + " )"
+            + " select count(*) from moved_rows"
+            ;
+
+        sql = sql.replace("$tedTask", fullTableName);
+        sql = sql.replace("$tedArch", archiveTableName);
+        sql = sql.replace("$expireTimeSec", dbType.sql().intervalSeconds(expireTimeSec));
+        sql = sql.replace("$now", dbType.sql().now());
+        sql = sql.replace("$systemCheck", systemCheck);
+        sql = sql.replace("$limit", "100000");
+        sql = sql.replace("$FOR_UPDATE_SKIP_LOCKED", dbType.sql().forUpdateSkipLocked());
+
+        // process to move while there is what to move (max 10 iterations)
+        for (int i = 0; i < 10; i++) {
+            long count = selectSingleLong(logid, sql);
+            if (count < 99000)
+                break;
+            try {
+                Thread.sleep(100); // cool down, just in case
+            } catch (InterruptedException e) {
+                logger.info("can't sleep", e);
+            }
+        }
+
+    }
+
 
     //
     // prime
@@ -264,8 +324,8 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
     }
 
     @Override
-    public boolean becomePrime(Long primeTaskId, String instanceId) {
-        String sql = "update $tedTask set data = '$instanceId', finishts = now() + interval '5 seconds'"
+    public boolean becomePrime(Long primeTaskId, String instanceId, Integer postponeSec) {
+        String sql = "update $tedTask set data = '$instanceId', finishts = now() + interval '$postponeSec seconds'"
             + " where taskid = (select taskid from $tedTask where system = '$sys' "
             + "  and (finishts < now() or finishts is null) "
             + "  and taskid = $primeTaskId for update skip locked)"
@@ -274,6 +334,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
         sql = sql.replace("$sys", thisSystem);
         sql = sql.replace("$primeTaskId", primeTaskId.toString());
         sql = sql.replace("$instanceId", instanceId);
+        sql = sql.replace("$postponeSec", postponeSec.toString());
 
         List<TaskIdRes> res = selectData("take_prime", sql, TaskIdRes.class, Collections.emptyList());
         return res.size() == 1;
@@ -426,7 +487,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 
     @Override
     public boolean maintenanceRebuildIndex() {
-        String sql = "reindex index " + schemaPrefix() + INDEX_QUICKCHK;
+        String sql = "reindex index concurrently " + schemaPrefix() + INDEX_QUICKCHK;
         try {
             execute("reindex_quickchk", sql, Collections.emptyList());
             return true;

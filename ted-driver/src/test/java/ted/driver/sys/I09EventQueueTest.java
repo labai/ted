@@ -12,13 +12,13 @@ import ted.driver.Ted.TedDbType;
 import ted.driver.TedResult;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.QuickCheck.CheckResult;
+import ted.driver.sys.QuickCheck.Tick;
 import ted.driver.sys.TestTedProcessors.SingeInstanceFactory;
 import ted.driver.sys.TestTedProcessors.TestProcessorFailAfterNDone;
 import ted.driver.sys.TestTedProcessors.TestProcessorOk;
 import ted.driver.sys.TestTedProcessors.TestProcessorOkSleep;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.Random;
@@ -51,11 +51,9 @@ public class I09EventQueueTest extends TestBase {
         this.driver = new TedDriverImpl(TestConfig.testDbType, TestConfig.getDataSource(), SYSTEM_ID, properties);
         this.tedDao = driver.getContext().tedDao;
         //this.context = driver.getContext();
+        dao_cleanupAllTasks();
 
-    }
 
-    private void dao_execSql (String sql) {
-        ((TedDaoAbstract)getContext().tedDao).execute("test", sql, Collections.emptyList());
     }
 
     private Long dao_selectLong (String sql) {
@@ -163,6 +161,8 @@ public class I09EventQueueTest extends TestBase {
         sleepMs(20);
         driver.getContext().eventQueueManager.processTedQueue();
 
+        sleepMs(50);
+
         awaitUntilTaskFinish(driver, taskId, 500);
         awaitUntilTaskFinish(driver, taskId2[0], 500);
         awaitUntilTaskFinish(driver, taskId2[1], 500);
@@ -215,7 +215,7 @@ public class I09EventQueueTest extends TestBase {
             }
         }
         Long taskId = driver.createEvent(taskName, "abra", "abra-data", null);
-        List<CheckResult> res = tedDao.quickCheck(null, false);
+        List<CheckResult> res = tedDao.quickCheck(null, new Tick(1));
         print(gson.toJson(res));
 
 

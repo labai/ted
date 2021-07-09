@@ -55,7 +55,7 @@ public class SqlUtils {
         HSQLDB(new SqlDbExt() { // use PostgreSQL dialect
             public String now() { return "now()"; }
             public String intervalSeconds(int secCount) { return "interval '" + secCount + "' second"; }
-            public String intervalDays(int dayCount) { return "interval '" + dayCount + "' day";}
+            public String intervalDays(int dayCount) { return "interval '" + dayCount + "' day"; }
             public String rownum(int rowNum) { return " limit " + rowNum; }
             public String sequenceSql(String seqName) { return "nextval('" + seqName + "')"; }
             public String sequenceSelect(String seqName) { return "select nextval('" + seqName + "')"; }

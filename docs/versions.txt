@@ -1,4 +1,9 @@
 Version history
+0.3.5 (2021-05)
+- tune performance for quickcheck (add nextts range), remove slow start
+- add move-to-archive job (separate table for completed tasks)
+- default timeout for dead tasks - 1 hour (was 30 min)
+
 0.3.4 (2020-11)
 - configurable db schema and table name
 

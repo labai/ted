@@ -13,6 +13,7 @@ import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.PrimeInstance.CheckPrimeParams;
 import ted.driver.sys.QuickCheck.CheckResult;
 import ted.driver.sys.QuickCheck.GetWaitChannelsResult;
+import ted.driver.sys.QuickCheck.Tick;
 import ted.driver.sys.SqlUtils.DbType;
 
 import javax.sql.DataSource;
@@ -91,11 +92,14 @@ abstract class TedDaoAbstract implements TedDao {
     abstract protected long createTaskInternal(String name, String channel, String data, String key1, String key2, Long batchId, int postponeSec, TedStatus status, Connection conn);
 
     @Override
-    public List<GetWaitChannelsResult> getWaitChannels() {
-        String sqlLogId = "get_wait_chan";
-        String sql = "select channel, count(*) as taskCnt from $tedTask where $systemCheck and nextTs <= $now group by channel";
+    public List<GetWaitChannelsResult> getWaitChannels(Tick tick) {
+        String sqlLogId = "get_wait_chan_" + (tick.limitNextTs ? "a" : "b");
+        String sql = "select channel, count(*) as taskCnt from $tedTask where $systemCheck"
+            + (tick.limitNextTs ? " and nextTs > ($now - $limitNextTs)" : "")
+            + " and nextTs <= $now group by channel";
         sql = sql.replace("$tedTask", fullTableName);
         sql = sql.replace("$now", dbType.sql().now());
+        sql = sql.replace("$limitNextTs", dbType.sql().intervalSeconds(tick.limitNextTsSec));
         sql = sql.replace("$systemCheck", systemCheck);
         List<GetWaitChannelsResult> chans = selectData(sqlLogId, sql, GetWaitChannelsResult.class, Collections.emptyList());
         return chans;
@@ -131,7 +135,7 @@ abstract class TedDaoAbstract implements TedDao {
     }
 
     @Override
-    public List<TaskRec> reserveTaskPortion(Map<String, Integer> channelSizes){
+    public List<TaskRec> reserveTaskPortion(Map<String, Integer> channelSizes, Tick tick){
         assert dbType != DbType.ORACLE;
         assert dbType != DbType.POSTGRES;
 
@@ -188,12 +192,12 @@ abstract class TedDaoAbstract implements TedDao {
 
     // for postgres will be override
     @Override
-    public List<CheckResult> quickCheck(CheckPrimeParams checkPrimeParams, boolean skipChannelCheck) {
+    public List<CheckResult> quickCheck(CheckPrimeParams checkPrimeParams, Tick tick) {
         if (checkPrimeParams != null)
             throw new IllegalStateException("Prime supported only for PostgreSql");
-        if (skipChannelCheck)
+        if (tick.skipChannelLookup)
             return Collections.emptyList();
-        List<GetWaitChannelsResult> chans = getWaitChannels();
+        List<GetWaitChannelsResult> chans = getWaitChannels(tick);
         List<CheckResult> res = new ArrayList<>();
         for (GetWaitChannelsResult chan : chans) {
             res.add(new CheckResult("CHAN", chan.channel, chan.taskCnt));
@@ -201,27 +205,36 @@ abstract class TedDaoAbstract implements TedDao {
         return res;
     }
 
-    @Override
-    public void processMaintenanceRare(int deleteAfterDays) {
-        String sql;
 
+    @Override
+    public void processMaintenanceRare() {
+        String sql;
         //  update channel null to MAIN (is it necessary?)
         sql = "update $tedTask set channel = 'MAIN' where channel is null and $systemCheck and status = 'NEW'";
         sql = sql.replace("$tedTask", fullTableName);
         sql = sql.replace("$now", dbType.sql().now());
         sql = sql.replace("$systemCheck", systemCheck);
         execute("maint03", sql, Collections.emptyList());
+    }
 
-        if (deleteAfterDays < 99999) {
-            // delete finished tasks > 35 days old
-            sql = "delete from $tedTask where $systemCheck and status in ('ERROR', 'DONE')" +
-                " and createTs < ($now - $days35) and finishTs < ($now - $days35)";
-            sql = sql.replace("$tedTask", fullTableName);
-            sql = sql.replace("$now", dbType.sql().now());
-            sql = sql.replace("$systemCheck", systemCheck);
-            sql = sql.replace("$days35", dbType.sql().intervalDays(deleteAfterDays));
-            execute("delold", sql, Collections.emptyList());
-        }
+    @Override
+    public void maintenanceDeleteTasks(int deleteAfterDays, String tableName) {
+        String sql;
+        if (deleteAfterDays >= 99999)
+            return;
+
+        String deleteTableName = tableName == null || tableName.isEmpty() ? fullTableName : tableName;
+        String logid = tableName == null || tableName.isEmpty() ? "deloldtask" : "deloldarch";
+
+        // delete finished tasks > 35 days old
+        sql = "delete from $tedTask where $systemCheck and status in ('ERROR', 'DONE')" +
+            " and createTs < ($now - $days35) and (finishTs is null or finishTs < $now - $days35)";
+        sql = sql.replace("$systemCheck", systemCheck);
+        sql = sql.replace("$tedTask", deleteTableName);
+        sql = sql.replace("$now", dbType.sql().now());
+        sql = sql.replace("$days35", dbType.sql().intervalDays(deleteAfterDays));
+        execute(logid, sql, Collections.emptyList());
+
     }
 
     @Override

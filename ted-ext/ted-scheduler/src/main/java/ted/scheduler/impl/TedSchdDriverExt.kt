@@ -23,5 +23,5 @@ class TedSchdDriverExt(tedDriver: TedDriver) : _SchdExt(tedDriver) {
     public override fun dbType(): DbType = super.dbType()
     public override fun tableName(): String = super.tableName()
     public override fun schemaName(): String? = super.schemaName()
-
+    public override fun getPropertyValue(key: String): String? = super.getPropertyValue(key)
 }

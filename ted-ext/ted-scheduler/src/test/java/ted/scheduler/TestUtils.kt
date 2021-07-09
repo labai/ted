@@ -15,8 +15,8 @@ internal object TestUtils {
     @Throws(IOException::class)
     fun readPropertiesFile(propFileName: String): Properties {
         val properties = Properties()
-        val inputStream = TestBase::class.java.getClassLoader().getResourceAsStream(propFileName)
-            ?: throw FileNotFoundException("property file '$propFileName' not found in the classpath")
+        val inputStream = TestBase::class.java.classLoader.getResourceAsStream(propFileName)
+                ?: throw FileNotFoundException("property file '$propFileName' not found in the classpath")
         properties.load(inputStream)
         return properties
     }

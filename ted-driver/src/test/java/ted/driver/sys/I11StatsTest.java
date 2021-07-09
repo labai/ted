@@ -5,10 +5,11 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedStatus;
-import ted.driver.sys.Trash.TedMetricsEvents;
 import ted.driver.sys.Model.TaskRec;
+import ted.driver.sys.QuickCheck.Tick;
 import ted.driver.sys.TedDriverImpl.TedContext;
 import ted.driver.sys.TestTedProcessors.TestProcessorOk;
+import ted.driver.sys.Trash.TedMetricsEvents;
 
 import java.io.IOException;
 import java.util.Properties;
@@ -49,7 +50,7 @@ public class I11StatsTest extends TestBase {
         assertEquals("NEW", taskRec.status);
 
         // will start parallel
-        driver.getContext().taskManager.processChannelTasks();
+        driver.getContext().taskManager.processChannelTasks(new Tick(1));
 
         taskRec = driver.getContext().tedDao.getTask(taskId);
         print(taskRec.toString());

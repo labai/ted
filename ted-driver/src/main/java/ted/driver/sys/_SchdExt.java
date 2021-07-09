@@ -23,5 +23,5 @@ public abstract class _SchdExt extends ted.driver._SchdExt {
     protected DbType dbType() { return tedDriverImpl.getContext().tedDao.getDbType(); }
     protected String tableName() { return tedDriverImpl.getContext().config.tableName(); }
     protected String schemaName() { return tedDriverImpl.getContext().config.schemaName(); }
-
+    protected String getPropertyValue(String key) { return tedDriverImpl.getContext().config.getPropertyValue(key); }
 }

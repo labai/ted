@@ -1,12 +1,14 @@
 package ted.driver.sys;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedDbType;
 import ted.driver.sys.JdbcSelectTed.JetJdbcParamType;
 import ted.driver.sys.Model.TaskRec;
+import ted.driver.sys.QuickCheck.Tick;
 import ted.driver.sys.TedDriverImpl.TedContext;
 import ted.driver.sys.TestTedProcessors.TestProcessorOk;
 
@@ -35,6 +37,8 @@ public class I03MaintenanceTest extends TestBase {
     private TedDriverImpl driver;
     private TedContext context;
 
+    private final String archTable = "tedtaskarch";
+
     @Override
     protected TedDriverImpl getDriver() { return driver; }
 
@@ -50,7 +54,7 @@ public class I03MaintenanceTest extends TestBase {
         Date longAgo = new Date(System.currentTimeMillis() - delta);
         print("longAgo:" + longAgo);
         ((TedDaoAbstract)context.tedDao).execute("dao_setDoneAndOld",
-            " update tedtask set status = 'DONE', createTs = ?, finishTs = ? where taskId = ?", asList(
+            " update tedtask set status = 'DONE', createTs = ?, finishTs = ?, nextts = null where taskId = ?", asList(
                 JdbcSelectTed.sqlParam(longAgo, JetJdbcParamType.TIMESTAMP),
                 JdbcSelectTed.sqlParam(longAgo, JetJdbcParamType.TIMESTAMP),
                 JdbcSelectTed.sqlParam(taskId, JetJdbcParamType.LONG)
@@ -78,6 +82,14 @@ public class I03MaintenanceTest extends TestBase {
             ));
     }
 
+    private TaskRec dao_getArchTask(long taskId) {
+        List<TaskRec> tasks = ((TedDaoAbstract)context.tedDao).selectData("dao_getArchTask",
+            " select * from " + archTable + " where taskId = ?", TaskRec.class, asList(
+                JdbcSelectTed.sqlParam(taskId, JetJdbcParamType.LONG)
+            ));
+        return tasks.isEmpty() ? null : tasks.get(0);
+    }
+
 
     @Test
     public void test01WorkTimeoutMinute() {
@@ -91,7 +103,7 @@ public class I03MaintenanceTest extends TestBase {
         driver.createTask(taskName, null, null, null);
         TestUtils.sleepMs(10);
         // set status to WORK
-        List<TaskRec> tasks = context.tedDao.reserveTaskPortion(new HashMap<String, Integer>() {{ put(Model.CHANNEL_MAIN, 1); }});
+        List<TaskRec> tasks = context.tedDao.reserveTaskPortion(new HashMap<String, Integer>() {{ put(Model.CHANNEL_MAIN, 1); }}, new Tick(1));
         taskId = tasks.get(0).taskId;
 
         taskRec = context.tedDao.getTask(taskId);
@@ -134,7 +146,7 @@ public class I03MaintenanceTest extends TestBase {
         //driver.getContext().config.defaultTaskTimeoutMn = 30 * 60; // default - 30min
 
         // set status to work
-        List<TaskRec> tasks = context.tedDao.reserveTaskPortion(new HashMap<String, Integer>(){{put("MAIN",1);}});
+        List<TaskRec> tasks = context.tedDao.reserveTaskPortion(new HashMap<String, Integer>(){{put("MAIN",1);}}, new Tick(1));
         taskId = tasks.get(0).taskId;
 
         taskRec = context.tedDao.getTask(taskId);
@@ -167,7 +179,7 @@ public class I03MaintenanceTest extends TestBase {
         taskId = driverTmp.createTask(taskName, null, null, null);
 
         // process unknown task
-        context.taskManager.processChannelTasks();
+        processChannelTasks();
         Thread.sleep(20);
 
         // 1. Must be postponed (new with some nextts > now())
@@ -180,7 +192,7 @@ public class I03MaintenanceTest extends TestBase {
         dao_setCreateTs(taskId, new Date(System.currentTimeMillis() - 24 * 60 * 61 * 1000));
         dao_setNextTs(taskId, new Date(System.currentTimeMillis() - 2 * 1000));
 
-        context.taskManager.processChannelTasks();
+        processChannelTasks();
         Thread.sleep(20);
 
         taskRec = context.tedDao.getTask(taskId);
@@ -206,7 +218,7 @@ public class I03MaintenanceTest extends TestBase {
         driver.createTask(taskName, null, null, null);
 
         // set status to work
-        List<TaskRec> tasks = context.tedDao.reserveTaskPortion(new HashMap<String, Integer>(){{put("MAIN",1);}});
+        List<TaskRec> tasks = context.tedDao.reserveTaskPortion(new HashMap<String, Integer>(){{put("MAIN",1);}}, new Tick(1));
         taskId = tasks.get(0).taskId;
 
         taskRec = context.tedDao.getTask(taskId);
@@ -246,14 +258,14 @@ public class I03MaintenanceTest extends TestBase {
         //print(taskRec.toString() + " startTs=" + taskRec.startTs);
         assertEquals("DONE", taskRec.status);
         assertEquals(5, driver.getContext().config.oldTaskArchiveDays()); // from config
-        context.tedDao.processMaintenanceRare(driver.getContext().config.oldTaskArchiveDays());
+        context.tedDao.maintenanceDeleteTasks(driver.getContext().config.oldTaskArchiveDays(), null);
 
         taskRec = context.tedDao.getTask(taskId); // should still exists
 
         // check older tasks (should be deleted)
         //
         dao_setDoneAndOld(taskId, 6);
-        context.tedDao.processMaintenanceRare(driver.getContext().config.oldTaskArchiveDays());
+        context.tedDao.maintenanceDeleteTasks(driver.getContext().config.oldTaskArchiveDays(), null);
 
         taskRec = context.tedDao.getTask(taskId);
         assertNull("task should not exist", taskRec);
@@ -271,4 +283,62 @@ public class I03MaintenanceTest extends TestBase {
         assertTrue("Failed to rebuild quickchk index", success);
     }
 
+    @Ignore
+    @Test
+    public void test04MoveToArchive() throws InterruptedException {
+        if (TestConfig.testDbType != TedDbType.POSTGRES) {
+            logger.info("Skip test04MoveToArchive as it is for PostgreSQL only");
+            return;
+        }
+
+        String taskName = "TEST03-03";
+
+        driver.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class));
+
+        Long taskId = driver.createTask(taskName, "test arch", null, null);
+        dao_setDoneAndOld(taskId, 2);
+
+        context.tedDaoExt.maintenanceMoveDoneTasks(archTable, 35);
+
+        TaskRec res = dao_getArchTask(taskId);
+        assertNotNull("task should exists in arch", res);
+
+        res = context.tedDao.getTask(taskId);
+        assertNull("task should not exist in tedtask", res);
+
+        context.tedDao.maintenanceDeleteTasks(1, archTable);
+        res = dao_getArchTask(taskId);
+        assertNull("task should not exist in arch after delete", res);
+
+    }
+
+    @Ignore
+    @Test
+    public void test05DeleteFromArchive() {
+        if (TestConfig.testDbType != TedDbType.POSTGRES) {
+            logger.info("Skip test05DeleteFromArchive as it is for PostgreSQL only");
+            return;
+        }
+        context.tedDao.maintenanceDeleteTasks(1, archTable);
+    }
+
+    @Ignore
+    @Test
+    public void test06DeleteFromTedTask() {
+        String taskName = "TEST03-03";
+
+        driver.registerTaskConfig(taskName, TestTedProcessors.forClass(TestProcessorOk.class));
+
+        Long taskId = driver.createTask(taskName, "test task delete", null, null);
+        dao_setDoneAndOld(taskId, 2);
+
+        context.tedDao.maintenanceDeleteTasks(1, null);
+
+        TaskRec res = context.tedDao.getTask(taskId);
+        assertNull("task should not exist in tedtask", res);
+    }
+
+    void processChannelTasks() {
+        context.taskManager.processChannelTasks(new Tick(1));
+    }
 }

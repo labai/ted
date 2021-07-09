@@ -35,8 +35,8 @@ class Registry {
 
     private final TedContext context;
 
-    private Map<String, TaskConfig> tasks = new ConcurrentHashMap<>();
-    private Map<String, Channel> channels = new ConcurrentHashMap<>();
+    private final Map<String, TaskConfig> tasks = new ConcurrentHashMap<>();
+    private final Map<String, Channel> channels = new ConcurrentHashMap<>();
 
     class Channel {
         final String name;
@@ -44,7 +44,6 @@ class Registry {
         final int taskBufferSize;
         final boolean primeOnly;
         final ThreadPoolExecutor workers;
-        private int slowStartCount = TaskManager.SLOW_START_COUNT; // after no task period will start to slowly increase count of tasks to select (purpose is to do some balance between nodes). But for pack processing tasks this behavior is wrong. Will be 3 by default, but if exists task with pack processing, then use 1000 (max)
 
         Channel(String tedNamePrefix, String name, int workerCount, int taskBufferSize, boolean primeOnly) {
             this.name = name;
@@ -53,8 +52,6 @@ class Registry {
             this.primeOnly = primeOnly;
             this.workers = context.executors.createChannelExecutor(name, tedNamePrefix + "-" + name, workerCount, taskBufferSize + workerCount + CHANNEL_EXTRA_SIZE);
         }
-
-        int getSlowStartCount() { return this.slowStartCount; }
 
         //
         int getQueueRemainingCapacity() {

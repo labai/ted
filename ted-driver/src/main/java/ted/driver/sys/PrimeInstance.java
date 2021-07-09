@@ -22,14 +22,14 @@ import java.util.concurrent.ThreadPoolExecutor;
 public final class PrimeInstance {
     private final static Logger logger = LoggerFactory.getLogger(PrimeInstance.class);
     private final static Logger loggerConfig = LoggerFactory.getLogger("ted-config");
-    final static int TICK_SKIP_COUNT = 3; // every 3 check periods
+    final static int TICK_SKIP_COUNT = 7; // every 7 ticks
 
     private final TedContext context;
 
     private boolean enabled = false;
     private boolean initiated = false;
     private Long primeTaskId = null;
-    private int postponeSec = 3;
+    private int postponeSec = 7;
     private boolean isPrime = false;
 
     private PrimeChangeEvent onBecomePrime = null;
@@ -79,7 +79,7 @@ public final class PrimeInstance {
     void becomePrime() {
         if (isPrime)
             return;
-        this.isPrime = context.tedDaoExt.becomePrime(primeTaskId, context.config.instanceId());
+        this.isPrime = context.tedDaoExt.becomePrime(primeTaskId, context.config.instanceId(), postponeSec);
         if (isPrime) {
             logger.info("TED become prime. instanceId={}", context.config.instanceId());
             if (onBecomePrime != null) {

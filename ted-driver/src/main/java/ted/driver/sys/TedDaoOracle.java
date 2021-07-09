@@ -6,6 +6,7 @@ import ted.driver.Ted.TedStatus;
 import ted.driver.sys.JdbcSelectTed.JetJdbcParamType;
 import ted.driver.sys.JdbcSelectTed.SqlParam;
 import ted.driver.sys.Model.TaskRec;
+import ted.driver.sys.QuickCheck.Tick;
 import ted.driver.sys.SqlUtils.DbType;
 
 import javax.sql.DataSource;
@@ -62,7 +63,7 @@ class TedDaoOracle extends TedDaoAbstract {
     }
 
     @Override
-    public List<TaskRec> reserveTaskPortion(Map<String, Integer> channelSizes){
+    public List<TaskRec> reserveTaskPortion(Map<String, Integer> channelSizes, Tick tick){
         String channelsParam = "";
         for (String channel : channelSizes.keySet()) {
             int cnt = channelSizes.get(channel);

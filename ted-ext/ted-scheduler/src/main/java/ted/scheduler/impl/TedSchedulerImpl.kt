@@ -99,8 +99,18 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
 
 
     fun registerScheduler(taskName: String, data: String?, processorFactory: TedProcessorFactory, retryScheduler: TedRetryScheduler): Long {
+        val disabled = tedSchdDriverExt.getPropertyValue("ted.schedulerTask.${taskName}.disabled")?.yesToBoolean() ?: false
+        val cron = tedSchdDriverExt.getPropertyValue("ted.schedulerTask.${taskName}.cron")
 
-        tedDriver.registerTaskConfig(taskName, processorFactory, retryScheduler)
+        if (disabled) {
+            logger.warn("scheduled task $taskName is disabled")
+            registerDisabledScheduler(taskName)
+        } else if (!cron.isNullOrBlank()) {
+            logger.info("Using cron from properties (ted.schedulerTask.${taskName}.cron=$cron)")
+            tedDriver.registerTaskConfig(taskName, processorFactory, CronRetry(cron))
+        } else {
+            tedDriver.registerTaskConfig(taskName, processorFactory, retryScheduler)
+        }
 
         // create task is not exists
         val postponeSec = getPostponeSec(retryScheduler)
@@ -110,6 +120,19 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
 
         return taskId
     }
+
+
+    private fun registerDisabledScheduler(taskName: String) {
+        // always postpone task for 10 minutes. Once disabled, will require to restart to enable
+        val disabledTaskProcessor = TedProcessorFactory {
+            TedProcessor {
+                logger.debug("scheduled task $taskName is disabled, skipping")
+                TedResult.retry("disabled")
+            }
+        }
+        tedDriver.registerTaskConfig(taskName, disabledTaskProcessor, PeriodicRetry(10, TimeUnit.MINUTES))
+    }
+
 
     fun checkForErrorStatus() {
         val schdTaskIds = schedulerTasks.values.map { it.taskId }
@@ -224,4 +247,5 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
     }
 
 
+    private fun String.yesToBoolean(): Boolean = this.equals("yes", ignoreCase = true) || this.equals("true", ignoreCase = true)
 }

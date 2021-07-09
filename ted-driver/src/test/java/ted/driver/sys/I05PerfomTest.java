@@ -11,6 +11,7 @@ import ted.driver.TedResult;
 import ted.driver.TedTask;
 import ted.driver.sys.PrimeInstance.CheckPrimeParams;
 import ted.driver.sys.QuickCheck.CheckResult;
+import ted.driver.sys.QuickCheck.Tick;
 import ted.driver.sys.TedDriverImpl.TedContext;
 
 import java.io.IOException;
@@ -19,10 +20,10 @@ import java.util.List;
 import java.util.Properties;
 
 import static java.util.Arrays.asList;
-import static org.mockito.Matchers.anyBoolean;
 import static org.mockito.Matchers.anyMap;
-import static org.mockito.Matchers.eq;
+import static org.mockito.Matchers.anyObject;
 import static org.mockito.Matchers.isNull;
+import static org.mockito.Matchers.refEq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -99,12 +100,18 @@ public class I05PerfomTest extends TestBase {
         List<CheckResult> chkres = new ArrayList<>();
         chkres.add(new CheckResult("CHAN", "TEST5", waitingTaskCount));
 
-        when(context.tedDao.quickCheck(isNull(CheckPrimeParams.class), anyBoolean()))
+        when(context.tedDao.quickCheck(isNull(CheckPrimeParams.class), anyObject()))
             .thenReturn(chkres);
 
-        when(context.tedDao.reserveTaskPortion(anyMap())).thenReturn(asList());
+        when(context.tedDao.reserveTaskPortion(anyMap(), anyObject())).thenReturn(asList());
 
         context.quickCheck.quickCheck();
+    }
+
+    private Tick tick(boolean skipLookup) {
+        return new Tick(1) {{
+            this.skipChannelLookup = skipLookup;
+        }};
     }
 
     @Test
@@ -117,14 +124,14 @@ public class I05PerfomTest extends TestBase {
 
         doQuickCheck(5000);
         verify(context.tedDao).quickCheck(isNull(CheckPrimeParams.class),
-            eq(false)); // first call with check
-        verify(context.tedDao).reserveTaskPortion(anyMap());
+            refEq(tick(false))); // first call with check
+        verify(context.tedDao).reserveTaskPortion(anyMap(), anyObject());
         Mockito.reset(context.tedDao);
 
         doQuickCheck(null);
         verify(context.tedDao).quickCheck(isNull(CheckPrimeParams.class),
-            eq(true)); // after getting 5000 waiting count next time we skip channelLookup
-        verify(context.tedDao).reserveTaskPortion(anyMap());
+            refEq(tick(true))); // after getting 5000 waiting count next time we skip channelLookup
+        verify(context.tedDao).reserveTaskPortion(anyMap(), anyObject());
         Mockito.reset(context.tedDao);
 
         // 2. now wait tasks again
@@ -132,7 +139,7 @@ public class I05PerfomTest extends TestBase {
 
         doQuickCheck(0);
         verify(context.tedDao).quickCheck(isNull(CheckPrimeParams.class),
-            eq(false));
+            refEq(tick(true)));
         Mockito.reset(context.tedDao);
 
     }

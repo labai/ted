@@ -7,6 +7,7 @@ import ted.driver.Ted.TedStatus;
 import ted.driver.TedResult;
 import ted.driver.sys.Executors.TedRunnable;
 import ted.driver.sys.Model.TaskRec;
+import ted.driver.sys.QuickCheck.Tick;
 import ted.driver.sys.Registry.Channel;
 import ted.driver.sys.Registry.TaskConfig;
 import ted.driver.sys.TedDriverImpl.TedContext;
@@ -53,7 +54,7 @@ class EventQueueManager {
         maxTask = Math.min(maxTask, 50);
         Map<String, Integer> channelSizes = new HashMap<>();
         channelSizes.put(Model.CHANNEL_QUEUE, maxTask);
-        List<TaskRec> heads = tedDao.reserveTaskPortion(channelSizes);
+        List<TaskRec> heads = tedDao.reserveTaskPortion(channelSizes, new Tick(1));
         if (heads.isEmpty())
             return;
 

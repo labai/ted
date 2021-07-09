@@ -9,6 +9,7 @@ import ted.driver.TedResult;
 import ted.driver.sys.Executors.TedRunnable;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.QuickCheck.GetWaitChannelsResult;
+import ted.driver.sys.QuickCheck.Tick;
 import ted.driver.sys.Registry.Channel;
 import ted.driver.sys.Registry.TaskConfig;
 import ted.driver.sys.TedDao.SetTaskStatus;
@@ -37,34 +38,28 @@ class TaskManager {
     private static final Logger logger = LoggerFactory.getLogger(TaskManager.class);
     private static final Logger taskExceptionLogger = LoggerFactory.getLogger("ted-task");
 
-    static final int SLOW_START_COUNT = 3;
     static final int MAX_TASK_COUNT = 1000;
     static final int LIMIT_TOTAL_WAIT_TASKS = 20000; // max waiting tasks (aim to don't consume all memory)
-    private static final long RARE_MAINT_INTERVAL_MS = 3 * 3600 * 1000L; // every 3 hour
+    private static final long RARE_MAINT_INTERVAL_MS = 2 * 3600 * 1000L; // every 2 hour
     private static final long UNKNOWN_TASK_POSTPONE_MS = 120 * 1000L; // 2 min
     private static final long UNKNOWN_TASK_CANCEL_AFTER_MS = 24 * 3600 * 1000L;
 
     private final TedContext context;
     private final TaskStatusManager taskStatusManager;
 
-    private class ChannelWorkContext {
+    private static class ChannelWorkContext {
         final String channelName;
-        int nextSlowLimit = SLOW_START_COUNT;
         int lastGotCount = 0;
         int nextPortion = 0;
         boolean foundTask = false;
         ChannelWorkContext(String channelName) {
             this.channelName = channelName;
-            dropNextSlowLimit();
-        }
-        void dropNextSlowLimit() {
-            this.nextSlowLimit = context.registry.getChannel(channelName).getSlowStartCount();
         }
     }
 
-    private Map<String, ChannelWorkContext> channelContextMap = new HashMap<>();
+    private final Map<String, ChannelWorkContext> channelContextMap = new HashMap<>();
 
-    private long lastRareMaintExecTimeMilis = System.currentTimeMillis();
+    private long lastRareMaintExecTimeMilis = System.currentTimeMillis() - Math.max(0L, RARE_MAINT_INTERVAL_MS - 5 * 60 * 1000L); // first will be 5 min. after startup
     private long lastIndexRebuildMillis = System.currentTimeMillis();
 
     TaskManager(TedContext context) {
@@ -102,8 +97,17 @@ class TaskManager {
         context.tedDao.processMaintenanceFrequent();
         processTimeouts();
         if (System.currentTimeMillis() - lastRareMaintExecTimeMilis > RARE_MAINT_INTERVAL_MS) {
+            if (context.config.useArchiveTable()) {
+                logger.debug("Start process move tasks");
+                context.tedDaoExt.maintenanceMoveDoneTasks(context.config.archiveTableName(), context.config.oldTaskArchiveDays());
+                context.tedDao.maintenanceDeleteTasks(context.config.archiveKeepDays(), context.config.archiveTableName());
+            } else {
+                logger.debug("Start process delete tasks");
+                context.tedDao.maintenanceDeleteTasks(context.config.oldTaskArchiveDays(), null);
+            }
             logger.debug("Start process rare maintenance tasks");
-            context.tedDao.processMaintenanceRare(context.config.oldTaskArchiveDays());
+            context.tedDao.processMaintenanceRare();
+
             lastRareMaintExecTimeMilis = System.currentTimeMillis();
         }
         if (context.config.rebuildIndexIntervalHours() > 0
@@ -138,22 +142,21 @@ class TaskManager {
         }
     }
 
-
     // tests only
-    void processChannelTasks() {
-        List<GetWaitChannelsResult> waitChannelsList = context.tedDao.getWaitChannels();
+    void processChannelTasks(Tick tick) {
+        List<GetWaitChannelsResult> waitChannelsList = context.tedDao.getWaitChannels(tick);
         List<String> channels = waitChannelsList.stream()
             .filter(it -> ! Model.nonTaskChannels.contains(it.channel) )
             .map(it -> it.channel)
             .collect(Collectors.toList());
-        processChannelTasks(channels);
+        processChannelTasks(channels, tick);
     }
 
 
     // process TED tasks
     // return flag, was any of channels fully loaded
     //
-    boolean processChannelTasks(List<String> waitChannelsList) {
+    boolean processChannelTasks(List<String> waitChannelsList, Tick tick) {
         int totalProcessing = calcWaitingTaskCountInAllChannels();
         if (totalProcessing >= LIMIT_TOTAL_WAIT_TASKS) {
             logger.warn("Total size of waiting tasks ({}) already exceeded limit ({}), skip this iteration", totalProcessing, LIMIT_TOTAL_WAIT_TASKS);
@@ -162,13 +165,10 @@ class TaskManager {
 
         if (waitChannelsList.isEmpty()) {
             logger.trace("no wait tasks");
-            for (ChannelWorkContext wc : channelContextMap.values())
-                wc.dropNextSlowLimit();
             return false;
         }
 
         // check and log for unknown channels, remove special channels
-
         for (String waitChan : waitChannelsList) {
             if (context.registry.getChannel(waitChan) == null)
                 logger.warn("Channel '{}' is not configured, but exists a waiting task with that channel", waitChan);
@@ -185,9 +185,7 @@ class TaskManager {
             if (!wc.foundTask)
                 continue;
             // calc max size of tasks we can take now
-            int maxTask = calcChannelBufferFree(channel);
-            maxTask = Math.min(maxTask, wc.nextSlowLimit); // limit maximums by iteration(slow start)
-            wc.nextPortion = maxTask;
+            wc.nextPortion = calcChannelBufferFree(channel);
         }
 
         // fill channels for request
@@ -199,7 +197,7 @@ class TaskManager {
 
         // select tasks from db
         //
-        List<TaskRec> tasks = context.tedDao.reserveTaskPortion(channelSizes);
+        List<TaskRec> tasks = context.tedDao.reserveTaskPortion(channelSizes, tick);
 
         // calc stats
         //
@@ -354,15 +352,6 @@ class TaskManager {
                 channelContextMap.put(taskRec.channel, wc);
             }
             wc.lastGotCount++;
-        }
-        // update next portion - double if found something, clear to minimum if not
-        for (ChannelWorkContext wc : channelContextMap.values()) {
-            if (wc.lastGotCount > 0) {
-                wc.nextSlowLimit = Math.min(wc.nextSlowLimit * 2, MAX_TASK_COUNT);
-                logger.debug("Channel " + wc.channelName + " nextSlowLimit=" + wc.nextSlowLimit);
-            } else {
-                wc.dropNextSlowLimit();
-            }
         }
     }
 

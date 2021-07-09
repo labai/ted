@@ -9,6 +9,7 @@ import ted.driver.sys.RetryConfig.PeriodPatternRetryScheduler;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 
 /**
@@ -40,20 +41,24 @@ class ConfigUtils {
         // driver internals
         public static final String DRIVER_INIT_DELAY_MS 			= "ted.driver.initDelayMs";
         public static final String DRIVER_INTERVAL_DRIVER_MS 		= "ted.driver.intervalDriverMs";
-        public static final String DRIVER_INTERVAL_MAINTENANCE_MS 	= "ted.driver.intervalMaintenanceMs";
-        public static final String DRIVER_DISABLE_PROCESSING  		= "ted.driver.disableProcessing";
+        public static final String DRIVER_INTERVAL_MAINTENANCE_MS   = "ted.driver.intervalMaintenanceMs";
+        public static final String DRIVER_DISABLE_PROCESSING        = "ted.driver.disableProcessing";
         public static final String DRIVER_DISABLE_SQL_BATCH_UPDATE  = "ted.driver.disableSqlBatchUpdate";
         // maintenance
         public static final String DRIVER_OLD_TASK_ARCHIVE_DAYS	= "ted.maintenance.oldTaskArchiveDays";
+        public static final String USE_ARCHIVE_TABLE            = "ted.maintenance.useArchiveTable";
+        public static final String ARCHIVE_TABLE_NAME           = "ted.maintenance.archiveTableName";
+        public static final String ARCHIVE_KEEP_DAYS            = "ted.maintenance.archiveKeepDays";
         public static final String DRIVER_REBUILD_INDEX_HOURS   = "ted.maintenance.rebuildIndexIntervalHours";
+
         // tedtask table name
         public static final String DRIVER_DB_SCHEMA      = "ted.driver.db.schema";
         public static final String DRIVER_DB_TABLE_NAME  = "ted.driver.db.tableName";
 
         // task defaults
-        public static final String TASKDEF_RETRY_PAUSES 			= "ted.taskDefault.retryPauses";
-        public static final String TASKDEF_TIMEOUT_MINUTES 			= "ted.taskDefault.timeoutMinutes";
-        public static final String TASKDEF_BATCH_TIMEOUT_MINUTES	= "ted.taskDefault.batchTimeoutMinutes";
+        public static final String TASKDEF_RETRY_PAUSES             = "ted.taskDefault.retryPauses";
+        public static final String TASKDEF_TIMEOUT_MINUTES          = "ted.taskDefault.timeoutMinutes";
+        public static final String TASKDEF_BATCH_TIMEOUT_MINUTES    = "ted.taskDefault.batchTimeoutMinutes";
 
         // short channel properties (w/o prefix "ted.channel.<CHANNEL>.")
         public static final String CHANNEL_WORKERS_COUNT = "workerCount";
@@ -74,7 +79,7 @@ class ConfigUtils {
 
     static class TedConfig {
         private String defaultRetryPauses = "12s,36s,90s,300s,16m,50m,2h,5h,7h*5;dispersion=10";
-        private int defaultTaskTimeoutMn = 30; // 30min
+        private int defaultTaskTimeoutMn = 60; // 1h
         private int defaultBatchTaskTimeoutMn = 180; // 3h
         private boolean disabledProcessing = false;
         private boolean disabledSqlBatchUpdate = false;
@@ -82,6 +87,9 @@ class ConfigUtils {
         private int intervalDriverMs = 700;
         private int intervalMaintenanceMs = 10000;
         private int oldTaskArchiveDays = 35;
+        private boolean useArchiveTable = false;
+        private String archiveTableName = "tedtaskarch";
+        private int archiveKeepDays = 35;
         private int rebuildIndexIntervalHours = 0; // don't rebuild by default
         private final Map<String, Properties> channelMap = new HashMap<>();
         private final Map<String, Properties> taskMap = new HashMap<>();
@@ -89,6 +97,8 @@ class ConfigUtils {
         private final String instanceId;
         private String tableName = "tedtask";
         private String schemaName = null;
+        private Map<String, String> tedProperties;
+
         public TedConfig(String systemId) {
             this.systemId = systemId;
             this.instanceId = MiscUtils.generateInstanceId();
@@ -101,6 +111,9 @@ class ConfigUtils {
         public int initDelayMs() { return initDelayMs; }
         public int intervalDriverMs() { return intervalDriverMs; }
         public int intervalMaintenanceMs() { return intervalMaintenanceMs; }
+        public boolean useArchiveTable() { return useArchiveTable; }
+        public String archiveTableName() { return archiveTableName; }
+        public int archiveKeepDays() { return archiveKeepDays; }
         public int oldTaskArchiveDays() { return oldTaskArchiveDays; }
         public int rebuildIndexIntervalHours() { return rebuildIndexIntervalHours; }
         public Map<String, Properties> channelMap() { return Collections.unmodifiableMap(channelMap); }
@@ -111,8 +124,11 @@ class ConfigUtils {
         public String schemaName() { return schemaName; }
         public boolean isDisabledSqlBatchUpdate() { return disabledSqlBatchUpdate; }
         public boolean isDisabledProcessing() { return disabledProcessing; }
+        public String getPropertyValue(String key) { return tedProperties.get(key); }
 
         void setRebuildIndexIntervalHours(int val) { this.rebuildIndexIntervalHours = val; }
+
+
     }
 
     // read "ted.driver.*" properties
@@ -123,6 +139,8 @@ class ConfigUtils {
         }
         String sv;
         Integer iv;
+
+        config.tedProperties = getPropertiesByPrefix(properties, "ted.");
 
         sv = getString(properties, TedProperty.DRIVER_DB_TABLE_NAME, null);
         if (sv != null) {
@@ -157,6 +175,19 @@ class ConfigUtils {
         iv = getInteger(properties, TedProperty.DRIVER_OLD_TASK_ARCHIVE_DAYS, null);
         if (iv != null)
             config.oldTaskArchiveDays = iv;
+
+        config.useArchiveTable = getBoolean(properties, TedProperty.USE_ARCHIVE_TABLE, false);
+
+        sv = getString(properties, TedProperty.ARCHIVE_TABLE_NAME, null);
+        if (sv != null) {
+            if (FieldValidator.hasNonAlphanumUnderscore(sv))
+                throw new IllegalArgumentException("Provided schema name contains invalid symbols. Allowed characters, numbers, underscore(_)");
+            config.archiveTableName = sv;
+        }
+
+        iv = getInteger(properties, TedProperty.ARCHIVE_KEEP_DAYS, null);
+        if (iv != null)
+            config.archiveKeepDays = iv;
 
         iv = getInteger(properties, TedProperty.DRIVER_REBUILD_INDEX_HOURS, null);
         if (iv != null)
@@ -202,6 +233,12 @@ class ConfigUtils {
         );
         loggerConfig.info("maintenance:"
             + " oldTaskArchiveDays=" + config.oldTaskArchiveDays
+            + " useArchiveTable=" + config.useArchiveTable
+            + (config.useArchiveTable ? (
+                " archiveTableName=" + config.archiveTableName
+                + " archiveKeepDays=" + config.archiveKeepDays
+                ) : ""
+               )
             + (config.rebuildIndexIntervalHours > 0 ? " rebuildIndexIntervalHours=" + config.rebuildIndexIntervalHours : "")
         );
         loggerConfig.info("taskDefault:"
@@ -209,6 +246,19 @@ class ConfigUtils {
             + " retryPattern=" + config.defaultRetryPauses
         );
         loggerConfig.info("channels: " + config.channelMap.keySet().toString());
+    }
+
+    static Map<String, String> getPropertiesByPrefix(Properties properties, String prefix) {
+        Map<String, String> result = new HashMap<>();
+        if (properties == null)
+            return result;
+        for (Entry<Object, Object> entry : properties.entrySet()) {
+            String key = entry.getKey().toString().trim();
+            if (prefix == null || key.startsWith(prefix)) {
+                result.put(key, entry.getValue().toString().trim());
+            }
+        }
+        return result;
     }
 
     static Map<String, Properties> getShortPropertiesByPrefix(Properties properties, String prefix) {
@@ -242,6 +292,7 @@ class ConfigUtils {
         }
         return shortPropMap;
     }
+
 
     // returns int value of property or defaultValue if not found or invalid
     static Integer getInteger(Properties properties, String key, Integer defaultValue) {

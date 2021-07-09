@@ -11,6 +11,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 /**
@@ -19,12 +20,9 @@ import java.util.stream.Collectors;
  *
  * for TED internal usage only!!!
  *
- * quick check in db for tasks. Will be called every ~0.9s
- * (config "ted.driver.intervalDriverMs")
- *
- * we are making assumptions that single call with few selects to db
- * is somehow faster than few separated calls.
- *
+ * quick check in db for tasks. Will be called every ~1s
+ * (config "ted.driver.intervalDriverMs").
+ * tries to combine few selects into single call
  *
  */
 class QuickCheck {
@@ -34,8 +32,8 @@ class QuickCheck {
 
     private final TedContext context;
 
-    private long nextPrimeCheckTimeMs = 0;
-    private long checkIteration = 0;
+    private final AtomicLong tickCount = new AtomicLong();
+    private long nextPrimeCheckTimeMs = 0L;
     private boolean skipNextChannelLookup = false;
 
     QuickCheck(TedContext context) {
@@ -61,6 +59,27 @@ class QuickCheck {
     static class GetWaitChannelsResult {
         String channel;
         Integer taskCnt;
+    }
+
+    static class Tick {
+        final long number;
+        final long startTs = System.currentTimeMillis();
+
+        // limiting from nextTs, even if there are no such active record, but only deleted all,
+        // still improves index usage - skips invisible (deleted) entries (PostgreSql)
+        boolean limitNextTs = false;
+        int limitNextTsSec = 300;
+
+        // if there are many new tasks (thousands), getting channel stats may be expensive.
+        // in that case all channels will be queried separately
+        boolean skipChannelLookup = false;
+
+        // check for prime instance every 7 ticks
+        boolean checkPrime = false;
+
+        Tick(long number) {
+            this.number = number;
+        }
     }
 
 
@@ -141,14 +160,27 @@ class QuickCheck {
     }
 
     public void quickCheck() {
+
+        Tick tick = new Tick(tickCount.getAndIncrement());
+        tick.skipChannelLookup = skipNextChannelLookup;
+        if (tick.number % 30 == 0) {
+            tick.limitNextTs = false; // every 30 tick use full period check
+        } else if (tick.number % 6 == 0) {
+            tick.limitNextTs = true;
+            tick.limitNextTsSec = 3 * 3600; // every 6 tick - longer period
+        } else {
+            tick.limitNextTs = true;
+            tick.limitNextTsSec = 5 * 60;
+        }
+
+
         // do need to check is instance prime
-        CheckPrimeParams checkPrimeParams = getCheckPrimeParams();
+        CheckPrimeParams checkPrimeParams = getCheckPrimeParams(tick);
+        tick.checkPrime = checkPrimeParams != null;
 
         long startTs = System.currentTimeMillis();
 
-        List<CheckResult> checkResList = callDao(checkPrimeParams);
-
-        checkIteration++;
+        List<CheckResult> checkResList = callDao(checkPrimeParams, tick);
 
         long checkDurationMs = System.currentTimeMillis() - startTs;
 
@@ -157,20 +189,20 @@ class QuickCheck {
 
         handleResultSystemChannels(channelLookupResult);
 
-        handleResultTaskChannels(channelLookupResult, checkDurationMs);
+        handleResultTaskChannels(channelLookupResult, checkDurationMs, tick);
 
-        handleResultPrime(primeResult);
+        handleResultPrime(checkPrimeParams, primeResult);
 
     }
 
 
-    private CheckPrimeParams getCheckPrimeParams() {
+    private CheckPrimeParams getCheckPrimeParams(Tick tick) {
         CheckPrimeParams checkPrimeParams = null;
         if (context.prime.isEnabled()) {
             boolean needCheckPrime = false;
             if (context.prime.isPrime()) {
-                // update every 3 ticks
-                needCheckPrime = (checkIteration % PrimeInstance.TICK_SKIP_COUNT == 0);
+                // update every 7 ticks
+                needCheckPrime = (tick.number % PrimeInstance.TICK_SKIP_COUNT == 0);
             } else {
                 needCheckPrime = (nextPrimeCheckTimeMs <= System.currentTimeMillis());
             }
@@ -182,16 +214,16 @@ class QuickCheck {
     }
 
 
-    private List<CheckResult> callDao(CheckPrimeParams checkPrimeParams) {
+    private List<CheckResult> callDao(CheckPrimeParams checkPrimeParams, Tick tick) {
         // channels
         List<CheckResult> checkResList;
         try {
-            if (skipNextChannelLookup)
+            if (tick.skipChannelLookup)
                 logger.debug("skip channels quick check");
 
-            checkResList = context.tedDao.quickCheck(checkPrimeParams, skipNextChannelLookup);
+            checkResList = context.tedDao.quickCheck(checkPrimeParams, tick);
 
-            if (skipNextChannelLookup) { // add all channels
+            if (tick.skipChannelLookup) { // add all channels
                 checkResList = new ArrayList<>(checkResList);
                 for (Channel chan : context.registry.getChannels()) {
                     checkResList.add(new CheckResult("CHAN", chan.name, null));
@@ -207,7 +239,7 @@ class QuickCheck {
         return checkResList;
     }
 
-    private void handleResultTaskChannels(ChannelLookupResult channelLookupResult, long checkDurationMs) {
+    private void handleResultTaskChannels(ChannelLookupResult channelLookupResult, long checkDurationMs, Tick tick) {
         Set<String> allTaskChannels = channelLookupResult.getTaskChannels();
 
         List<String> taskChannels = new ArrayList<>();
@@ -227,7 +259,7 @@ class QuickCheck {
         // process tasks
         //
         if (! taskChannels.isEmpty()) {
-            boolean wasAnyChannelFull = context.taskManager.processChannelTasks(taskChannels);
+            boolean wasAnyChannelFull = context.taskManager.processChannelTasks(taskChannels, tick);
 
             // get total waiting task count in db
             int waitingTaskCount = channelLookupResult.getTaskCheckResults().stream()
@@ -256,13 +288,13 @@ class QuickCheck {
 
     }
 
-    private void handleResultPrime(PrimeResult primeResult) {
+    private void handleResultPrime(CheckPrimeParams primeParams, PrimeResult primeResult) {
         if (! context.prime.isEnabled())
             return;
 
         Date tillTs = primeResult.nextPrimeCheck();
-        if (tillTs != null) {
-            nextPrimeCheckTimeMs = Math.min(System.currentTimeMillis() + 3000, tillTs.getTime());
+        if (tillTs != null && primeParams != null) {
+            nextPrimeCheckTimeMs = Math.min(tillTs.getTime(), System.currentTimeMillis() + primeParams.postponeSec() * 1000L);
         }
 
         if (context.prime.isPrime() && primeResult.lostPrime()) {

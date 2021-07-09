@@ -15,7 +15,7 @@ interface TedDaoExt {
 
 //	Map<TedStatus, Integer> getBatchStatusStats(long batchId);
 
-    boolean becomePrime(Long primeTaskId, String instanceId);
+    boolean becomePrime(Long primeTaskId, String instanceId, Integer postponeSec);
 
     Long findPrimeTaskId();
 
@@ -34,5 +34,7 @@ interface TedDaoExt {
     void runInTx(Runnable runnable);
 
     boolean maintenanceRebuildIndex();
+
+    void maintenanceMoveDoneTasks(String archiveTableName, int mainDeleteAfterDays);
 
 }

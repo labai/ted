@@ -18,6 +18,7 @@ import static ted.driver.sys.MiscUtils.asList;
 public abstract class TestBase {
 
     protected abstract TedDriverImpl getDriver();
+    protected DbType getDbType() { return ((TedDaoAbstract)getContext().tedDao).dbType; }
 
     @Before
     public void initCheck() {
@@ -33,14 +34,14 @@ public abstract class TestBase {
         DbType dbType = getDriver().getContext().tedDao.getDbType();
         ((TedDaoAbstract)getContext().tedDao).execute("dao_cleanupTasks",
             " update tedtask set status = 'ERROR', nextTs = null, msg = concat('cleanup from status ', status) " +
-                " where "+ dbType.sql().systemColumn() +" = '" + TestConfig.SYSTEM_ID + "' and status in ('NEW', 'WORK', 'RETRY')", Collections.emptyList());
+                " where "+ dbType.sql().systemColumn() +" = '" + TestConfig.SYSTEM_ID + "' and status in ('NEW', 'WORK', 'RETRY', 'SLEEP')", Collections.emptyList());
     }
 
     protected void dao_cleanupTasks(String taskName) {
         DbType dbType = getDriver().getContext().tedDao.getDbType();
         ((TedDaoAbstract)getContext().tedDao).execute("dao_cleanupTasks",
             " update tedtask set status = 'ERROR', nextTs = null, msg = concat('cleanup from status ', status) " +
-                " where "+ dbType.sql().systemColumn() +" = '" + TestConfig.SYSTEM_ID + "' and status in ('NEW', 'WORK', 'RETRY') and name = ?", asList(
+                " where "+ dbType.sql().systemColumn() +" = '" + TestConfig.SYSTEM_ID + "' and status in ('NEW', 'WORK', 'RETRY', 'SLEEP') and name = ?", asList(
                 JdbcSelectTed.sqlParam(taskName, JetJdbcParamType.STRING)
             ));
     }
@@ -51,6 +52,10 @@ public abstract class TestBase {
             " update tedtask set finishTs = null"
                 + " where "+ dbType.sql().systemColumn() +" = '" + TestConfig.SYSTEM_ID + "' "
                 + " and name = 'TED_PRIME'", Collections.<SqlParam>emptyList());
+    }
+
+    protected void dao_execSql (String sql) {
+        ((TedDaoAbstract)getContext().tedDao).execute("test", sql, Collections.emptyList());
     }
 
 }

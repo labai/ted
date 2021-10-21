@@ -5,8 +5,6 @@ import ted.driver.Ted.PrimeChangeEvent;
 import ted.driver.Ted.TedProcessorFactory;
 import ted.driver.Ted.TedRetryScheduler;
 
-import java.util.List;
-
 /**
  * @author Augustus
  *         created on 2016.04.29
@@ -74,6 +72,8 @@ public interface TedDriverApi {
     interface TedDriverEvent {
 
         Long createEvent(String taskName, String queueId, String data, String key2);
+
+        Long createEventPostponed(String taskName, String queueId, String data, String key2, int postponeSec);
 
         Long createEventAndTryExecute(String taskName, String queueId, String data, String key2);
 

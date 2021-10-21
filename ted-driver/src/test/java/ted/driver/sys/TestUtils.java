@@ -3,6 +3,7 @@ package ted.driver.sys;
 import org.awaitility.Awaitility;
 import org.awaitility.Duration;
 import ted.driver.sys.Model.TaskRec;
+import ted.driver.sys.QuickCheck.Tick;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -88,6 +89,16 @@ class TestUtils {
     public static void awaitUntilStatus(final TedDriverImpl driver, final long taskId, List<String> statuses, int maxMs) {
         awaitTask(maxMs, () -> {
             driver.getContext().taskManager.flushStatuses();
+            TaskRec rec = driver.getContext().tedDao.getTask(taskId);
+            return statuses.contains(rec.status);
+        });
+    }
+
+    // process tasks and wait for status
+    public static void awaitProcessUntilStatus(final TedDriverImpl driver, final long taskId, List<String> statuses, int maxMs) {
+        awaitTask(maxMs, () -> {
+            driver.getContext().taskManager.flushStatuses();
+            driver.getContext().taskManager.processChannelTasks(new Tick(1));
             TaskRec rec = driver.getContext().tedDao.getTask(taskId);
             return statuses.contains(rec.status);
         });

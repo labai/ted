@@ -145,20 +145,20 @@ public class TedDriver implements
     }
 
     /**
-     * create tasks by list and batch task for them. return batch taskId
-     */
-// moved to TedTaskManager
-//	@Override
-//	public Long createBatch(String batchTaskName, String data, String key1, String key2, List<TedTask> tedTasks) {
-//		return tedDriverImpl.createBatch(batchTaskName, data, key1, key2, tedTasks);
-//	}
-
-    /**
      * create event in queue
      */
     @Override
     public Long createEvent(String taskName, String queueId, String data, String key2) {
-        return tedDriverImpl.createEvent(taskName, queueId, data, key2);
+        return tedDriverImpl.createEvent(taskName, queueId, data, key2, 0);
+    }
+
+
+    /**
+     * create event in queue (postponed)
+     */
+    @Override
+    public Long createEventPostponed(String taskName, String queueId, String data, String key2, int postponeSec) {
+        return tedDriverImpl.createEvent(taskName, queueId, data, key2, postponeSec);
     }
 
     /**

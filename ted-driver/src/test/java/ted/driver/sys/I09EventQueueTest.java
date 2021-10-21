@@ -19,13 +19,17 @@ import ted.driver.sys.TestTedProcessors.TestProcessorOk;
 import ted.driver.sys.TestTedProcessors.TestProcessorOkSleep;
 
 import java.io.IOException;
+import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 import java.util.Random;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static ted.driver.sys.MiscUtils.asList;
 import static ted.driver.sys.TestConfig.SYSTEM_ID;
 import static ted.driver.sys.TestTedProcessors.forProcessor;
+import static ted.driver.sys.TestUtils.awaitUntilStatus;
 import static ted.driver.sys.TestUtils.awaitUntilTaskFinish;
 import static ted.driver.sys.TestUtils.print;
 import static ted.driver.sys.TestUtils.sleepMs;
@@ -65,14 +69,14 @@ public class I09EventQueueTest extends TestBase {
         String taskName = "TEST09-1";
         cleanupData();
 
-        Long taskId = driver.createEvent(taskName, "test9-a", "task1" , null);
+        Long taskId = driver.createEvent(taskName, "test9-a", "task1" , null, 0);
         TaskRec taskRec = tedDao.getTask(taskId);
         print(taskRec.toString());
         assertEquals("NEW", taskRec.status);
         dao_execSql("update tedtask set status = 'SLEEP' where system = '" + SYSTEM_ID + "' and taskId = " + taskId);
 
         // the first task should be NEW after creation of task2
-        Long taskId2 = driver.createEvent(taskName, "test9-a", "task2" , null);
+        Long taskId2 = driver.createEvent(taskName, "test9-a", "task2" , null, 0);
         assertEquals("NEW", tedDao.getTask(taskId).status);
         assertEquals("SLEEP", tedDao.getTask(taskId2).status);
 
@@ -100,27 +104,27 @@ public class I09EventQueueTest extends TestBase {
         driver.registerTaskConfig(taskName2, new SingeInstanceFactory(new TestProcessorFailAfterNDone(1, TedResult.retry("retry"))));
 
         // first must become NEW
-        Long taskId = driver.createEvent(taskName, "test9-1", "abra1" , null);
+        Long taskId = driver.createEvent(taskName, "test9-1", "abra1" , null, 0);
         TaskRec taskRec = tedDao.getTask(taskId);
         print(taskRec.toString());
         assertEquals("NEW", taskRec.status);
 
         // second and others must become SLEEP
-        Long taskId2 = driver.createEvent(taskName, "test9-1", "abra2" , null);
+        Long taskId2 = driver.createEvent(taskName, "test9-1", "abra2" , null, 0);
         taskRec = tedDao.getTask(taskId2);
         print(taskRec.toString());
         assertEquals("SLEEP", taskRec.status);
 
-        Long taskId3 = driver.createEvent(taskName, "test9-1", "abra2" , null);
+        Long taskId3 = driver.createEvent(taskName, "test9-1", "abra2" , null, 0);
 
         // by other queueId - again first NEW
-        Long taskId4 = driver.createEvent(taskName2, "test9-2", "abra2" , null);
+        Long taskId4 = driver.createEvent(taskName2, "test9-2", "abra2" , null, 0);
         taskRec = tedDao.getTask(taskId4);
         print(taskRec.toString());
         assertEquals("NEW", taskRec.status); // first must become NEW
 
-        Long taskId5 = driver.createEvent(taskName2, "test9-2", "abra2" , null);
-        Long taskId6 = driver.createEvent(taskName2, "test9-2", "abra2" , null);
+        Long taskId5 = driver.createEvent(taskName2, "test9-2", "abra2" , null, 0);
+        Long taskId6 = driver.createEvent(taskName2, "test9-2", "abra2" , null, 0);
 
         sleepMs(20);
         driver.getContext().eventQueueManager.processTedQueue();
@@ -146,14 +150,14 @@ public class I09EventQueueTest extends TestBase {
         final Long[] taskId2 = new Long[2];
         driver.registerTaskConfig(taskName, new SingeInstanceFactory(task -> {
             taskId2[0] = getContext().tedDriver.createEventAndTryExecute(taskName2, "abra", "2", null);
-            taskId2[1] = getContext().tedDriver.createEvent(taskName2, "abra", "3", null);
+            taskId2[1] = getContext().tedDriver.createEvent(taskName2, "abra", "3", null, 0);
             return TedResult.done();
         }
         ));
         driver.registerTaskConfig(taskName2, TestTedProcessors.forClass(TestProcessorOk.class));
 
         // first must become NEW
-        Long taskId = driver.createEvent(taskName, "abra", "abra1" , null);
+        Long taskId = driver.createEvent(taskName, "abra", "abra1" , null, 0);
         TaskRec taskRec = tedDao.getTask(taskId);
         print(taskRec.toString());
         assertEquals("NEW", taskRec.status);
@@ -201,6 +205,46 @@ public class I09EventQueueTest extends TestBase {
     }
 
 
+    @Test
+    public void test06CreateEventPostponed() {
+        String taskName = "TEST09-6";
+        cleanupData();
+
+        String queueId = "test9-6";
+
+        driver.registerTaskConfig(taskName, forProcessor(new TestProcessorOkSleep(200)));
+
+        Long taskId = driver.createEvent(taskName, queueId, "a1" , null, 2);
+        Long taskId2 = driver.createEvent(taskName, queueId, "a2" , null, 0);
+
+        driver.getContext().eventQueueManager.processTedQueue();
+        sleepMs(50);
+
+        // first must become NEW, but nextts postponed
+        TaskRec taskRec = tedDao.getTask(taskId);
+        print(taskRec.toString());
+        assertEquals("NEW", taskRec.status);
+        assertTrue(taskRec.nextTs.after(new Date()));
+
+        // second and others must become SLEEP
+        taskRec = tedDao.getTask(taskId2);
+        print(taskRec.toString());
+        assertEquals("SLEEP", taskRec.status);
+
+        // update nextts to past (i.e. time is passed)
+        String nextts = getDbType().sql().now() + " - " + getDbType().sql().intervalSeconds(1);
+        dao_execSql("update tedtask set nextts = " + nextts + " where taskId = " + taskId);
+
+        driver.getContext().eventQueueManager.processTedQueue();
+
+        awaitUntilStatus(driver, taskId, asList("DONE", "ERROR", "RETRY"), 700);
+        awaitUntilStatus(driver, taskId2, asList("DONE", "ERROR", "RETRY"), 700);
+
+        taskRec = tedDao.getTask(taskId);
+        print(taskRec.toString());
+        assertEquals("DONE", taskRec.status);
+    }
+
     @Ignore
     @Test
     public void test11EventQueue50() {
@@ -211,10 +255,10 @@ public class I09EventQueueTest extends TestBase {
 
         for (int i = 0; i < 10; i++) {
             for (int j = 0; j < 5; j++) {
-                driver.createEvent(taskName, "abra-" + j, "abra-" + i + "-" + j , null);
+                driver.createEvent(taskName, "abra-" + j, "abra-" + i + "-" + j , null, 0);
             }
         }
-        Long taskId = driver.createEvent(taskName, "abra", "abra-data", null);
+        Long taskId = driver.createEvent(taskName, "abra", "abra-data", null, 0);
         List<CheckResult> res = tedDao.quickCheck(null, new Tick(1));
         print(gson.toJson(res));
 

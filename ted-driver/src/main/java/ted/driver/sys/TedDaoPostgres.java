@@ -177,7 +177,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
 
 
     @Override
-    public List<Long> createTasksBulk(List<TaskParam> taskParams) {
+    public List<Long> createTasksBulk(List<TaskParam> taskParams, Connection connection) {
         ArrayList<Long> taskIds = getSequencePortion("SEQ_TEDTASK_ID", taskParams.size());
         int iNum = 0;
 
@@ -185,12 +185,19 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
             param.taskId = taskIds.get(iNum++);
         }
 
-        try (Connection connection = dataSource.getConnection()) {
-            executePgCopy(connection, taskParams);
-        } catch (SQLException e) {
-            throw new TedSqlException("can't execute pgCopy", e);
+        if (connection == null) {
+            try (Connection conn = dataSource.getConnection()) {
+                executePgCopy(conn, taskParams);
+            } catch (SQLException e) {
+                throw new TedSqlException("can't execute pgCopy(1)", e);
+            }
+        } else {
+            try {
+                executePgCopy(connection, taskParams);
+            } catch (SQLException e) {
+                throw new TedSqlException("can't execute pgCopy(2)", e);
+            }
         }
-
         return taskIds;
     }
 
@@ -351,8 +358,9 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
     }
 
     @Override
-    public TaskRec eventQueueMakeFirst(String queueId) {
-        String sql = "update $tedTask set status = 'NEW', nextts = now() where system = '$sys'" +
+    public TaskRec eventQueueMakeFirst(String queueId, int postponeSec) {
+        String nexttsSql = dbType.sql().now() + (postponeSec == 0 ? "" : " + " + dbType.sql().intervalSeconds(postponeSec));
+        String sql = "update $tedTask set status = 'NEW', nextts = $nextts where system = '$sys'" +
             " and key1 = ? and status = 'SLEEP' and channel = 'TedEQ'" +
             " and taskid = (select min(taskid) from $tedTask t2 " +
             "   where system = '$sys' and channel = 'TedEQ' and t2.key1 = ?" +
@@ -363,6 +371,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
             " returning $tedTask.*";
         sql = sql.replace("$tedTask", fullTableName);
         sql = sql.replace("$sys", thisSystem);
+        sql = sql.replace("$nextts", nexttsSql);
         try {
             List<TaskRec> recs = selectData("event_make_first", sql, TaskRec.class, asList(
                 sqlParam(queueId, JetJdbcParamType.STRING),

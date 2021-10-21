@@ -106,7 +106,7 @@ abstract class TedDaoAbstract implements TedDao {
     }
 
     @Override
-    public void setStatuses(List<SetTaskStatus> statuses) {
+    public void setStatuses(List<SetTaskStatus> statuses, Connection conn) {
         if (statuses.isEmpty())
             return;
 
@@ -131,7 +131,7 @@ abstract class TedDaoAbstract implements TedDao {
             sqlParam(it.taskId, JetJdbcParamType.LONG)
         )).collect(Collectors.toList());
 
-        executeBatch(null, "set_status", sql, params);
+        executeBatch(conn, "set_status", sql, params);
     }
 
     @Override
@@ -322,11 +322,11 @@ abstract class TedDaoAbstract implements TedDao {
     // is not really bulk...
     // for postgres will be override
     @Override
-    public List<Long> createTasksBulk(List<TaskParam> taskParams) {
+    public List<Long> createTasksBulk(List<TaskParam> taskParams, Connection connection) {
         assert dbType != DbType.POSTGRES;
         ArrayList<Long> taskIds = new ArrayList<>();
         for (TaskParam param : taskParams) {
-            Long taskId = createTask(param.name, param.channel, param.data, param.key1, param.key2, param.batchId, null);
+            Long taskId = createTask(param.name, param.channel, param.data, param.key1, param.key2, param.batchId, connection);
             taskIds.add(taskId);
         }
         return taskIds;

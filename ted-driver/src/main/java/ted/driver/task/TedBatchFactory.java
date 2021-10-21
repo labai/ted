@@ -3,6 +3,7 @@ package ted.driver.task;
 import ted.driver.TedTask;
 import ted.driver.sys.TedDriverImpl;
 
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
@@ -40,6 +41,12 @@ public class TedBatchFactory {
         return new BatchBuilder(batchTaskName);
     }
 
+    /**
+     * helper function to create TedTask for batch tasks (with required params only)
+     */
+	public TedTask newTedTask(String taskName, String data, String key1, String key2) {
+        return driver().newTedTask(taskName, data, key1, key2);
+    }
 
     /**
      * Builder for batch tasks.
@@ -54,6 +61,7 @@ public class TedBatchFactory {
         private String batchKey2 = null;
         private String batchData = null;
         private List<TedTask> tasks = new ArrayList<>();
+        private Connection connection = null;
 
         BatchBuilder(String batchName) {
             this.batchName = batchName;
@@ -80,7 +88,7 @@ public class TedBatchFactory {
         }
 
         public BatchBuilder addTask(String taskName, String data, String key1, String key2) {
-            TedTask task = driver().newTedTask(taskName, data, key1, key2);
+            TedTask task = newTedTask(taskName, data, key1, key2);
             this.tasks.add(task);
             return this;
         }
@@ -90,16 +98,24 @@ public class TedBatchFactory {
             return this;
         }
 
-//		public BatchBuilder clearTasks() {
-//			this.tasks.clear();
-//			return this;
-//		}
+        /**
+         * Execute task in provided connection.
+         * Sometimes it may be useful to create tasks in
+         * provided db connection (same transaction) as main process:
+         * a) task will not be started until tx finished;
+         * b) task is not be created, if tx rollback.
+         * But consumer is responsible to close connection.
+         */
+        public BatchBuilder inConnection(Connection connection) {
+            this.connection = connection;
+            return this;
+        }
 
         /**
          * create batch task
          */
         public Long create() {
-            return driver().createBatch(batchName, batchData, batchKey1, batchKey2, tasks);
+            return driver().createBatch(batchName, batchData, batchKey1, batchKey2, tasks, connection);
         }
 
     }

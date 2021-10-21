@@ -35,7 +35,7 @@ class TedDaoExtNA implements TedDaoExt {
     }
 
     @Override
-    public TaskRec eventQueueMakeFirst(String queueId) {
+    public TaskRec eventQueueMakeFirst(String queueId, int postponeSec) {
         throw new IllegalStateException(errorMsg);
     }
 

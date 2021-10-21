@@ -338,7 +338,7 @@ public final class TedDriverImpl {
         return taskId;
     }
 
-    public List<Long> createTasksBulk(List<TedTask> tedTasks, Long batchId) {
+    public List<Long> createTasksBulk(List<TedTask> tedTasks, Long batchId, Connection connection) {
         if (tedTasks == null || tedTasks.isEmpty())
             return Collections.emptyList();
 
@@ -359,12 +359,12 @@ public final class TedDriverImpl {
             tp.batchId = batchId;
             taskParams.add(tp);
         }
-        return context.tedDao.createTasksBulk(taskParams);
+        return context.tedDao.createTasksBulk(taskParams, connection);
     }
 
     // create tasks by list and batch task for them. return batch taskId
     // if batchTaskName is null - will take from taskConfiguration
-    public Long createBatch(String batchTaskName, String data, String key1, String key2, List<TedTask> tedTasks) {
+    public Long createBatch(String batchTaskName, String data, String key1, String key2, List<TedTask> tedTasks, Connection connection) {
         if (tedTasks == null || tedTasks.isEmpty())
             return null;
         if (batchTaskName == null) {
@@ -374,15 +374,16 @@ public final class TedDriverImpl {
         if (batchTC == null)
             throw new IllegalArgumentException("Batch task '" + batchTaskName + "' is not known for TED");
 
-        Long batchId = context.tedDao.createTaskPostponed(batchTC.taskName, Model.CHANNEL_BATCH, data, key1, key2, 30 * 60, null);
-        createTasksBulk(tedTasks, batchId);
-        context.tedDao.setStatuses(asList(new SetTaskStatus(batchId, TedStatus.NEW, Model.BATCH_MSG, new Date())));
+        Long batchId = context.tedDao.createTaskPostponed(batchTC.taskName, Model.CHANNEL_BATCH, data, key1, key2, 30 * 60, connection);
+        createTasksBulk(tedTasks, batchId, connection);
+        Date nextTs = new Date(System.currentTimeMillis() + 2 * 1000); // postpone for 2 sec, just in case
+        context.tedDao.setStatuses(asList(new SetTaskStatus(batchId, TedStatus.NEW, Model.BATCH_MSG, nextTs)), connection);
 
         return batchId;
     }
 
-    public Long createEvent(String taskName, String queueId, String data, String key2) {
-        return context.eventQueueManager.createEvent(taskName, queueId, data, key2);
+    public Long createEvent(String taskName, String queueId, String data, String key2, int postponeSec) {
+        return context.eventQueueManager.createEvent(taskName, queueId, data, key2, postponeSec);
     }
 
     public Long createEventAndTryExecute(String taskName, String queueId, String data, String key2) {

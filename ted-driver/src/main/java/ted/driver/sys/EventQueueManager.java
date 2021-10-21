@@ -132,15 +132,15 @@ class EventQueueManager {
     }
 
 
-    Long createEvent(String taskName, String queueId, String data, String key2) {
+    Long createEvent(String taskName, String queueId, String data, String key2, int postponeSec) {
         Long taskId = tedDaoExt.createEvent(taskName, queueId, data, key2);
-        tedDaoExt.eventQueueMakeFirst(queueId);
+        tedDaoExt.eventQueueMakeFirst(queueId, postponeSec);
         return taskId;
     }
 
     Long createEventAndTryExecute(String taskName, String queueId, String data, String key2) {
         long taskId = tedDaoExt.createEvent(taskName, queueId, data, key2);
-        TaskRec task = tedDaoExt.eventQueueMakeFirst(queueId);
+        TaskRec task = tedDaoExt.eventQueueMakeFirst(queueId, 0);
         if (task != null && task.taskId == taskId) {
             TaskRec taskRec = tedDaoExt.eventQueueReserveTask(task.taskId);
             if (taskRec != null && taskRec.taskId == taskId) {

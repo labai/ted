@@ -21,7 +21,7 @@ interface TedDaoExt {
 
     Long createEvent(String taskName, String queueId, String data, String key2);
 
-    TaskRec eventQueueMakeFirst(String queueId);
+    TaskRec eventQueueMakeFirst(String queueId, int postponeSec);
 
     List<TaskRec> eventQueueGetTail(String queueId);
 

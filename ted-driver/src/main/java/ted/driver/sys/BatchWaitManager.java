@@ -57,7 +57,7 @@ class BatchWaitManager {
         }
     }
 
-    private void processBatchWaitTask(TaskRec batch) {
+    void processBatchWaitTask(TaskRec batch) {
         TaskConfig tc = context.registry.getTaskConfig(batch.name);
         if (tc == null) {
             context.taskManager.handleUnknownTasks(asList(batch));
@@ -71,6 +71,7 @@ class BatchWaitManager {
             logger.debug("Batch {} waiting finished, changing channel to {} and status to NEW", batch.taskId, tc.channel);
             tedDao.cleanupBatchTask(batch.taskId, "", tc.channel);
             tedDao.setStatusPostponed(batch.taskId, TedStatus.NEW, "", new Date());
+            return;
         }
 
         // retry batch

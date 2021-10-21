@@ -32,7 +32,7 @@ interface TedDao {
 
     Long createTaskWithWorkStatus(String name, String channel, String data, String key1, String key2, Connection conn);
 
-    List<Long> createTasksBulk(List<TaskParam> taskParams);
+    List<Long> createTasksBulk(List<TaskParam> taskParams, Connection connection);
 
     void processMaintenanceFrequent();
 
@@ -49,7 +49,7 @@ interface TedDao {
 
     List<TaskRec> reserveTaskPortion(Map<String, Integer> channelSizes, Tick tick);
 
-    void setStatuses(List<SetTaskStatus> statuses);
+    void setStatuses(List<SetTaskStatus> statuses, Connection conn);
 
     TaskRec getTask(long taskId);
 
@@ -86,4 +86,7 @@ interface TedDao {
         setStatuses(asList(new SetTaskStatus(taskId, status, msg, nextTs)));
     }
 
+    default void setStatuses(List<SetTaskStatus> statuses) {
+        setStatuses(statuses, null);
+    }
 }

@@ -3,11 +3,11 @@
 
     <groupId>com.github.labai</groupId>
     <artifactId>ted-driver</artifactId>
-    <version>0.3.7</version>
+    <version>0.3.8-SNAPSHOT</version>
     <packaging>jar</packaging>
 
-    <name>Ted driver</name>
-    <description>TED - Task Execution Driver</description>
+    <name>TedLib</name>
+    <description>TedLib - lib for creating and processing tasks in db</description>
     <url>https://github.com/labai/ted</url>
 
     <properties>
@@ -19,7 +19,7 @@
     <licenses>
         <license>
             <name>Apache License Version 2.0</name>
-            <url>http://www.apache.org/licenses/LICENSE-2.0</url>
+            <url>https://www.apache.org/licenses/LICENSE-2.0</url>
         </license>
     </licenses>
 

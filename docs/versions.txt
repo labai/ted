@@ -1,4 +1,9 @@
 Version history
+0.3.7 (2021-09)
+- postponed events
+- batch task in connections
+- tune old task deletion
+
 0.3.5 (2021-05)
 - tune performance for quickcheck (add nextts range), remove slow start
 - add move-to-archive job (separate table for completed tasks)

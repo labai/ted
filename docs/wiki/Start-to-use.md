@@ -15,7 +15,7 @@ in (ted)/docs/init/))
 <dependency>
    <groupId>com.github.labai</groupId>
    <artifactId>ted-driver</artifactId>
-   <version>0.3.2</version>
+   <version>0.3.7</version>
 </dependency>
 ```
 - Configure DataSource in java

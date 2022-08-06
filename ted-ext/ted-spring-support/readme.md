@@ -1,3 +1,6 @@
+# (DEPRECATED)
+It was an experiment, which wasn't used in production, thus now is closed and will not be supported 
+
 # Ted spring support
 
 ## About
@@ -26,9 +29,9 @@ This module helps easily integrate ted-driver into Spring.
 
 ```xml
 <dependency>
-   <groupId>com.github.labai</groupId>
-   <artifactId>ted-spring-support</artifactId>
-   <version>0.3.2</version>
+   <groupId>com.github.labai</groupId>
+   <artifactId>ted-spring-support</artifactId>
+   <version>0.3.2</version>
 </dependency>
 ```
 

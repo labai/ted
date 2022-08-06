@@ -11,7 +11,7 @@
     <modules>
         <module>ted-driver</module>
         <module>ted-ext/ted-scheduler</module>
-        <module>ted-ext/ted-spring-support</module>
+        <!--<module>ted-ext/ted-spring-support</module> - deprecated -->
         <module>ted-samples/ted-sample1</module>
         <module>ted-samples/ted-sample3</module>
         <module>ted-samples/ted-sample4</module>

@@ -3,7 +3,7 @@
 
     <groupId>com.github.labai</groupId>
     <artifactId>ted-spring-support</artifactId>
-    <version>0.3.4</version>
+    <version>0.3.4-deprecated</version>
     <packaging>jar</packaging>
 
     <name>Ted Spring adapter</name>
@@ -20,12 +20,12 @@
         <dependency>
             <groupId>com.github.labai</groupId>
             <artifactId>ted-driver</artifactId>
-            <version>${project.version}</version>
+            <version>0.3.4</version>
         </dependency>
         <dependency>
             <groupId>com.github.labai</groupId>
             <artifactId>ted-scheduler</artifactId>
-            <version>${project.version}</version>
+            <version>0.3.4</version>
         </dependency>
 
         <dependency>

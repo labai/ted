@@ -1,3 +1,6 @@
+# (DEPRECATED)
+It was an experiment, which wasn't used in production, thus now is closed and will not be supported
+
 # Start to use in spring
 
 `ted-spring-support` helps to easily integrated ted-driver into Spring.  

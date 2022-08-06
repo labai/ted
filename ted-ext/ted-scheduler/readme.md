@@ -8,35 +8,18 @@ Use ted-driver for task executing.
 Provides simplified API for scheduler tasks,
 some additional functionality, e.g. cron expressions.
 
-
-
 ##### Manual
 
 ```java
 TedScheduler scheduler = new TedScheduler(tedDriver);
-scheduler.builder().name("MAINT")
-        .scheduleCron("0 0/10 * 1/1 * ?")
-        .runnable(() -> {
-            logger.info("do something");
-        }).register();
+    scheduler.builder().name("MAINT")
+    .scheduleCron("0 0/10 * 1/1 * ?")
+    .runnable(() -> {
+    logger.info("do something");
+    }).register();
 ```
 
-##### In Spring
-
-```java
-@Service
-public class SchedulerTasks {
-    
-	@TedSchedulerProcessor(name = "SCH_1", cron = "1 * * * * *")
-	public String schedulerTask1() {
-		logger.info("Start schedulerTask1");
-		return "ok";
-	}
-
-}
-```
-
-When registering task, TedScheduler also checks, do exists such task in db, 
+When registering task, TedScheduler also checks, do exists such task in db,
 and if not exists, then creates it.
 
 Technically TedScheduler creates Ted tasks, but they will have some restrictions:

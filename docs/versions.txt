@@ -1,4 +1,9 @@
 Version history
+0.3.8 (2022-01)
+- add channel to TedTask
+- postpone long-running tasks, if they are still running, set back default timeout to 30 min 
+- save real task startTs 
+
 0.3.7 (2021-09)
 - postponed events
 - batch task in connections

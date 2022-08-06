@@ -62,7 +62,7 @@ class Model {
             boolean isTimeout = msg != null && msg.startsWith(TIMEOUT_MSG);
             TedStatus status = null;
             try { status = TedStatus.valueOf(this.status); } catch (IllegalArgumentException e) { }
-            return new TedTaskImpl(this.taskId, this.name, this.key1, this.key2, this.data, this.batchId, this.retries, this.createTs, this.startTs, isTimeout, status);
+            return new TedTaskImpl(this.taskId, this.name, this.key1, this.key2, this.data, this.batchId, this.retries, this.createTs, this.startTs, isTimeout, status, this.channel);
         }
 
     }
@@ -70,6 +70,7 @@ class Model {
     static class TedTaskImpl implements TedTask {
         private final Long taskId;
         private final String name;
+        private final String channel;
         private final String key1;
         private final String key2;
         private final String data;
@@ -83,15 +84,19 @@ class Model {
         private final boolean isAfterTimeout;
 
         public TedTaskImpl(Long taskId, String name, String key1, String key2, String data) {
-            this(taskId, name, key1, key2, data, null, 0, new Date(), new Date(), false, TedStatus.NEW);
+            this(taskId, name, key1, key2, data, null, 0, new Date(), new Date(), false, TedStatus.NEW, null);
         }
 
         /** for ted */
-        public TedTaskImpl(Long taskId, String name, String key1, String key2, String data, Long batchId, Integer retries, Date createTs, Date startTs, boolean isAfterTimeout, TedStatus status) {
+        public TedTaskImpl(
+            Long taskId, String name, String key1, String key2, String data, Long batchId, Integer retries,
+            Date createTs, Date startTs, boolean isAfterTimeout, TedStatus status, String channel
+        ) {
             if (status == null)
                 status = TedStatus.NEW;
             boolean work = status == TedStatus.WORK;
             this.taskId = taskId;
+            this.channel = channel;
             this.name = name;
             this.key1 = key1;
             this.key2 = key2;
@@ -108,6 +113,7 @@ class Model {
 
         @Override public Long getTaskId() { return taskId; }
         @Override public String getName() { return name; }
+        @Override public String getChannel() { return channel; }
         @Override public String getKey1() { return key1; }
         @Override public String getKey2() { return key2; }
         @Override public String getData() { return data; }

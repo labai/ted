@@ -2,8 +2,10 @@ package ted.driver.sys;
 
 import ted.driver.sys.Model.TaskRec;
 
+import java.sql.Connection;
 import java.util.Date;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * @author Augustus
@@ -60,7 +62,7 @@ class TedDaoExtNA implements TedDaoExt {
     }
 
     @Override
-    public void runInTx(Runnable runnable) {
+    public <T> void runInTx(Function<Connection, T> function) {
         throw new IllegalStateException(errorMsg);
     }
 

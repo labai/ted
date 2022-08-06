@@ -35,7 +35,7 @@ public class TedTaskFactory {
      * simplest way to create task
      */
     public Long createTask(String taskName, String data) {
-        return driver().createTask(taskName, data, null, null, null, null);
+        return driver().createTask(taskName, data, null, null, null, null, null);
     }
 
 
@@ -56,6 +56,7 @@ public class TedTaskFactory {
         private int postponeSec = 0;
         private boolean executeImmediately = false;
         private Connection connection = null;
+        private String channel = null;
 
         TaskBuilder(String name) {
             this.name = name;
@@ -96,7 +97,7 @@ public class TedTaskFactory {
 
         /**
          * Execute task in provided connection.
-         * Sometime it may be useful to create tasks in
+         * Sometimes it may be useful to create tasks in
          * provided db connection (same transaction) as main process:
          * a) task will not be started until tx finished;
          * b) task is not be created, if tx rollback.
@@ -108,16 +109,26 @@ public class TedTaskFactory {
         }
 
         /**
+         * Overwrite default channel.
+         * For normal case use task channel configuration in ted.properties,
+         * this method only for special cases.
+         */
+        public TaskBuilder channel(String channel) {
+            this.channel = channel;
+            return this;
+        }
+
+        /**
          * create task
          */
         public Long create(){
             if (postponeSec > 0) {
-                return driver().createTaskPostponed(name, data, key1, key2, postponeSec, connection);
+                return driver().createTaskPostponed(name, data, key1, key2, postponeSec, this.channel, connection);
             }
             if (executeImmediately) {
                 return driver().createAndExecuteTask(name, data, key1, key2, true, connection);
             }
-            return driver().createTask(name, data, key1, key2, null, connection);
+            return driver().createTask(name, data, key1, key2, null, this.channel, connection);
         }
 
         /**

@@ -68,7 +68,11 @@ public class TestTedProcessors {
         @Override
         public TedResult process(TedTask task)  {
             logger.info(this.getClass().getSimpleName() + " process");
-            sleepMs(sleepMs);
+            try {
+                Thread.sleep(sleepMs);
+            } catch (InterruptedException e) {
+                logger.info("Interrupted sleep");
+            }
             return TedResult.done();
         }
     }
@@ -135,4 +139,3 @@ public class TestTedProcessors {
 
 
 }
-

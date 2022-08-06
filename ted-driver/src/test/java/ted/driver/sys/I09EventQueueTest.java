@@ -129,7 +129,7 @@ public class I09EventQueueTest extends TestBase {
         sleepMs(20);
         driver.getContext().eventQueueManager.processTedQueue();
 
-        sleepMs(100);
+        sleepMs(150);
 
         assertEquals("DONE", tedDao.getTask(taskId).status);
         assertEquals("ERROR", tedDao.getTask(taskId2).status);

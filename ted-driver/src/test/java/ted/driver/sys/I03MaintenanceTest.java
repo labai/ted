@@ -6,16 +6,20 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ted.driver.Ted.TedDbType;
+import ted.driver.sys.Executors.ChannelThreadPoolExecutor;
+import ted.driver.sys.Executors.MeasuredRunnable;
 import ted.driver.sys.JdbcSelectTed.JetJdbcParamType;
 import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.QuickCheck.Tick;
 import ted.driver.sys.TedDriverImpl.TedContext;
 import ted.driver.sys.TestTedProcessors.TestProcessorOk;
+import ted.driver.sys.TestTedProcessors.TestProcessorOkSleep;
 
 import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Properties;
 
 import static java.util.Arrays.asList;
@@ -25,7 +29,9 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static ted.driver.sys.TestConfig.SYSTEM_ID;
+import static ted.driver.sys.TestTedProcessors.forProcessor;
 import static ted.driver.sys.TestUtils.print;
+import static ted.driver.sys.TestUtils.sleepMs;
 
 /**
  * @author Augustus
@@ -115,7 +121,7 @@ public class I03MaintenanceTest extends TestBase {
         taskRec = context.tedDao.getTask(taskId);
         //print(taskRec.toString() + " startTs=" + taskRec.startTs);
 
-        context.taskManager.processMaintenanceTasks();
+        context.maintenanceManager.processMaintenanceTasks();
 
         // task should be canceled due to timeout
         taskRec = context.tedDao.getTask(taskId);
@@ -156,7 +162,7 @@ public class I03MaintenanceTest extends TestBase {
 
         // 1. 30 min - still working
         dao_setStartTs(taskId, new Date(System.currentTimeMillis() - 31 * 60 * 1000));
-        context.taskManager.processMaintenanceTasks();
+        context.maintenanceManager.processMaintenanceTasks();
         taskRec = context.tedDao.getTask(taskId);
         print(taskRec.toString() + " startTs=" + MiscUtils.toTimeString(taskRec.startTs));
         assertEquals("WORK", taskRec.status);
@@ -230,12 +236,56 @@ public class I03MaintenanceTest extends TestBase {
         dao_setStartTs(taskId, new Date(System.currentTimeMillis() - 41 * 60 * 1000));
         taskRec = context.tedDao.getTask(taskId);
         print(taskRec.toString() + " startTs=" + MiscUtils.toTimeString(taskRec.startTs));
-        context.taskManager.processMaintenanceTasks();
+        context.maintenanceManager.processMaintenanceTasks();
         taskRec = context.tedDao.getTask(taskId);
         assertEquals("RETRY", taskRec.status);
         assertEquals("Too long in status [work](3)", taskRec.msg);
+    }
 
+    @Test
+    public void test022WorkTimeout_stillWorking() {
+        String taskName = "TEST03-02";
+        dao_cleanupAllTasks();
 
+        // with timeout 40 minutes
+        driver.registerTaskConfig(taskName, forProcessor(new TestProcessorOkSleep(200)));
+
+        Long taskId;
+        TaskRec taskRec;
+
+        taskId = driver.createTask(taskName, null, null, null);
+
+        processChannelTasks();
+
+        // set status to work
+        taskRec = context.tedDao.getTask(taskId);
+        assertEquals("WORK", taskRec.status);
+        assertNull(taskRec.finishTs); // finish time is not set in beginning
+
+        // hack - make task as "long-running" (make it old)
+        ChannelThreadPoolExecutor pool = (ChannelThreadPoolExecutor)(context.registry.getChannel("MAIN").workers);
+        Entry<Thread, MeasuredRunnable> runEntry = pool.threads.entrySet().iterator().next();
+        runEntry.setValue(new MeasuredRunnable(runEntry.getValue().runnable, System.nanoTime() - 600_000_000_000L));
+
+        // check task - should increase finishTs
+        context.maintenanceManager.postponeLongRunningTaskTimeout();
+        TaskRec taskRecV2 = context.tedDao.getTask(taskId);
+        assertTrue("finishTs must be postponed, as task is still running", taskRecV2.finishTs.after(new Date()));
+
+        // try again - should be postponed
+        sleepMs(20);
+        context.maintenanceManager.postponeLongRunningTaskTimeout();
+        TaskRec taskRecV3 = context.tedDao.getTask(taskId);
+        assertTrue("finishTs must be postponed again", taskRecV3.finishTs.after(taskRecV2.finishTs));
+
+        // kill the task and try again - in db should not postpone
+        runEntry.getKey().interrupt();
+        sleepMs(20);
+        context.maintenanceManager.postponeLongRunningTaskTimeout();
+        TaskRec taskRecV4 = context.tedDao.getTask(taskId);
+        assertEquals(taskRecV4.finishTs.getTime(), taskRecV3.finishTs.getTime());
+
+        dao_cleanupAllTasks();
     }
 
 

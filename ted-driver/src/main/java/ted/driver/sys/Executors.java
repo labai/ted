@@ -8,9 +8,10 @@ import ted.driver.sys.TedDao.SetTaskStatus;
 import ted.driver.sys.TedDriverImpl.TedContext;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.WeakHashMap;
 import java.util.concurrent.BlockingQueue;
@@ -21,6 +22,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+
+import static ted.driver.sys.MiscUtils.asList;
 
 /**
  * @author Augustus
@@ -41,22 +44,19 @@ class Executors {
      */
     abstract static class TedRunnable implements Runnable {
         private final TaskRec task;
-        private final List<TaskRec> tasks;
         public TedRunnable(TaskRec task) {
             this.task = task;
-            this.tasks = null;
         }
-        public TedRunnable(List<TaskRec> tasks) {
-            this.task = null;
-            this.tasks = new ArrayList<>(tasks);
-        }
-        public List<TaskRec> getTasks() {
-            if (tasks != null)
-                return tasks;
-            return Collections.singletonList(task);
-        }
-        public int getTaskCount() {
-            return (tasks != null ? tasks.size() : 1);
+        public TaskRec getTask() { return task; }
+        public int getTaskCount() { return 1; }
+    }
+
+    static class MeasuredRunnable {
+        final Runnable runnable;
+        final Long startNs;
+        public MeasuredRunnable(Runnable r, Long startNs) {
+            this.runnable = r;
+            this.startNs = startNs;
         }
     }
 
@@ -66,7 +66,7 @@ class Executors {
      * will know working runnables
      */
     class ChannelThreadPoolExecutor extends ThreadPoolExecutor {
-        private final WeakHashMap<Thread, Runnable> threads;
+        final WeakHashMap<Thread, MeasuredRunnable> threads;
         private final String channel;
 
         ChannelThreadPoolExecutor(String channel, int workerCount, BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory) {
@@ -79,7 +79,7 @@ class Executors {
         }
 
         protected void beforeExecute(Thread t, Runnable r) {
-            threads.put(t, r);
+            threads.put(t, new MeasuredRunnable(r, System.nanoTime()));
             // logger.debug("beforeExecute" + t + " - " + r + " - ");
             super.beforeExecute(t, r);
         }
@@ -92,10 +92,10 @@ class Executors {
 
         private List<TaskRec> getWorkingTasks() {
             List<TaskRec> tasks = new ArrayList<>();
-            for (Entry<Thread, Runnable> entry : threads.entrySet()) {
+            for (Entry<Thread, MeasuredRunnable> entry : threads.entrySet()) {
                 try {
-                    if (entry.getValue() instanceof TedRunnable)
-                        tasks.addAll(((TedRunnable)entry.getValue()).getTasks());
+                    if (entry.getValue().runnable instanceof TedRunnable)
+                        tasks.add(((TedRunnable)entry.getValue().runnable).getTask());
                 } catch (Throwable e) {
                     logger.info("Cannot get working thread task", e);
                 }
@@ -103,10 +103,27 @@ class Executors {
             return tasks;
         }
 
-        // TODO
-        // if task already was finished just before. If we will update to NEW, it will retry. It is not very bad, as tasks should be programmed to be able to retry any count
-        // if there will be 1000nds of tasks (e.g. on PackProcessing).
-        // if shutdown will continue more than 40s, same task may start in parallel in another node.
+        // return tasks and their running time in milliseconds
+        public Map<TaskRec, Long> getLongRunningTasks() {
+            long thresholdNs = 300_000_000L; // 5 min
+            Map<TaskRec, Long> tasks = new HashMap<>();
+            Long nowNs = System.nanoTime();
+            for (Entry<Thread, MeasuredRunnable> entry : threads.entrySet()) {
+                try {
+                    MeasuredRunnable mrun = entry.getValue();
+                    if (nowNs - mrun.startNs < thresholdNs)
+                        continue;
+                    if (!(mrun.runnable instanceof TedRunnable))
+                        continue;
+                    tasks.put(((TedRunnable) mrun.runnable).getTask(), (nowNs - mrun.startNs) / 1_000_000L);
+                } catch (Throwable e) {
+                    logger.debug("Cannot get working thread task", e); // parallel issues?
+                }
+            }
+            return tasks;
+        }
+
+        // if task already was finished just before. If we update to NEW, it will retry. It is not very bad, as tasks should be programmed to be able to retry any count
         public void handleWorkingTasksOnShutdown() {
             int postponeSec = 40;
             List<TaskRec> tasks = getWorkingTasks();
@@ -128,13 +145,10 @@ class Executors {
         public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
             if (r instanceof TedRunnable) {
                 TedRunnable tr = (TedRunnable) r;
-                List<TaskRec> tasks = tr.getTasks();
-                List<SetTaskStatus> statuses = new ArrayList<>();
-                for (TaskRec task : tasks) {
-                    logger.info("Task {} was rejected by executor, returning to status NEW", task);
-                    statuses.add(new SetTaskStatus(task.taskId, TedStatus.NEW, Model.REJECTED_MSG, new Date(System.currentTimeMillis() + 5000)));
-                }
-                context.tedDao.setStatuses(statuses);
+                TaskRec task = tr.getTask();
+                logger.info("Task {} was rejected by executor, returning to status NEW", task);
+                SetTaskStatus status = new SetTaskStatus(task.taskId, TedStatus.NEW, Model.REJECTED_MSG, new Date(System.currentTimeMillis() + 5000));
+                context.tedDao.setStatuses(asList(status));
             } else {
                 throw new RejectedExecutionException("ThreadPoolExecutor rejected runnable");
             }
@@ -158,7 +172,7 @@ class Executors {
             }
         };
         ThreadPoolExecutor executor = new ChannelThreadPoolExecutor(channel, workerCount,
-            new LinkedBlockingQueue<Runnable>(queueSize), threadFactory);
+            new LinkedBlockingQueue<>(queueSize), threadFactory);
         return executor;
     }
 
@@ -175,7 +189,7 @@ class Executors {
         };
         ThreadPoolExecutor executor = new ThreadPoolExecutor(workerCount, workerCount,
             0, TimeUnit.SECONDS,
-            new LinkedBlockingQueue<Runnable>(queueSize), threadFactory);
+            new LinkedBlockingQueue<>(queueSize), threadFactory);
         return executor;
     }
 

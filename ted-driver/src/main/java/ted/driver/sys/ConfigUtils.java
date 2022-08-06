@@ -79,7 +79,7 @@ class ConfigUtils {
 
     static class TedConfig {
         private String defaultRetryPauses = "12s,36s,90s,300s,16m,50m,2h,5h,7h*5;dispersion=10";
-        private int defaultTaskTimeoutMn = 60; // 1h
+        private int defaultTaskTimeoutMn = 30; // 30 min
         private int defaultBatchTaskTimeoutMn = 180; // 3h
         private boolean disabledProcessing = false;
         private boolean disabledSqlBatchUpdate = false;

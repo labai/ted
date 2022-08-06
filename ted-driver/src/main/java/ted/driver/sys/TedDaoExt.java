@@ -2,8 +2,10 @@ package ted.driver.sys;
 
 import ted.driver.sys.Model.TaskRec;
 
+import java.sql.Connection;
 import java.util.Date;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * @author Augustus
@@ -31,7 +33,7 @@ interface TedDaoExt {
 
     void cleanupNotifications(Date tillTs);
 
-    void runInTx(Runnable runnable);
+    <T> void runInTx(Function<Connection, T> function);
 
     boolean maintenanceRebuildIndex();
 

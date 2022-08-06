@@ -187,7 +187,7 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
 
     internal class CustomRetry(private val nextTimeFn: TedSchedulerNextTime) : TedRetryScheduler {
 
-        override fun getNextRetryTime(task: TedTask, retryNumber: Int, startTime: Date): Date {
+        override fun getNextRetryTime(task: TedTask?, retryNumber: Int, startTime: Date): Date {
             return nextTimeFn.getNextTime(startTime)
         }
     }
@@ -195,7 +195,7 @@ internal class TedSchedulerImpl(private val tedDriver: TedDriver) {
     internal class PeriodicRetry(period: Int, timeUnit: TimeUnit) : TedRetryScheduler {
         private val periodMs: Long = TimeUnit.MILLISECONDS.convert(period.toLong(), timeUnit)
 
-        override fun getNextRetryTime(task: TedTask, retryNumber: Int, startTime: Date?): Date {
+        override fun getNextRetryTime(task: TedTask?, retryNumber: Int, startTime: Date?): Date {
             return Date((startTime?.time ?: System.currentTimeMillis()) + periodMs)
         }
     }

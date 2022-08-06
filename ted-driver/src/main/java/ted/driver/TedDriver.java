@@ -109,7 +109,7 @@ public class TedDriver implements
      */
     @Override
     public Long createTask(String taskName, String data, String key1, String key2) {
-        return tedDriverImpl.createTask(taskName, data, key1, key2, null, null);
+        return tedDriverImpl.createTask(taskName, data, key1, key2, null, null, null);
     }
 
     /**
@@ -117,7 +117,7 @@ public class TedDriver implements
      */
     @Override
     public Long createTask(String taskName, String data) {
-        return tedDriverImpl.createTask(taskName, data, null, null, null, null);
+        return tedDriverImpl.createTask(taskName, data, null, null, null, null, null);
     }
 
     /**
@@ -125,7 +125,7 @@ public class TedDriver implements
      */
     @Override
     public Long createTaskPostponed(String taskName, String data, String key1, String key2, int postponeSec) {
-        return tedDriverImpl.createTaskPostponed(taskName, data, key1, key2, postponeSec, null);
+        return tedDriverImpl.createTaskPostponed(taskName, data, key1, key2, postponeSec, null, null);
     }
 
     /**

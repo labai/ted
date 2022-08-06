@@ -10,6 +10,7 @@ import ted.driver.sys.Model.TaskRec;
 import ted.driver.sys.QuickCheck.Tick;
 import ted.driver.sys.Registry.Channel;
 import ted.driver.sys.Registry.TaskConfig;
+import ted.driver.sys.TedDao.SetTaskStatus;
 import ted.driver.sys.TedDriverImpl.TedContext;
 
 import java.util.Date;
@@ -69,27 +70,29 @@ class EventQueueManager {
         }
     }
 
-    private void saveResult(TaskRec event, TedResult result) {
+    private SetTaskStatus makeResultSta(TaskRec event, TedResult result, long startMs) {
         if (result.status() == TedStatus.RETRY) {
             TaskConfig tc = context.registry.getTaskConfig(event.name);
             Date nextTm = tc.retryScheduler.getNextRetryTime(event.getTedTask(), event.retries + 1, event.startTs);
-            tedDao.setStatusPostponed(event.taskId, result.status(), result.message(), nextTm);
+            return new SetTaskStatus(event.taskId, result.status(), result.message(), nextTm, new Date(startMs));
         } else {
-            tedDao.setStatus(event.taskId, result.status(), result.message());
+            return new SetTaskStatus(event.taskId, result.status(), result.message(), null, new Date(startMs));
         }
     }
 
     // process events from queue each after other, until ERROR or RETRY will happen
     private void processEventQueue(final TaskRec head) {
-        final TedResult headResult = processEvent(head);
         TaskConfig tc = context.registry.getTaskConfig(head.name);
         if (tc == null) {
             context.taskManager.handleUnknownTasks(asList(head));
             return;
         }
 
-        TaskRec lastUnsavedEvent = null;
-        TedResult lastUnsavedResult = null;
+        long headStartMs = System.currentTimeMillis();
+        TedResult headResult = processEvent(head);
+        SetTaskStatus headResultSta = makeResultSta(head, headResult, headStartMs);
+
+        SetTaskStatus lastUnsavedResultSta = null;
         // try to execute next events, while head is reserved. some events may be created while executing current
         if (headResult.status() == TedStatus.DONE) {
             outer:
@@ -102,14 +105,15 @@ class EventQueueManager {
                     if (tc2 == null)
                         break outer; // unknown task, leave it for later
 
+                    long startMs = System.currentTimeMillis();
                     TedResult result = processEvent(event);
 
                     // DONE - final status, on which can continue with next event
                     if (result.status() == TedStatus.DONE) {
-                        saveResult(event, result);
+                        SetTaskStatus sta = makeResultSta(event, result, startMs);
+                        tedDao.setStatuses(asList(sta));
                     } else {
-                        lastUnsavedEvent = event;
-                        lastUnsavedResult = result;
+                        lastUnsavedResultSta = makeResultSta(event, result, startMs);
                         break outer;
                     }
                 }
@@ -117,17 +121,17 @@ class EventQueueManager {
         }
 
         // first save head, otherwise unique index will fail
-        final TedResult finalLastUnsavedResult = lastUnsavedResult;
-        final TaskRec finalLastUnsavedEvent = lastUnsavedEvent;
-        tedDaoExt.runInTx(() -> {
+        final SetTaskStatus finalLastUnsavedResultSta = lastUnsavedResultSta;
+        tedDaoExt.runInTx((conn) -> {
             try {
-                saveResult(head, headResult);
-                if (finalLastUnsavedResult != null) {
-                    saveResult(finalLastUnsavedEvent, finalLastUnsavedResult);
+                tedDao.setStatuses(asList(headResultSta), conn);
+                if (finalLastUnsavedResultSta != null) {
+                    tedDao.setStatuses(asList(finalLastUnsavedResultSta), conn);
                 }
             } catch (Throwable e) {
                 logger.error("Error while finishing events queue execution", e);
             }
+            return true;
         });
     }
 

@@ -116,6 +116,7 @@ abstract class TedDaoAbstract implements TedDao {
             " set status = ?, msg = ?," +
             " retries = retries + ?," +
             " nextTs = ?," +
+            " startTs = coalesce(?, startTs)," +
             " finishTs = ?" +
             " where $systemCheck and taskId = ?";
         sql = sql.replace("$tedTask", fullTableName);
@@ -127,6 +128,7 @@ abstract class TedDaoAbstract implements TedDao {
             sqlParam(it.msg, JetJdbcParamType.STRING),
             sqlParam((it.status == TedStatus.RETRY ? 1 : 0), JetJdbcParamType.LONG),
             sqlParam((it.status == TedStatus.DONE || it.status == TedStatus.ERROR ? null : it.nextRetryTs), JetJdbcParamType.TIMESTAMP),
+            sqlParam(it.startTs, JetJdbcParamType.TIMESTAMP),
             sqlParam((it.status == TedStatus.DONE || it.status == TedStatus.ERROR ? it.updateTs : null), JetJdbcParamType.TIMESTAMP),
             sqlParam(it.taskId, JetJdbcParamType.LONG)
         )).collect(Collectors.toList());
@@ -300,9 +302,10 @@ abstract class TedDaoAbstract implements TedDao {
     @Override
     public void setTaskPlannedWorkTimeout(long taskId, Date timeoutTime) {
         String sqlLogId = "set_task_work_timeout";
-        String sql = "update $tedTask set finishTs = ? where taskId = ? and status = 'WORK'";
+        String sql = "update $tedTask set finishTs = greatest(coalesce(finishTs, ?), ?) where taskId = ? and status = 'WORK'";
         sql = sql.replace("$tedTask", fullTableName);
         execute(sqlLogId, sql, asList(
+            sqlParam(timeoutTime, JetJdbcParamType.TIMESTAMP),
             sqlParam(timeoutTime, JetJdbcParamType.TIMESTAMP),
             sqlParam(taskId, JetJdbcParamType.LONG)
         ));

@@ -3,7 +3,7 @@
 
     <groupId>com.github.labai</groupId>
     <artifactId>ted-driver</artifactId>
-    <version>0.3.8-SNAPSHOT</version>
+    <version>0.3.8</version>
     <packaging>jar</packaging>
 
     <name>TedLib</name>

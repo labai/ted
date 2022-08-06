@@ -64,15 +64,20 @@ interface TedDao {
         final TedStatus status;
         final String msg;
         final Date nextRetryTs;
+        final Date startTs;
         final Date updateTs = new Date();
-        public SetTaskStatus(long taskId, TedStatus status, String msg, Date nextRetryTs) {
+        public SetTaskStatus(long taskId, TedStatus status, String msg, Date nextRetryTs, Date startTs) {
             this.taskId = taskId;
             this.status = status;
             this.msg = msg;
             this.nextRetryTs = nextRetryTs;
+            this.startTs = startTs;
+        }
+        public SetTaskStatus(long taskId, TedStatus status, String msg, Date nextRetryTs) {
+            this(taskId, status, msg, nextRetryTs, null);
         }
         public SetTaskStatus(long taskId, TedStatus status, String msg) {
-            this(taskId, status, msg, null);
+            this(taskId, status, msg, null, null);
         }
 
         @Override public String toString() { return "{" + taskId + " " + status + "}"; }

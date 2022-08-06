@@ -64,6 +64,7 @@ public final class TedDriverImpl {
         TedDao tedDao;
         TedDaoExt tedDaoExt;
         TaskManager taskManager;
+        MaintenanceManager maintenanceManager;
         Executors executors;
         RetryConfig retryConfig;
         QuickCheck quickCheck;
@@ -129,6 +130,7 @@ public final class TedDriverImpl {
         }
         context.registry = new Registry(context);
         context.taskManager = new TaskManager(context);
+        context.maintenanceManager = new MaintenanceManager(context);
         context.retryConfig = new RetryConfig(context);
         context.quickCheck = new QuickCheck(context);
         context.prime = new PrimeInstance(context);
@@ -202,7 +204,7 @@ public final class TedDriverImpl {
                 return;
             }
             try {
-                context.taskManager.processMaintenanceTasks();
+                context.maintenanceManager.processMaintenanceTasks();
             } catch (Throwable e) {
                 logger.error("Error while executing maintenance tasks", e);
             }
@@ -235,10 +237,9 @@ public final class TedDriverImpl {
         // return back not started tasks to status NEW
         List<SetTaskStatus> statuses = new ArrayList<>();
         for (TedRunnable tedr : tasksToReturn) {
-            for (TaskRec task : tedr.getTasks()) {
-                logger.info("return back task {} (taskId={}) to status NEW", task.name, task.taskId);
-                statuses.add(new SetTaskStatus(task.taskId, TedStatus.NEW, "return on shutdown", new Date()));
-            }
+            TaskRec task = tedr.getTask();
+            logger.info("return back task {} (taskId={}) to status NEW", task.name, task.taskId);
+            statuses.add(new SetTaskStatus(task.taskId, TedStatus.NEW, "return on shutdown", new Date()));
         }
         context.tedDao.setStatuses(statuses);
 
@@ -279,28 +280,42 @@ public final class TedDriverImpl {
      * "public" for TedDriver only
      */
 
-    public Long createTask(String taskName, String data, String key1, String key2, Long batchId, Connection conn) {
+    public Long createTask(String taskName, String data, String key1, String key2, Long batchId, String channel, Connection conn) {
         FieldValidator.validateTaskData(data);
         FieldValidator.validateTaskKey1(key1);
         FieldValidator.validateTaskKey2(key2);
-        TaskConfig tc = context.registry.getTaskConfig(taskName);
-        if (tc == null)
-            throw new IllegalArgumentException("Task '" + taskName + "' is not known for TED");
-        return context.tedDao.createTask(taskName, tc.channel, data, key1, key2, batchId, conn);
+        if (channel == null) {
+            TaskConfig tc = context.registry.getTaskConfig(taskName);
+            if (tc == null)
+                throw new IllegalArgumentException("Task '" + taskName + "' is not known for TED");
+            channel = tc.channel;
+        } else {
+            Channel ch = context.registry.getChannel(channel);
+            if (ch == null)
+                throw new IllegalArgumentException("Channel '" + channel + "' is not known for TED");
+        }
+        return context.tedDao.createTask(taskName, channel, data, key1, key2, batchId, conn);
     }
 
     Long createTask(String taskName, String data, String key1, String key2) {
-        return createTask(taskName, data, key1, key2, null, null);
+        return createTask(taskName, data, key1, key2, null, null, null);
     }
 
-    public Long createTaskPostponed(String taskName, String data, String key1, String key2, int postponeSec, Connection conn) {
+    public Long createTaskPostponed(String taskName, String data, String key1, String key2, int postponeSec, String channel, Connection conn) {
         FieldValidator.validateTaskData(data);
         FieldValidator.validateTaskKey1(key1);
         FieldValidator.validateTaskKey2(key2);
-        TaskConfig tc = context.registry.getTaskConfig(taskName);
-        if (tc == null)
-            throw new IllegalArgumentException("Task '" + taskName + "' is not known for TED");
-        return context.tedDao.createTaskPostponed(taskName, tc.channel, data, key1, key2, postponeSec, conn);
+        if (channel == null) {
+            TaskConfig tc = context.registry.getTaskConfig(taskName);
+            if (tc == null)
+                throw new IllegalArgumentException("Task '" + taskName + "' is not known for TED");
+            channel = tc.channel;
+        } else {
+            Channel ch = context.registry.getChannel(channel);
+            if (ch == null)
+                throw new IllegalArgumentException("Channel '" + channel + "' is not known for TED");
+        }
+        return context.tedDao.createTaskPostponed(taskName, channel, data, key1, key2, postponeSec, conn);
     }
 
     // create task and execute it

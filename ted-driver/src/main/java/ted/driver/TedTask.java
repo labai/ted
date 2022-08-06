@@ -14,6 +14,7 @@ public interface TedTask {
 
     Long getTaskId();
     String getName();
+    String getChannel();
     String getKey1();
     String getKey2();
     String getData();

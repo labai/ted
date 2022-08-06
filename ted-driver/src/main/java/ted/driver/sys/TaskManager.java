@@ -40,7 +40,6 @@ class TaskManager {
 
     static final int MAX_TASK_COUNT = 1000;
     static final int LIMIT_TOTAL_WAIT_TASKS = 20000; // max waiting tasks (aim to don't consume all memory)
-    private static final long RARE_MAINT_INTERVAL_MS = 2 * 3600 * 1000L; // every 2 hour
     private static final long UNKNOWN_TASK_POSTPONE_MS = 120 * 1000L; // 2 min
     private static final long UNKNOWN_TASK_CANCEL_AFTER_MS = 24 * 3600 * 1000L;
 
@@ -59,8 +58,6 @@ class TaskManager {
 
     private final Map<String, ChannelWorkContext> channelContextMap = new HashMap<>();
 
-    private long lastRareMaintExecTimeMilis = System.currentTimeMillis() - Math.max(0L, RARE_MAINT_INTERVAL_MS - 5 * 60 * 1000L); // first will be 5 min. after startup
-    private long lastIndexRebuildMillis = System.currentTimeMillis();
 
     TaskManager(TedContext context) {
         this.context = context;
@@ -68,11 +65,11 @@ class TaskManager {
     }
 
     void changeTaskStatusPostponed(long taskId, TedStatus status, String msg, Date nextTs){
-        taskStatusManager.saveTaskStatus(taskId, status, msg, nextTs);
+        taskStatusManager.saveTaskStatus(taskId, status, msg, nextTs, null);
 
     }
-    void changeTaskStatus(long taskId, TedStatus status, String msg){
-        taskStatusManager.saveTaskStatus(taskId, status, msg, null);
+    void changeTaskStatus(long taskId, TedStatus status, String msg, long startTs){
+        taskStatusManager.saveTaskStatus(taskId, status, msg, null, new Date(startTs));
     }
 
     // flush statuses
@@ -83,63 +80,6 @@ class TaskManager {
     // enable/disable tasks status packing/batching
     public void enableResultStatusPacking(boolean enable) {
         taskStatusManager.setIsPackingEnabled(enable);
-    }
-
-    // process maintenance tasks
-    //
-    public void processMaintenanceTasks() {
-        if (context.prime.isEnabled()) {
-            if (! context.prime.isPrime()) {
-                logger.debug("Skip ted-maint as is not prime instance");
-                return;
-            }
-        }
-        context.tedDao.processMaintenanceFrequent();
-        processTimeouts();
-        if (System.currentTimeMillis() - lastRareMaintExecTimeMilis > RARE_MAINT_INTERVAL_MS) {
-            if (context.config.useArchiveTable()) {
-                logger.debug("Start process move tasks");
-                context.tedDaoExt.maintenanceMoveDoneTasks(context.config.archiveTableName(), context.config.oldTaskArchiveDays());
-                context.tedDao.maintenanceDeleteTasks(context.config.archiveKeepDays(), context.config.archiveTableName());
-            } else {
-                logger.debug("Start process delete tasks");
-                context.tedDao.maintenanceDeleteTasks(context.config.oldTaskArchiveDays(), null);
-            }
-            logger.debug("Start process rare maintenance tasks");
-            context.tedDao.processMaintenanceRare();
-
-            lastRareMaintExecTimeMilis = System.currentTimeMillis();
-        }
-        if (context.config.rebuildIndexIntervalHours() > 0
-            && context.prime.isPrime()
-            && (System.currentTimeMillis() - lastIndexRebuildMillis) > ((long)context.config.rebuildIndexIntervalHours()) * 3600 * 1000
-        ) {
-            logger.debug("Start to rebuild quickchk index");
-            context.tedDaoExt.maintenanceRebuildIndex();
-            lastIndexRebuildMillis = System.currentTimeMillis();
-        }
-    }
-
-    private void processTimeouts() {
-        List<TaskRec> tasks = context.tedDao.getWorkingTooLong();
-        long nowTime = System.currentTimeMillis();
-        for (TaskRec task: tasks) {
-            long workingTimeMn = (nowTime - task.startTs.getTime()) / 1000 / 60;
-            TaskConfig tc = context.registry.getTaskConfig(task.name);
-            if (tc == null) {
-                logger.error("Unknown task " + task);
-                continue;
-            }
-            if (tc.workTimeoutMinutes <= workingTimeMn) {
-                if (logger.isDebugEnabled())
-                    logger.debug("Work timeout for taskId=" + task.taskId + " name=" + task.name + " startTs=" + task.startTs+ " now=" + MiscUtils.dateToStrTs(nowTime) + " ttl-minutes=" + tc.workTimeoutMinutes);
-                context.tedDao.setStatusPostponed(task.taskId, TedStatus.RETRY, Model.TIMEOUT_MSG + "(3)", new Date());
-            } else {
-                if (logger.isDebugEnabled())
-                    logger.debug("Set finishTs for taskId=" + task.taskId + " name=" + task.name + " startTs=" + task.startTs+ " now=" + MiscUtils.dateToStrTs(nowTime) + " ttl-minutes=" + tc.workTimeoutMinutes);
-                context.tedDao.setTaskPlannedWorkTimeout(task.taskId, new Date(task.startTs.getTime() + tc.workTimeoutMinutes * 60 * 1000));
-            }
-        }
     }
 
     // tests only
@@ -296,18 +236,18 @@ class TaskManager {
             // check results
             //
             if (result == null) {
-                changeTaskStatus(taskRec.taskId, TedStatus.ERROR, "result is null");
+                changeTaskStatus(taskRec.taskId, TedStatus.ERROR, "result is null", startMs);
             } else if (result.status() == TedStatus.RETRY) {
                 Date nextTm = taskConfig.retryScheduler.getNextRetryTime(taskRec.getTedTask(), taskRec.retries + 1, taskRec.startTs);
                 if (nextTm == null) {
-                    changeTaskStatus(taskRec.taskId, TedStatus.ERROR, "max retries. " + result.message());
+                    changeTaskStatus(taskRec.taskId, TedStatus.ERROR, "max retries. " + result.message(), startMs);
                 } else {
                     changeTaskStatusPostponed(taskRec.taskId, result.status(), result.message(), nextTm);
                 }
             } else if (result.status() == TedStatus.DONE || result.status() == TedStatus.ERROR) {
-                changeTaskStatus(taskRec.taskId, result.status(), result.message());
+                changeTaskStatus(taskRec.taskId, result.status(), result.message(), startMs);
             } else {
-                changeTaskStatus(taskRec.taskId, TedStatus.ERROR, "invalid result status: " + result.status());
+                changeTaskStatus(taskRec.taskId, TedStatus.ERROR, "invalid result status: " + result.status(), startMs);
             }
 
         } catch (Throwable e) {
@@ -315,7 +255,7 @@ class TaskManager {
             taskExceptionLogger.error("Unhandled exception while calling processor for task '" + taskRec.name + "'", e);
             try {
                 result = TedResult.error("Catch: " + e.getMessage());
-                changeTaskStatus(taskRec.taskId, TedStatus.ERROR, result.message());
+                changeTaskStatus(taskRec.taskId, TedStatus.ERROR, result.message(), startMs);
             } catch (Throwable e1) {
                 logger.warn("Unhandled exception while handling exception for task '{}', statuses will be not changed: {}", taskRec.name, e1.getMessage());
             }
@@ -380,15 +320,15 @@ class TaskManager {
 
         private final List<SetTaskStatus> resultsToSave = new ArrayList<>();
 
-        private AtomicBoolean isPackingEnabled = new AtomicBoolean(true);
+        private final AtomicBoolean isPackingEnabled = new AtomicBoolean(true);
 
 
         TaskStatusManager(TedDao tedDao) {
             this.tedDao = tedDao;
         }
 
-        void saveTaskStatus(long taskId, TedStatus status, String msg, Date nextTs){
-            SetTaskStatus sta = new SetTaskStatus(taskId, status, msg, nextTs);
+        void saveTaskStatus(long taskId, TedStatus status, String msg, Date nextTs, Date startTs){
+            SetTaskStatus sta = new SetTaskStatus(taskId, status, msg, nextTs, startTs);
             if (isPackingEnabled.get() == true) {
                 synchronized (resultsToSave) {
                     resultsToSave.add(sta);
@@ -399,7 +339,7 @@ class TaskManager {
         }
 
         void saveTaskStatus(long taskId, TedStatus status, String msg){
-            saveTaskStatus(taskId, status, msg, null);
+            saveTaskStatus(taskId, status, msg, null, null);
         }
 
         void flush() {
@@ -423,4 +363,3 @@ class TaskManager {
     }
 
 }
-

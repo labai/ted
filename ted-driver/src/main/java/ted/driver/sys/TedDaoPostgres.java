@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static ted.driver.sys.JdbcSelectTed.sqlParam;
@@ -448,7 +449,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
     }
 
     @Override
-    public void runInTx(Runnable runnable) {
+    public <T> void runInTx(Function<Connection, T> function) {
         Connection connection;
         try {
             connection = dataSource.getConnection();
@@ -467,7 +468,7 @@ class TedDaoPostgres extends TedDaoAbstract implements TedDaoExt {
             txLogId = Integer.toHexString(savepoint.hashCode());
             logger.debug("[B] before start transaction {}", txLogId);
 
-            runnable.run();
+            function.apply(connection);
 
             return ;
         } catch (Throwable e) {

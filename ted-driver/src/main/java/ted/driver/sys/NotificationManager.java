@@ -121,5 +121,7 @@ class NotificationManager {
         return tedDao.createTask(taskName, Model.CHANNEL_NOTIFY, data, null, null, null, null);
     }
 
+    Long sendNotification(String taskName, String data, String key1, String key2) {
+        return tedDao.createTask(taskName, Model.CHANNEL_NOTIFY, data, key1, key2, null, null);
+    }
 }
-

@@ -18,12 +18,12 @@ Ted checks for new tasks in that table, retrieves them, calls task processor and
 Main features:
 - is a part of war (or other app), no needs for separate process;
 - tasks are in db, thus tasks remain after restart of app, it is easy to browse history ann manage using standard sql;  
-- there are _auto cleaning_ of tasks;
+- there is _auto cleaning_ of tasks;
 - task is executed only by one application instance;
 - works with PostgreSQL (9.5+), Oracle DB or MySql (8+); from Java 1.8;
 - _task configuration_ is in separate ted.properties file, may be tuned without recompile;
 - _channels_ - allows to assign separate thread pools to different types of tasks; 
-- [ted-scheduler](ted-ext/ted-scheduler/readme.md) allows to use ted-driver as scheduler engine
+- [ted-scheduler](ted-ext/ted-scheduler/readme.md) allows using ted-driver as scheduler engine
 
 See more in [Ted features](docs/wiki/Ted-features.md) in wiki.
 
@@ -34,7 +34,7 @@ See more in [Ted features](docs/wiki/Ted-features.md) in wiki.
 <dependency>
     <groupId>com.github.labai</groupId>
     <artifactId>ted-driver</artifactId>
-    <version>0.3.7</version>
+    <version>0.3.8</version>
 </dependency>
 ```
 
@@ -76,8 +76,7 @@ and then create tasks
 tedDriver.createTask("DATA_SYN", "{\"customerId\" : \"1234\"}");
 ```
 
-See also [Start-to-use](docs/wiki/Start-to-use.md) and 
-[Start-to-use-in-spring](docs/wiki/Start-to-use-in-spring.md) 
+See also [Start-to-use](docs/wiki/Start-to-use.md)  
 in wiki. More samples in [ted-samples](/labai/ted/tree/master/ted-samples).
 
 

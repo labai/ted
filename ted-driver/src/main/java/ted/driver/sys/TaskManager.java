@@ -8,6 +8,7 @@ import ted.driver.Ted.TedStatus;
 import ted.driver.TedResult;
 import ted.driver.sys.Executors.TedRunnable;
 import ted.driver.sys.Model.TaskRec;
+import ted.driver.sys.Model.TedTaskImpl;
 import ted.driver.sys.QuickCheck.GetWaitChannelsResult;
 import ted.driver.sys.QuickCheck.Tick;
 import ted.driver.sys.Registry.Channel;
@@ -154,6 +155,7 @@ class TaskManager {
         for (ChannelWorkContext wc : channelContextMap.values()) {
             if (wc.lastGotCount > 0 && wc.lastGotCount == wc.nextPortion) {
                 wasAnyFullLoaded = true;
+                break;
             }
         }
         return wasAnyFullLoaded;
@@ -184,7 +186,7 @@ class TaskManager {
             }
 
             for (final TaskRec taskRec : taskList) {
-                logger.debug("got task: " + taskRec);
+                logger.debug("got task: {}", taskRec);
                 context.stats.metrics.loadTask(taskRec.taskId, taskRec.name, taskRec.channel);
                 channel.workers.execute(new TedRunnable(taskRec) {
                     @Override
@@ -217,7 +219,6 @@ class TaskManager {
 
         context.stats.metrics.startTask(taskRec.taskId, taskRec.name, taskRec.channel);
 
-        TedDao tedDao = context.tedDao;
         String threadName = Thread.currentThread().getName();
 
         TedResult result = null;
@@ -229,20 +230,22 @@ class TaskManager {
 
             // process
             //
-            TedProcessor processor = taskConfig.tedProcessorFactory.getProcessor(taskRec.name);
+            TedTaskImpl task = (TedTaskImpl) taskRec.getTedTask();
+            Date nextRetryTm = taskConfig.retryScheduler.getNextRetryTime(task, task.getRetries() + 1, task.getStartTs());
+            task.setIsLastTry(nextRetryTm == null);
 
-            result = processor.process(taskRec.getTedTask());
+            TedProcessor processor = taskConfig.tedProcessorFactory.getProcessor(taskRec.name);
+            result = processor.process(task);
 
             // check results
             //
             if (result == null) {
                 changeTaskStatus(taskRec.taskId, TedStatus.ERROR, "result is null", startMs);
             } else if (result.status() == TedStatus.RETRY) {
-                Date nextTm = taskConfig.retryScheduler.getNextRetryTime(taskRec.getTedTask(), taskRec.retries + 1, taskRec.startTs);
-                if (nextTm == null) {
+                if (nextRetryTm == null) {
                     changeTaskStatus(taskRec.taskId, TedStatus.ERROR, "max retries. " + result.message(), startMs);
                 } else {
-                    changeTaskStatusPostponed(taskRec.taskId, result.status(), result.message(), nextTm);
+                    changeTaskStatusPostponed(taskRec.taskId, result.status(), result.message(), nextRetryTm);
                 }
             } else if (result.status() == TedStatus.DONE || result.status() == TedStatus.ERROR) {
                 changeTaskStatus(taskRec.taskId, result.status(), result.message(), startMs);
@@ -251,14 +254,17 @@ class TaskManager {
             }
 
         } catch (Throwable e) {
-            logger.info("Unhandled exception while calling processor for task '{}': {}", taskRec.name, e.getMessage());
+            String msg = e.getMessage() == null ? e.getClass().getName() : e.getMessage();
+            logger.info("Unhandled exception while calling processor for task '{}': {}", taskRec.name, msg);
             taskExceptionLogger.error("Unhandled exception while calling processor for task '" + taskRec.name + "'", e);
             try {
-                result = TedResult.error("Catch: " + e.getMessage());
+                result = TedResult.error("Catch: " + msg);
                 changeTaskStatus(taskRec.taskId, TedStatus.ERROR, result.message(), startMs);
-            } catch (Throwable e1) {
+            } catch (Exception e1) {
                 logger.warn("Unhandled exception while handling exception for task '{}', statuses will be not changed: {}", taskRec.name, e1.getMessage());
             }
+            if (e instanceof ThreadDeath)
+                throw e;
         } finally {
             Thread.currentThread().setName(threadName);
         }
@@ -274,7 +280,7 @@ class TaskManager {
         maxTask = Math.max(Math.min(maxTask, MAX_TASK_COUNT), 0);
         logger.debug(channel.name + " max_count=" + maxTask + " (workerCount=" + workerCount + " activeCount=" + channel.workers.getActiveCount() + " remainingCapacity=" + queueRemain + " maxQueue=" + channel.taskBufferSize + ")");
         if (maxTask == 0) {
-            logger.debug("Channel " + channel.name + " queue is full");
+            logger.debug("Channel {} queue is full", channel.name);
         }
         return maxTask;
     }

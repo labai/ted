@@ -21,7 +21,7 @@ import static java.util.Arrays.asList;
 class Model {
     static final String CHANNEL_MAIN = "MAIN";
     static final String CHANNEL_QUEUE = "TedEQ"; // Event Queue
-    static final String CHANNEL_PRIME = "TedNO"; // Non Operating - just simple rec, e.g. for prime instance
+    static final String CHANNEL_PRIME = "TedNO"; // Non-Operating - just simple rec, e.g. for prime instance
     static final String CHANNEL_SYSTEM = "TedSS"; // System Services - for internal tasks, just ThreadPoolExecutor
     static final String CHANNEL_BATCH = "TedBW"; // Batch Wait
     static final String CHANNEL_NOTIFY = "TedIN"; // Instance Notification
@@ -64,7 +64,6 @@ class Model {
             try { status = TedStatus.valueOf(this.status); } catch (IllegalArgumentException e) { }
             return new TedTaskImpl(this.taskId, this.name, this.key1, this.key2, this.data, this.batchId, this.retries, this.createTs, this.startTs, isTimeout, status, this.channel);
         }
-
     }
 
     static class TedTaskImpl implements TedTask {
@@ -82,13 +81,14 @@ class Model {
         private final boolean isNew;
         private final boolean isRetry;
         private final boolean isAfterTimeout;
+        private Boolean isLastTry = null;
 
-        public TedTaskImpl(Long taskId, String name, String key1, String key2, String data) {
+        TedTaskImpl(Long taskId, String name, String key1, String key2, String data) {
             this(taskId, name, key1, key2, data, null, 0, new Date(), new Date(), false, TedStatus.NEW, null);
         }
 
         /** for ted */
-        public TedTaskImpl(
+        TedTaskImpl(
             Long taskId, String name, String key1, String key2, String data, Long batchId, Integer retries,
             Date createTs, Date startTs, boolean isAfterTimeout, TedStatus status, String channel
         ) {
@@ -101,7 +101,7 @@ class Model {
             this.key1 = key1;
             this.key2 = key2;
             this.data = data;
-            this.retries = retries;
+            this.retries = retries == null ? 0 : retries;
             this.createTs = createTs == null ? null : new Date(createTs.getTime());
             this.startTs = startTs == null ? null : new Date(startTs.getTime());
             this.batchId = batchId;
@@ -110,6 +110,8 @@ class Model {
             this.isAfterTimeout = (status == TedStatus.RETRY || work) && isAfterTimeout;
             this.isNew = status == TedStatus.NEW || (work && !(this.isRetry || this.isAfterTimeout));
         }
+
+        void setIsLastTry(Boolean isLastTry) { this.isLastTry = isLastTry; }
 
         @Override public Long getTaskId() { return taskId; }
         @Override public String getName() { return name; }
@@ -130,6 +132,7 @@ class Model {
         /** is task after timout (was returned from status 'WORK') */
         @Override public boolean isAfterTimeout() { return isAfterTimeout; }
 
+        @Override public Boolean isLastTry() { return isLastTry; }
 
         @Override
         public String toString() {

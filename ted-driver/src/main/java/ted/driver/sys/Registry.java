@@ -6,6 +6,7 @@ import ted.driver.Ted.TedProcessorFactory;
 import ted.driver.Ted.TedRetryScheduler;
 import ted.driver.TedDriverApi.TedTaskConfig;
 import ted.driver.sys.ConfigUtils.TedProperty;
+import ted.driver.sys.Executors.ChannelThreadPoolExecutor;
 import ted.driver.sys.Model.FieldValidator;
 import ted.driver.sys.RetryConfig.PeriodPatternRetryScheduler;
 import ted.driver.sys.TedDriverImpl.TedContext;
@@ -17,7 +18,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * @author Augustus
@@ -43,7 +43,7 @@ class Registry {
         private final int workerCount;
         final int taskBufferSize;
         final boolean primeOnly;
-        final ThreadPoolExecutor workers;
+        final ChannelThreadPoolExecutor workers;
 
         Channel(String tedNamePrefix, String name, int workerCount, int taskBufferSize, boolean primeOnly) {
             this.name = name;

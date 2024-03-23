@@ -26,8 +26,8 @@ import java.util.Properties;
  *
  */
 class ConfigUtils {
-    private final static Logger logger = LoggerFactory.getLogger(ConfigUtils.class);
-    private final static Logger loggerConfig = LoggerFactory.getLogger("ted-config");
+    private static final Logger logger = LoggerFactory.getLogger(ConfigUtils.class);
+    private static final Logger loggerConfig = LoggerFactory.getLogger("ted-config");
 
     static final TedRetryScheduler BATCH_RETRY_SCHEDULER = new PeriodPatternRetryScheduler("1s*10,2s*5,3s*4,4s*2,5s*4,6s*10,10s*48,20s*30,30s*100,60s*1440");
 
@@ -62,7 +62,6 @@ class ConfigUtils {
 
         // short channel properties (w/o prefix "ted.channel.<CHANNEL>.")
         public static final String CHANNEL_WORKERS_COUNT = "workerCount";
-        //public static final String CHANNEL_WORKERS_MAX = "workersMax";
         public static final String CHANNEL_TASK_BUFFER	 = "taskBuffer";
         public static final String CHANNEL_PRIME_ONLY	 = "primeOnly";
 
@@ -308,7 +307,7 @@ class ConfigUtils {
             logger.warn("Cannot read property '" + key + "'. Expected integer, but got '" + value + "'. Setting default value = '" + defaultValue + "'", e.getMessage());
             return defaultValue;
         }
-        logger.trace("Read property '" + key + "' value '" + intVal + "'");
+        logger.trace("Read property '{}' value '{}'", key, intVal);
         return intVal;
     }
 
@@ -316,7 +315,7 @@ class ConfigUtils {
         if (properties == null)
             return defaultValue;
         String value = properties.getProperty(key, defaultValue);
-        logger.trace("Read property '" + key + "' value '" + value + "'");
+        logger.trace("Read property '{}' value '{}'", key, value);
         return value;
     }
 
@@ -324,7 +323,7 @@ class ConfigUtils {
         if (properties == null)
             return defaultValue;
         String value = properties.getProperty(key, null);
-        logger.trace("Read property '" + key + "' value '" + value + "'");
+        logger.trace("Read property '{}' value '{}'", key, value);
         if (value == null)
             return defaultValue;
         return "yes".equals(value) || "true".equals(value);

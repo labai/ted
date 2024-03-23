@@ -7,6 +7,7 @@ import ted.driver.Ted.TedStatus;
 import ted.driver.TedResult;
 import ted.driver.sys.Executors.TedRunnable;
 import ted.driver.sys.Model.TaskRec;
+import ted.driver.sys.Model.TedTaskImpl;
 import ted.driver.sys.QuickCheck.Tick;
 import ted.driver.sys.Registry.Channel;
 import ted.driver.sys.Registry.TaskConfig;
@@ -165,16 +166,19 @@ class EventQueueManager {
 
             // process
             //
+            TedTaskImpl task = (TedTaskImpl) taskRec1.getTedTask();
+            Date nextRetryTm = taskConfig.retryScheduler.getNextRetryTime(task, task.getRetries() + 1, task.getStartTs());
+            task.setIsLastTry(nextRetryTm == null);
+
             TedProcessor processor = taskConfig.tedProcessorFactory.getProcessor(taskRec1.name);
-            result = processor.process(taskRec1.getTedTask());
+            result = processor.process(task);
 
             // check results
             //
             if (result == null) {
                 result = TedResult.error("result is null");
             } else if (result.status() == TedStatus.RETRY) {
-                Date nextTm = taskConfig.retryScheduler.getNextRetryTime(taskRec1.getTedTask(), taskRec1.retries + 1, taskRec1.startTs);
-                if (nextTm == null) {
+                if (nextRetryTm == null) {
                     result = TedResult.error("max retries. " + result.message());
                 } else {
                     // return as is

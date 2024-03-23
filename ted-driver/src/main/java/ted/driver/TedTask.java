@@ -30,4 +30,9 @@ public interface TedTask {
     boolean isRetry();
     /** is task after timout (was returned from status 'WORK') */
     boolean isAfterTimeout();
+
+    /** is this last try for task (will not retry anymore); null - unknown (may not be set for retryScheduler; for regular taskProcessor should be set) */
+    default Boolean isLastTry() {
+        return null;
+    }
 }

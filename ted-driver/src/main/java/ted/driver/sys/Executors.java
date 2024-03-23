@@ -13,7 +13,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.WeakHashMap;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
@@ -44,7 +44,7 @@ class Executors {
      */
     abstract static class TedRunnable implements Runnable {
         private final TaskRec task;
-        public TedRunnable(TaskRec task) {
+        protected TedRunnable(TaskRec task) {
             this.task = task;
         }
         public TaskRec getTask() { return task; }
@@ -66,27 +66,27 @@ class Executors {
      * will know working runnables
      */
     class ChannelThreadPoolExecutor extends ThreadPoolExecutor {
-        final WeakHashMap<Thread, MeasuredRunnable> threads;
+        final Map<Thread, MeasuredRunnable> threads;
         private final String channel;
 
         ChannelThreadPoolExecutor(String channel, int workerCount, BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory) {
             super(workerCount, workerCount, 0, TimeUnit.SECONDS, workQueue, threadFactory);
 
             this.channel = channel;
-            this.threads = new WeakHashMap<>(workerCount);
+            this.threads = new HashMap<>(workerCount);
 
             setRejectedExecutionHandler(new TaskRejectedExecutionHandler());
         }
 
+        @Override
         protected void beforeExecute(Thread t, Runnable r) {
             threads.put(t, new MeasuredRunnable(r, System.nanoTime()));
-            // logger.debug("beforeExecute" + t + " - " + r + " - ");
             super.beforeExecute(t, r);
         }
 
+        @Override
         protected void afterExecute(Runnable r, Throwable t) {
             super.afterExecute(r, t);
-            //logger.debug("afterExecute" + Thread.currentThread() + " - " + r);
             threads.remove(Thread.currentThread());
         }
 
@@ -96,11 +96,93 @@ class Executors {
                 try {
                     if (entry.getValue().runnable instanceof TedRunnable)
                         tasks.add(((TedRunnable)entry.getValue().runnable).getTask());
-                } catch (Throwable e) {
+                } catch (Exception e) {
                     logger.info("Cannot get working thread task", e);
                 }
             }
             return tasks;
+        }
+
+        private Entry<Thread, MeasuredRunnable> findRunningTask(long taskId) {
+            for (Entry<Thread, MeasuredRunnable> entry : threads.entrySet()) {
+                if (!(entry.getValue().runnable instanceof TedRunnable))
+                    continue;
+                TedRunnable tedRunnable = (TedRunnable) entry.getValue().runnable;
+                if (tedRunnable.getTask().taskId == taskId)
+                    return entry;
+            }
+            return null;
+        }
+
+        boolean findAndInterruptTask(long taskId) {
+            int totalTimeSec = 5;
+
+            long startTs = System.currentTimeMillis();
+            long tillTs = startTs + totalTimeSec * 1000;
+
+            Entry<Thread, MeasuredRunnable> entry = findRunningTask(taskId);
+            if (entry == null)
+                return false;
+
+            logger.debug("Start to stop (interrupt) taskId={}", taskId);
+            Thread thread = entry.getKey();
+
+            if (!isTaskRunning(thread, taskId))
+                return true;
+            boolean res = interruptThread(thread, taskId, tillTs);
+            if (res) {
+                logger.info("Successful stop (interrupt) of thread of taskId={}", taskId);
+                return true;
+            }
+            return false;
+        }
+
+        boolean findAndKillTask(long taskId) {
+            Entry<Thread, MeasuredRunnable> entry = findRunningTask(taskId);
+            if (entry == null)
+                return false;
+
+            Thread thread = entry.getKey();
+            if (!isTaskRunning(thread, taskId))
+                return true;
+            logger.info("Hard stop of thread for taskId={}", taskId);
+            try {
+                //noinspection deprecation
+                thread.stop();
+            } catch (Throwable e) {
+                logger.info("Failed to Thread.stop() taskId=" + taskId, e);
+                return false;
+            }
+            return true;
+        }
+
+        private boolean isTaskRunning(Thread thread, long taskId) {
+            MeasuredRunnable mr = threads.get(thread);
+            return mr != null
+                && (mr.runnable instanceof TedRunnable)
+                && ((TedRunnable) mr.runnable).getTask().taskId == taskId;
+        }
+
+        private boolean interruptThread(Thread thread, long taskId, long tillTs) {
+            thread.interrupt();
+            // wait
+            long now = System.currentTimeMillis();
+            while (now < tillTs) {
+                try {
+                    Thread.sleep(10);
+                    if (!thread.isAlive() || !isTaskRunning(thread, taskId))
+                        return true;
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    logger.info("Thread interrupt wait exception taskId={}", taskId);
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                now = System.currentTimeMillis();
+            }
+            boolean isRunning = isTaskRunning(thread, taskId);
+            logger.debug("Thread interrupt finished alive={} isRunning={}", thread.isAlive(), isRunning);
+            return !thread.isAlive() || !isRunning;
         }
 
         // return tasks and their running time in milliseconds
@@ -116,7 +198,7 @@ class Executors {
                     if (!(mrun.runnable instanceof TedRunnable))
                         continue;
                     tasks.put(((TedRunnable) mrun.runnable).getTask(), (nowNs - mrun.startNs) / 1_000_000L);
-                } catch (Throwable e) {
+                } catch (Exception e) {
                     logger.debug("Cannot get working thread task", e); // parallel issues?
                 }
             }
@@ -134,8 +216,17 @@ class Executors {
             }
             context.tedDao.setStatuses(statuses);
         }
-    }
 
+        // clean map if there are dead threads
+        public void cleanup() {
+            Set<Thread> threadSet = threads.keySet();
+            for (Thread th : threadSet) {
+                if (th == null || !th.isAlive()) {
+                    threads.remove(th);
+                }
+            }
+        }
+    }
 
     /**
      * will bring back TedTask to status NEW
@@ -163,7 +254,7 @@ class Executors {
     /**
      * create ThreadPoolExecutor for channel
      */
-    ThreadPoolExecutor createChannelExecutor(String channel, final String threadPrefix, final int workerCount, int queueSize) {
+    ChannelThreadPoolExecutor createChannelExecutor(String channel, final String threadPrefix, final int workerCount, int queueSize) {
         ThreadFactory threadFactory = new ThreadFactory() {
             private int counter = 0;
             @Override
@@ -171,9 +262,7 @@ class Executors {
                 return new Thread(runnable, threadPrefix + "-" + ++counter);
             }
         };
-        ThreadPoolExecutor executor = new ChannelThreadPoolExecutor(channel, workerCount,
-            new LinkedBlockingQueue<>(queueSize), threadFactory);
-        return executor;
+        return new ChannelThreadPoolExecutor(channel, workerCount, new LinkedBlockingQueue<>(queueSize), threadFactory);
     }
 
     /**
@@ -187,10 +276,9 @@ class Executors {
                 return new Thread(runnable, threadPrefix + "-" + ++counter);
             }
         };
-        ThreadPoolExecutor executor = new ThreadPoolExecutor(workerCount, workerCount,
+        return new ThreadPoolExecutor(workerCount, workerCount,
             0, TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(queueSize), threadFactory);
-        return executor;
     }
 
     /**
@@ -204,8 +292,6 @@ class Executors {
                 return new Thread(runnable, prefix + ++counter);
             }
         };
-        ScheduledExecutorService executor = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(threadFactory);
-        return executor;
+        return java.util.concurrent.Executors.newSingleThreadScheduledExecutor(threadFactory);
     }
-
 }

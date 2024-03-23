@@ -3,7 +3,7 @@
 
     <groupId>com.github.labai</groupId>
     <artifactId>ted-driver</artifactId>
-    <version>0.3.9-SNAPSHOT</version>
+    <version>0.3.10</version>
     <packaging>jar</packaging>
 
     <name>TedLib</name>
@@ -41,7 +41,7 @@
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>1.7.12</version>
+            <version>1.7.36</version>
         </dependency>
 
         <!-- scope: provided -->
@@ -126,7 +126,6 @@
             <version>2.8.9</version>
             <scope>test</scope>
         </dependency>
-
     </dependencies>
 
 

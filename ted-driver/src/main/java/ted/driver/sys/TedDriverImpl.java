@@ -7,6 +7,7 @@ import ted.driver.Ted.TedProcessorFactory;
 import ted.driver.Ted.TedRetryScheduler;
 import ted.driver.Ted.TedStatus;
 import ted.driver.TedDriverApi.TedDriverConfig;
+import ted.driver.TedDriverApi.TedTaskConfig;
 import ted.driver.TedTask;
 import ted.driver.sys.ConfigUtils.TedConfig;
 import ted.driver.sys.ConfigUtils.TedProperty;
@@ -49,7 +50,7 @@ import static ted.driver.sys.MiscUtils.asList;
  *
  */
 public final class TedDriverImpl {
-    private final static Logger logger = LoggerFactory.getLogger(TedDriverImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(TedDriverImpl.class);
 
     private static int driverLocalInstanceCounter = 0; // expected always 1, more for testings
 
@@ -72,6 +73,7 @@ public final class TedDriverImpl {
         EventQueueManager eventQueueManager;
         BatchWaitManager batchWaitManager;
         NotificationManager notificationManager;
+        CommandManager commandManager;
         Stats stats;
     }
 
@@ -137,9 +139,10 @@ public final class TedDriverImpl {
         context.eventQueueManager = new EventQueueManager(context);
         context.batchWaitManager = new BatchWaitManager(context);
         context.notificationManager = new NotificationManager(context);
+        context.commandManager = new CommandManager(context);
 
         // read task and channel properties (e.g. from ted.properties)
-        // default MAIN channel configuration: 5/100. Can be overwrite by [properties]
+        // default MAIN channel configuration: 5/100. Can be overwritten by [properties]
         //
         Properties defaultChanProp = new Properties();
         String prefixMain = ConfigUtils.PROPERTY_PREFIX_CHANNEL + Model.CHANNEL_MAIN + ".";
@@ -168,6 +171,7 @@ public final class TedDriverImpl {
                 ((TedDaoAbstract) context.tedDao).setSqlBatchUpdateDisabled(true);
         }
 
+        context.commandManager.initCommandTask();
     }
 
     public void start() {
@@ -182,7 +186,7 @@ public final class TedDriverImpl {
         context.prime.init();
 
         // driver
-        driverExecutor = context.executors.createSchedulerExecutor(tedNamePrefix + "Driver-");;
+        driverExecutor = context.executors.createSchedulerExecutor(tedNamePrefix + "Driver-");
         driverExecutor.scheduleAtFixedRate(() -> {
             if (context.config.isDisabledProcessing()) {
                 return;
@@ -425,7 +429,12 @@ public final class TedDriverImpl {
 
     public TedTask getTask(long taskId) {
         TaskRec taskRec = context.tedDao.getTask(taskId);
-        return taskRec == null ? null : taskRec.getTedTask();
+        if (taskRec == null)
+            return null;
+        TedTaskImpl task = (TedTaskImpl) taskRec.getTedTask();
+        boolean isLastTry = isTaskLastTry(task);
+        task.setIsLastTry(isLastTry);
+        return task;
     }
 
     public PrimeInstance prime() {
@@ -447,6 +456,14 @@ public final class TedDriverImpl {
 
     public TedTask newTedTask(String taskName, String data, String key1, String key2) {
         return new TedTaskImpl(null, taskName, key1, key2, data);
+    }
+
+    private boolean isTaskLastTry(TedTask task) {
+        TedDriverConfig driverConfig = getTedDriverConfig();
+        TedTaskConfig taskConfig = driverConfig.getTaskConfig(task.getName());
+        TedRetryScheduler retryScheduler = taskConfig.getRetryScheduler();
+        Date nextTs = retryScheduler.getNextRetryTime(task, task.getRetries() + 1, task.getStartTs());
+        return nextTs == null;
     }
 
 

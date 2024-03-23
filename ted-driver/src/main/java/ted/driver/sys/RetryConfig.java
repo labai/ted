@@ -6,6 +6,7 @@ import ted.driver.sys.TedDriverImpl.TedContext;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
@@ -80,6 +81,8 @@ class RetryConfig {
 
         // returns null if retry not allowed
         Integer getNextRetryPauseSec(int retryNum){
+            if (pauses.isEmpty())
+                return null;
             if (retryNum < 1)
                 throw new IllegalArgumentException("retryNum must be >= 1");
             retryNum--; // use 0-base
@@ -110,8 +113,6 @@ class RetryConfig {
             if (pattern == null)
                 throw new IllegalArgumentException("Pattern is null");
             pattern = pattern.trim().replace(" ", "");
-            if (pattern.isEmpty())
-                throw new IllegalArgumentException("Pattern is empty");
             if (!pattern.contains(";dispersion="))
                 return 0; // no config about dispersion - return 0
 
@@ -125,11 +126,11 @@ class RetryConfig {
             if (pattern == null)
                 throw new IllegalArgumentException("Pattern is null");
             pattern = pattern.trim().replace(" ", "");
-            if (pattern.isEmpty())
-                throw new IllegalArgumentException("Pattern is empty");
+            if (pattern.isEmpty() || "noRetry".equalsIgnoreCase(pattern))
+                return Collections.emptyList();
             String pausePattern = (pattern + ";").split(";")[0];
 
-            List<RetryPause> retryPauses = new ArrayList<RetryPause>();
+            List<RetryPause> retryPauses = new ArrayList<>();
             String[] paus = pausePattern.split(",");
             for (String p : paus) {
                 String[] pair = p.split("\\*");
@@ -158,4 +159,3 @@ class RetryConfig {
     }
 
 }
-

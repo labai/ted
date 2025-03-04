@@ -4,7 +4,7 @@
 
 TED is library for Java to handle task execution.
 
-Tasks are stored in Oracle/Postgres/MySql db (table _tedtask_). 
+Tasks are stored in PostgreSql/Oracle db (table _tedtask_). 
 Ted checks for new tasks in that table, retrieves them, calls task processor and after finish sets status (DONE, ERROR or RETRY).
 
 ##### Main things kept in mind while creating TED
@@ -20,7 +20,7 @@ Main features:
 - tasks are in db, thus tasks remain after restart of app, it is easy to browse history ann manage using standard sql;  
 - there is _auto cleaning_ of tasks;
 - task is executed only by one application instance;
-- works with PostgreSQL (9.5+), Oracle DB or MySql (8+); from Java 1.8;
+- works with PostgreSQL (9.5+), Oracle DB; from Java 1.8;
 - _task configuration_ is in separate ted.properties file, may be tuned without recompile;
 - _channels_ - allows to assign separate thread pools to different types of tasks; 
 - [ted-scheduler](ted-ext/ted-scheduler/readme.md) allows using ted-driver as scheduler engine

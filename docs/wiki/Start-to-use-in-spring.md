@@ -7,10 +7,9 @@ It was an experiment, which wasn't used in production, thus now is closed and wi
 
 ### Preparation
 
-- Need to have db (Postgre 9.6+, MySql 8+ or Oracle)
+- Need to have db (Postgre 9.6+ or Oracle)
 - Create tedtask tables and indexes 
 (see [ted_db_struct_pgre.sql](/labai/ted/blob/master/docs/init/ted_db_struct_pgre.sql) 
-or [mysql](/labai/ted/blob/master/docs/init/ted_db_struct_mysql.sql) 
 or [oracle](/labai/ted/blob/master/docs/init/ted_db_struct_ora.sql) 
 in (ted)/docs/init/))
 
